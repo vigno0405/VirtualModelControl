@@ -8,7 +8,7 @@ import casadi as ca
 import numpy as np
 
 from ...core.registry import register
-from ...core.units import M_S2, force_unit
+from ...core.units import M_S2, damping_unit, force_unit
 from ..coordinates.base import Context, Coordinate
 from ..coordinates.ops import Stack
 from .base import Component
@@ -31,6 +31,30 @@ class ForceSource(Component):
     def force(self, ctx: Context, y: Any, yd: Any) -> Any:
         """The Param, as a column."""
         return ca.reshape(ctx.param(self.force_value), self.coord.dim, 1)
+
+
+@register("component", "speed_regulator")
+class SpeedRegulator(Component):
+    """Drives a coordinate towards a commanded speed: f = b (ω_cmd(t) − ẏ), a metered source.
+
+    ``speed`` ω [coordinate unit/s] is reached through a linear ramp of ``ramp_time`` [s] from
+    the controller's start; ``gain`` b in force per unit speed.
+    """
+
+    kind = "source"
+
+    def __init__(self, coord: Coordinate, gain: Any, speed: Any, ramp_time: Any = 0.0) -> None:
+        super().__init__(coord)
+        self.gain = self._param("gain", gain, unit=damping_unit(coord.unit), scope="stage")
+        free = (-np.inf, np.inf)
+        self.speed = self._param("speed", speed, unit=f"{coord.unit}/s", scope="stage", bounds=free)
+        self.ramp_time = self._param("ramp_time", ramp_time, unit="s", scope="episode")
+
+    def force(self, ctx: Context, y: Any, yd: Any) -> Any:
+        """b (ω ramp(t) − ẏ)."""
+        T = ctx.param(self.ramp_time)
+        ramp = ca.if_else(T > 0, ca.fmin(ctx.t / ca.fmax(T, 1e-12), 1.0), 1.0)
+        return ctx.param(self.gain) * (ctx.param(self.speed) * ramp - yd)
 
 
 @register("component", "gravity_compensation")

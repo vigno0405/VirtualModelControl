@@ -19,20 +19,23 @@ from .actuation import Direct
 class Assembly:
     """Several models mounted at fixed poses on one base; q stacks the parts' coordinates.
 
-    ``parts`` maps a name to ``(model, position, rotation)``: the mount position [m] and rotation
-    vector [rad] in the base frame, ``design`` Params named ``{name}.mount.position`` and
-    ``{name}.mount.rotation``. Sites are ``"name/site"``; for a continuous part, give
-    ``at="name"`` and an arc parameter s.
+    ``parts`` maps a name to ``(model, position, rotation[, parent])``: the mount position [m] and
+    rotation vector [rad], ``design`` Params named ``{name}.mount.position`` and
+    ``{name}.mount.rotation``, in the base frame or, with ``parent`` (``"other/site"``), in that
+    frame of another part, so the part moves with it (a hand on an arm's flange). Sites are
+    ``"name/site"``; for a continuous part, give ``at="name"`` and an arc parameter s.
     """
 
-    def __init__(self, parts: Mapping[str, tuple[Any, Any, Any]]) -> None:
+    def __init__(self, parts: Mapping[str, tuple[Any, ...]]) -> None:
         self.parts = {name: spec[0] for name, spec in parts.items()}
+        self.parents = {name: (spec[3] if len(spec) > 3 else None) for name, spec in parts.items()}
         self.space = Product(*[m.space for m in self.parts.values()])
         self.params = ParamSet()
         self._local: dict[str, dict[str, str]] = {}
         self._mount: dict[str, tuple[Param, Param]] = {}
         free = (-np.inf, np.inf)
-        for name, (model, position, rotation) in parts.items():
+        for name, spec in parts.items():
+            model, position, rotation = spec[0], spec[1], spec[2]
             self.params.merge(model.params, name)
             self._local[name] = {loc: self.params.name_of(par) for loc, par in model.params.items()}
             pos = as_param(
@@ -66,9 +69,18 @@ class Assembly:
         if name not in self.parts:
             raise KeyError(f"unknown part {name!r}; parts: {list(self.parts)}")
         R, pos = self.parts[name].frame(q[self._slices[name]], where, self.part_view(name, p))
+        R_m, p_m = self.mount(q, name, p)
+        return ca.mtimes(R_m, R), p_m + ca.mtimes(R_m, pos)
+
+    def mount(self, q: Any, name: str, p: dict[str, Any]) -> tuple[Any, Any]:
+        """Pose of a part's base in the assembly's base frame."""
         R_m = rotation_from_vector(ca.reshape(p[f"{name}.mount.rotation"], 3, 1))
         p_m = ca.reshape(p[f"{name}.mount.position"], 3, 1)
-        return ca.mtimes(R_m, R), p_m + ca.mtimes(R_m, pos)
+        parent = self.parents[name]
+        if parent is None:
+            return R_m, p_m
+        R_p, p_p = self.frame(q, parent, p)
+        return ca.mtimes(R_p, R_m), p_p + ca.mtimes(R_p, p_m)
 
     def stacked_actuation(self, actuations: Mapping[str, Any] | None = None) -> StackedActuation:
         """One actuation for the whole assembly: each part's own (default ``Direct``)."""
@@ -82,7 +94,12 @@ class Assembly:
         return {
             "type": "assembly",
             "parts": {
-                n: [m.to_dict(), self._mount[n][0].value.tolist(), self._mount[n][1].value.tolist()]
+                n: [
+                    m.to_dict(),
+                    self._mount[n][0].value.tolist(),
+                    self._mount[n][1].value.tolist(),
+                    self.parents[n],
+                ]
                 for n, m in self.parts.items()
             },
         }
@@ -91,7 +108,7 @@ class Assembly:
     def from_dict(cls, data: dict[str, Any]) -> Assembly:
         """Inverse of ``to_dict``."""
         parts = {
-            n: (get("model", spec[0]["type"]).from_dict(spec[0]), spec[1], spec[2])
+            n: (get("model", spec[0]["type"]).from_dict(spec[0]), *spec[1:])
             for n, spec in data["parts"].items()
         }
         return cls(parts)

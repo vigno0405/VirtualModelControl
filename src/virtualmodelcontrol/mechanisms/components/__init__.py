@@ -3,7 +3,7 @@
 from .base import KINDS, Component
 from .dissipation import LinearDamper, TanhDamper
 from .inertance import Inertance, PointMass
-from .sources import ForceSource, GravityCompensation
+from .sources import ForceSource, GravityCompensation, SpeedRegulator
 from .storage import (
     GaussianSpring,
     Gravity,
@@ -28,6 +28,7 @@ __all__ = [
     "PointMass",
     "PolynomialSpring",
     "SigmoidSpring",
+    "SpeedRegulator",
     "TanhDamper",
     "TanhSpring",
 ]

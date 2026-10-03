@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from ..control.output import Pretension
 from ..core.params import Param
 from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
 from ..models import PCC, TendonTransmission
@@ -27,6 +28,14 @@ TENDON_ANGLES = np.radians([[0.0, 120.0, -120.0], [60.0, 180.0, -60.0], [150.0, 
 """Tendon angles around the section at each segment's base [rad]."""
 SEGMENT_MASS = 0.040  # [kg] per REFERENCE_LENGTH of segment, lumped at the segment's midpoint
 REFERENCE_LENGTH = 0.145  # [m]
+
+
+PRETENSION_WEIGHTS = 0.010  # [N·m/rad] per motor, on the real arm only
+
+
+def output_stage() -> list[Any]:
+    """The real arm's output stage: a linear pretension W ∘ θ on every motor."""
+    return [Pretension(np.full(9, PRETENSION_WEIGHTS))]
 
 
 def model(geometry: str = "145-290-290") -> PCC:

@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..core.signals import Signals
+from .output import apply
 
 
 class VMCController:
@@ -16,25 +17,32 @@ class VMCController:
 
     ``step`` reads ``motor_position`` [rad] and ``motor_velocity`` [rad/s] and returns
     ``motor_torque`` [N·m]. Virtual states are integrated by semi-implicit Euler over the measured
-    dt. Live Params start at their values when compiled; ``set`` changes them here only.
+    dt. Time in the law counts from ``reset`` (or the first step), so ramps start with the
+    controller. Live Params start at their values when compiled; ``set`` changes them here only.
+    ``output`` lists optional output stages (``control.output``) applied in order; the returned
+    Signals also hold ``law_torque``, the torque before them.
     """
 
-    def __init__(self, compiled: Any) -> None:
+    def __init__(self, compiled: Any, output: list[Any] | None = None) -> None:
         self.compiled = compiled
+        self.output = list(output or [])
         self.params = compiled.live_values()
         self._slices = compiled.live_slices()
         self.z = compiled.z0.copy()
         self.t: float | None = None
+        self.t0: float | None = None
         self._x: np.ndarray | None = None
 
     def reset(self, t: float, meas: Signals | None = None, z0: ArrayLike | None = None) -> None:
         """Restart at time ``t`` [s] from the initial virtual state (or ``z0``)."""
         self.z = self.compiled.z0.copy() if z0 is None else np.array(z0, dtype=float)
+        self.t = self.t0 = t
         self._x = None if meas is None else self._pack(meas, t)
-        self.t = t
 
     def step(self, t: float, meas: Signals) -> Signals:
         """One control step at time ``t`` [s]; returns the motor torques."""
+        if self.t0 is None:
+            self.t0 = t
         dt = 0.0 if self.t is None else t - self.t
         x = self._pack(meas, t)
         out = np.asarray(self.compiled.fast(x)).ravel()
@@ -43,7 +51,8 @@ class VMCController:
             self.z[nz:] += dt * out[nu + nz :]
             self.z[:nz] += dt * self.z[nz:]
         self.t, self._x = t, x
-        return Signals(t, motor_torque=out[:nu])
+        u = out[:nu]
+        return Signals(t, motor_torque=apply(self.output, u, meas), law_torque=u)
 
     def set(self, values: Mapping[str, ArrayLike] | None = None, **kwargs: ArrayLike) -> float:
         """Change live Params at once; returns the exact jump of the controller's energy [J]."""
@@ -71,6 +80,7 @@ class VMCController:
         return float(self.compiled.fast_energy(x))
 
     def _pack(self, meas: Signals, t: float) -> np.ndarray:
+        elapsed = t - (t if self.t0 is None else self.t0)
         return np.concatenate(
-            [meas["motor_position"], meas["motor_velocity"], self.z, self.params, [t]]
+            [meas["motor_position"], meas["motor_velocity"], self.z, self.params, [elapsed]]
         )

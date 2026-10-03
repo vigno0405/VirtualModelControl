@@ -9,7 +9,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..core.params import constants
-from ..core.symbolic import rotation_from_vector
 from ..models import PCC, Assembly, LinearCoupling, SerialChain, evaluate_frame
 from .style import PALETTE
 
@@ -33,8 +32,8 @@ def skeleton(robot: Any, q: ArrayLike, n: int = 60) -> list[np.ndarray]:
     if isinstance(model, Assembly):
         lines = []
         for name, part in model.parts.items():
-            R = np.array(rotation_from_vector(p[f"{name}.mount.rotation"]))
-            t = np.array(p[f"{name}.mount.position"]).ravel()
+            R_m, t_m = model.mount(ca.DM(q), name, p)
+            R, t = np.array(ca.evalf(R_m)), np.array(ca.evalf(t_m)).ravel()
             for line in skeleton(part, q[model._slices[name]], n):
                 lines.append(line @ R.T + t)
         return lines

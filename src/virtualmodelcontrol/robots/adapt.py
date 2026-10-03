@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
 from ..mechanisms import Custom, Joint, LimitSpring, Mechanism, PointMass
 from ..models import Assembly, LinearCoupling, SerialChain
@@ -46,6 +47,13 @@ MOTOR_EFFICIENCY = (0.8373, 0.3594)
 """Delivered over commanded torque of the two motors (MCP, PIP)."""
 
 TORQUE_LIMIT = 0.8  # [N·m] per motor, for an optional clip at the hardware boundary
+
+FRICTION = (0.20, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
+
+
+def output_stage() -> list[Any]:
+    """The finger's output stage: friction compensation, then a torque clip."""
+    return [FrictionCompensation(*FRICTION), TorqueLimit(TORQUE_LIMIT)]
 
 
 def finger(name: str = "finger", gravity: Any = None) -> Mechanism:
@@ -362,14 +370,30 @@ def _digit_chain(digit: str) -> SerialChain:
     return SerialChain(["revolute"] * 4, axes, [list(p) for p in points], sites)
 
 
+def hand_model() -> LinearCoupling:
+    """The hand's kinematics: five digit chains in the hand base frame, coupled to 13 motors."""
+    body = Assembly({d: (_digit_chain(d), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)) for d in HAND_DIGITS})
+    return LinearCoupling(body, hand_coupling())
+
+
+def add_hand_masses(robot: Mechanism, prefix: str = "") -> Mechanism:
+    """Add the hand's link masses at the sites ``"{prefix}<digit>/<link>_cog"``."""
+    for digit in HAND_DIGITS:
+        mapping = _LINK_JOINTS["thumb" if digit == "thumb" else "finger"]
+        for link in mapping:
+            point = robot.point(f"{prefix}{digit}/{link}_cog")
+            robot.add(f"m_{digit}_{link}", PointMass(point, HAND_LINK_MASSES[f"{digit}_{link}"]))
+    return robot
+
+
 def hand(name: str = "hand", gravity: Any = None) -> Mechanism:
     """The hand as a robot: q holds the 13 motor angles [rad] in ``HAND_MOTORS`` order.
 
-    Sites: ``"<digit>/tip"`` and ``"<digit>/<link>_cog"``. The wrist is rigid; on an arm whose
-    orientation changes, compile with ``runtime=["*.gravity"]`` and set the gravity each step.
+    Sites: ``"<digit>/tip"`` and ``"<digit>/<link>_cog"``. The wrist is rigid. On an arm whose
+    orientation changes, compile with ``runtime=["*.gravity"]`` and set ``hand_gravity(R)`` each
+    step, or use the arm and hand together (``robots.ur5.with_hand``).
     """
-    body = Assembly({d: (_digit_chain(d), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)) for d in HAND_DIGITS})
-    robot = Mechanism(name, model=LinearCoupling(body, hand_coupling()))
+    robot = Mechanism(name, model=hand_model())
     robot.add_param(
         Param(
             "gravity",
@@ -379,12 +403,21 @@ def hand(name: str = "hand", gravity: Any = None) -> Mechanism:
             bounds=(-np.inf, np.inf),
         )
     )
-    for digit in HAND_DIGITS:
-        mapping = _LINK_JOINTS["thumb" if digit == "thumb" else "finger"]
-        for link in mapping:
-            point = robot.point(f"{digit}/{link}_cog")
-            robot.add(f"m_{digit}_{link}", PointMass(point, HAND_LINK_MASSES[f"{digit}_{link}"]))
-    return robot
+    return add_hand_masses(robot)
+
+
+def hand_output_stage() -> list[Any]:
+    """The hand's output stage: friction compensation, then a torque clip."""
+    return [FrictionCompensation(*HAND_FRICTION), TorqueLimit(HAND_TORQUE_LIMIT)]
+
+
+def hand_gravity(
+    R_flange: Any, mounting_angle: float = HAND_MOUNTING_ANGLE, g_world: Any = (0.0, 0.0, -9.81)
+) -> np.ndarray:
+    """Gravity in the hand base frame [m/s²] for a flange orientation R_flange (world frame)."""
+    c, s = np.cos(mounting_angle), np.sin(mounting_angle)
+    R_mount = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+    return (np.asarray(R_flange, dtype=float) @ R_mount).T @ np.asarray(g_world, dtype=float)
 
 
 def hand_joint_angles(robot: Mechanism) -> Custom:

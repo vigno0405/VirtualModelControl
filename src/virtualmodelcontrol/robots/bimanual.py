@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from ..control.output import Pretension, TorqueLimit, TorqueOffset
 from ..core.params import Param
 from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
 from ..models import Assembly
@@ -59,6 +60,20 @@ ENCODER_SIGN = 1.0
 """Sign of the motor encoders against the library convention (θ > 0 pulls a tendon)."""
 
 CONTROL_RATE = 500.0  # [Hz]
+
+TORQUE_OFFSET = 0.03  # [N·m] on every motor
+PRETENSION_WEIGHTS = 0.03  # [N·m/rad] per motor, only on tendons released past the threshold
+PRETENSION_THRESHOLD = np.radians(30.0)  # [rad]
+TORQUE_LIMIT = 0.5  # [N·m]
+
+
+def output_stage() -> list[Any]:
+    """The arms' output stage: a torque offset, a soft stop on slack tendons, a torque clip."""
+    return [
+        TorqueOffset(TORQUE_OFFSET),
+        Pretension(np.full(18, PRETENSION_WEIGHTS), PRETENSION_THRESHOLD),
+        TorqueLimit(TORQUE_LIMIT),
+    ]
 
 
 def arms(name: str = "arms", gravity: Any = None) -> Mechanism:

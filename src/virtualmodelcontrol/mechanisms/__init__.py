@@ -14,6 +14,7 @@ from .components import (
     PointMass,
     PolynomialSpring,
     SigmoidSpring,
+    SpeedRegulator,
     TanhDamper,
     TanhSpring,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "Ref",
     "SigmoidSpring",
     "Slice",
+    "SpeedRegulator",
     "Stack",
     "State",
     "TanhDamper",
