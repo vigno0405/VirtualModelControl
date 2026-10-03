@@ -306,9 +306,21 @@ HAND_GRAVITY = (0.0, 0.0, -9.81)
 """Gravity in the hand base frame [m/s²] when the hand is upright; on an arm, keep it live."""
 
 _LINK_JOINTS = {
-    "thumb": {"base": "CMC1", "2dof_joint": "CMC1", "proximal": "CMC2", "middle": "MCP", "distal": "IP"},
-    "finger": {"base": "MCP", "2dof_joint": "MCP", "proximal": "MCP", "middle": "PIP", "distal": "DIP"},
-}  # fmt: skip
+    "thumb": {
+        "base": "CMC1",
+        "2dof_joint": "CMC1",
+        "proximal": "CMC2",
+        "middle": "MCP",
+        "distal": "IP",
+    },
+    "finger": {
+        "base": "MCP",
+        "2dof_joint": "MCP",
+        "proximal": "MCP",
+        "middle": "PIP",
+        "distal": "DIP",
+    },
+}
 """Joint frame each link's mass is attached to."""
 
 
