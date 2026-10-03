@@ -53,7 +53,19 @@ source = "vcs"
 version-file = "src/virtualmodelcontrol/_version.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["*.pdf", "docs/_build"]
+# An allowlist: only the library's own files can end up in the source package.
+only-include = [
+    "src",
+    "tests",
+    "docs",
+    "benchmarks",
+    "README.md",
+    "CHANGELOG.md",
+    "CITATION.cff",
+    "LICENSE",
+    "pyproject.toml",
+]
+exclude = ["*.pdf", "docs/_build", "docs/jupyter_execute", "docs/reference/generated"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/virtualmodelcontrol"]

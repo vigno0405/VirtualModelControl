@@ -7,6 +7,10 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-04
+
+First public release.
+
 ### Added
 
 - Package scaffold: `pyproject.toml` (hatchling + hatch-vcs), tests, docs, CI workflows.
@@ -30,3 +34,7 @@ versions, with one minor version of deprecation before a removal).
 - `models.Actuation` protocol; `helyx.add_dynamics` with the simulated arm's stiffness and
   damping.
 - Docs: closed-loop simulation tutorial and an "Extend the library" how-to.
+- `models.LinearCoupling` (one motor driving several joints), `models.Assembly` (several models
+  mounted on one base) with `StackedActuation`; `FramePoint` accepts a part and an arc parameter.
+- `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
+  and joint-limit spring.

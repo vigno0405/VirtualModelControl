@@ -14,12 +14,12 @@ class FramePoint(Coordinate):
     """Position [m] of a point fixed to a model frame: a named site, or arc parameter ``s``.
 
     ``s`` and ``offset`` (in the frame, [m]) become ``episode`` Params, folded in at compile time
-    unless made live.
+    unless made live. Give both ``at`` and ``s`` for a continuous part of an assembly.
     """
 
     def __init__(self, model: Any, at: str | None = None, *, s: Any = None, offset: Any = None):
-        if (at is None) == (s is None):
-            raise ValueError("give either a site name `at` or an arc parameter `s`")
+        if at is None and s is None:
+            raise ValueError("give a site name `at`, an arc parameter `s`, or both")
         super().__init__(3, "m")
         self.model = model
         self.site = at
@@ -39,12 +39,24 @@ class FramePoint(Coordinate):
 
     def value(self, ctx: Context) -> Any:
         """Point position in the model's base frame."""
-        at = self.site if self.s is None else ctx.param(self.s)
+        if self.s is None:
+            at: Any = self.site
+        elif self.site is None:
+            at = ctx.param(self.s)
+        else:
+            at = (self.site, ctx.param(self.s))
         R, p = self.model.frame(ctx.q, at, ctx.view(self.model.params))
         if self.offset is not None:
             p = p + ca.mtimes(R, ca.reshape(ctx.param(self.offset), 3, 1))
         return p
 
     def __repr__(self) -> str:
-        where = repr(self.site) if self.s is None else f"s={self.s.value.tolist()}"
+        where = ", ".join(
+            x
+            for x in (
+                repr(self.site) if self.site else "",
+                f"s={self.s.value.tolist()}" if self.s is not None else "",
+            )
+            if x
+        )
         return f"FramePoint({where})"

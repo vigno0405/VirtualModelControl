@@ -56,3 +56,12 @@ def exp_so3(axis: Any, angle: Any) -> Any:
     """Rotation by ``angle`` (rad) about the unit vector ``axis`` (Rodrigues)."""
     k = skew(axis)
     return ca.DM.eye(3) + ca.sin(angle) * k + (1 - ca.cos(angle)) * ca.mtimes(k, k)
+
+
+def rotation_from_vector(w: Any) -> Any:
+    """Rotation matrix of a rotation vector w (axis · angle [rad]); smooth at w = 0."""
+    theta = ca.sqrt(ca.sumsqr(w) + 1e-24)
+    k = skew(w)
+    return (
+        ca.DM.eye(3) + ca.sin(theta) / theta * k + (1 - ca.cos(theta)) / theta**2 * ca.mtimes(k, k)
+    )

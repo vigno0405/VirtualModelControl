@@ -6,6 +6,12 @@ on numpy, scipy and CasADi.
 ## Into an existing environment
 
 ```bash
+pip install virtualmodelcontrol
+```
+
+The latest development version, straight from GitHub:
+
+```bash
 pip install "git+https://github.com/vigno0405/VirtualModelControl.git"
 ```
 
@@ -15,7 +21,7 @@ Linux and macOS:
 
 ```bash
 python3 -m venv ~/venvs/vmc
-~/venvs/vmc/bin/pip install "git+https://github.com/vigno0405/VirtualModelControl.git"
+~/venvs/vmc/bin/pip install virtualmodelcontrol
 ~/venvs/vmc/bin/python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
 ```
 
@@ -23,13 +29,13 @@ Windows (PowerShell):
 
 ```powershell
 py -m venv $HOME\venvs\vmc
-& $HOME\venvs\vmc\Scripts\pip install "git+https://github.com/vigno0405/VirtualModelControl.git"
+& $HOME\venvs\vmc\Scripts\pip install virtualmodelcontrol
 & $HOME\venvs\vmc\Scripts\python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
 ```
 
 On Debian/Ubuntu, `python3 -m venv` needs the `python3-venv` package
 (`sudo apt install python3-venv`). A conda environment works the same way: create one with any
-Python ≥ 3.10, activate it and run the `pip install` line.
+Python ≥ 3.10, activate it and run `pip install virtualmodelcontrol`.
 
 ## ROS 2
 

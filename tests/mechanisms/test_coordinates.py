@@ -82,8 +82,8 @@ def test_frame_point_on_a_rod():
     params = ParamSet()
     params.merge(rod.params)
     np.testing.assert_allclose(value(FramePoint(rod, "tip"), np.zeros(3), params), [0, 0, 2.0])
-    with pytest.raises(ValueError, match="either"):
-        FramePoint(rod, "tip", s=0.5)
+    with pytest.raises(ValueError, match="site name"):
+        FramePoint(rod)
 
 
 def test_state_reads_its_slice_of_z():

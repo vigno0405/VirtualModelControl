@@ -12,10 +12,11 @@ A collaboration between EPFL (Prof. Josie Hughes) and the University of Cambridg
 Python ≥ 3.10 on Linux, macOS or Windows:
 
 ```bash
-pip install "git+https://github.com/vigno0405/VirtualModelControl.git"
+pip install virtualmodelcontrol
 ```
 
-Then `import virtualmodelcontrol as vmc`.
+Then `import virtualmodelcontrol as vmc`. The latest development version installs with
+`pip install "git+https://github.com/vigno0405/VirtualModelControl.git"`.
 
 ## Develop
 
