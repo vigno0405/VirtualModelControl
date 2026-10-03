@@ -6,7 +6,7 @@ import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import matplotlib as mpl
 from cycler import cycler
@@ -69,13 +69,13 @@ def rc(usetex: bool | None = None, font_size: float = 18.0) -> dict[str, Any]:
 
 def use_style(usetex: bool | None = None, font_size: float = 18.0) -> None:
     """Apply the lab style to every following figure."""
-    mpl.rcParams.update(rc(usetex, font_size))
+    mpl.rcParams.update(cast(Any, rc(usetex, font_size)))
 
 
 @contextmanager
 def style(usetex: bool | None = None, font_size: float = 18.0) -> Iterator[None]:
     """The lab style inside a ``with`` block only."""
-    with mpl.rc_context(rc(usetex, font_size)):
+    with mpl.rc_context(cast(Any, rc(usetex, font_size))):
         yield
 
 
