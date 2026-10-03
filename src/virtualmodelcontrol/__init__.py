@@ -28,6 +28,7 @@ from .mechanisms import (
     TanhDamper,
     TanhSpring,
 )
+from .models import Kinematics
 from .system import VirtualMechanismSystem
 
 try:
@@ -48,6 +49,7 @@ __all__ = [
     "GravityCompensation",
     "Inertance",
     "Joint",
+    "Kinematics",
     "LimitSpring",
     "LinearDamper",
     "LinearSpring",

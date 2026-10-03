@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib as mpl
+from cycler import cycler
 
 PALETTE = [
     "#4DBBD5",  # blue
@@ -55,7 +56,7 @@ def rc(usetex: bool | None = None, font_size: float = 18.0) -> dict[str, Any]:
         "grid.alpha": 0.3,
         "grid.linestyle": "--",
         "legend.frameon": False,
-        "axes.prop_cycle": mpl.cycler(color=PALETTE),
+        "axes.prop_cycle": cycler(color=PALETTE),
         "xtick.major.size": 6,
         "xtick.major.width": 1.5,
         "ytick.major.size": 6,

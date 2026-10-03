@@ -129,9 +129,9 @@ def draw_spring(
         return []
     d = (b - a) / length
     nrm = np.array([-d[1], d[0]])
-    width = 0.06 * length if width is None else width
+    amplitude = 0.06 * float(length) if width is None else width
     t = np.linspace(0.2, 0.8, 2 * coils + 1)
-    offsets = width * np.array([0, *[(-1) ** k for k in range(1, 2 * coils)], 0])
+    offsets = amplitude * np.array([0, *[(-1) ** k for k in range(1, 2 * coils)], 0])
     pts = [a, *(a + (b - a) * ti + nrm * oi for ti, oi in zip(t, offsets, strict=True)), b]
     xs, ys = np.array(pts).T
     kwargs.setdefault("color", PALETTE[2])

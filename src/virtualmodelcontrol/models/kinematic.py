@@ -21,9 +21,20 @@ class KinematicModel(Protocol):
     to CasADi expressions.
     """
 
-    space: Space
-    params: ParamSet
-    sites: tuple[str, ...]
+    @property
+    def space(self) -> Space:
+        """Configuration space."""
+        ...
+
+    @property
+    def params(self) -> ParamSet:
+        """Every geometric number, as Params."""
+        ...
+
+    @property
+    def sites(self) -> tuple[str, ...]:
+        """Named points of the model."""
+        ...
 
     def frame(self, q: Any, at: Any, p: dict[str, Any]) -> tuple[Any, Any]:
         """Rotation (3, 3) and position (3, 1) at ``at``."""
