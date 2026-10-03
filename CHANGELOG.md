@@ -7,6 +7,34 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+### Added
+
+- Every dependency installs with the package: numpy, SciPy, CasADi, matplotlib, PyYAML, the
+  Dynamixel SDK and pyserial. CI runs on Ubuntu 22.04 and 24.04, with a clean-install job.
+- Robot templates: `robots.bimanual` (two Helyx arms on one frame, with their identified
+  stiffness and damping and the transmission efficiency 0.12), `robots.adapt.hand` (five digits,
+  13 motors, spread coupling, masses and joint limits), `robots.turtle` (two cranks and the
+  virtual-flywheel controller), `robots.ur5` (from DH parameters) and `ur5.with_hand()`.
+- `vmc.Kinematics`: positions, rotations, Jacobians, angular Jacobians and Hessians of any site,
+  from configuration or from motor angles.
+- `models.JointSpace` for robots described by their joints only; `SerialChain.from_dh` and site
+  rotations; `Assembly` parts mounted on another part's frame.
+- `TendonTransmission(efficiency=...)`: the delivered torque is the commanded torque times the
+  efficiency.
+- `SpeedRegulator`: drives a virtual state at a commanded speed, with a ramp.
+- `control.output`, opt-in output stages for real hardware: `FrictionCompensation`,
+  `Pretension`, `TorqueOffset`, `EfficiencyCorrection`, `TorqueLimit`; each template's own stage
+  (`helyx.output_stage()`, `bimanual.output_stage()`, `adapt.output_stage()`,
+  `adapt.hand_output_stage()`).
+- `vmc.viz`: the lab figure style (`use_style`, `save` as PDF and SVG) and drawing helpers
+  (`draw_robot`, `draw_spring`, `draw_force`, `draw_goal`, `label_axes`).
+- Contact as stiff one-sided springs: signed distances `PlaneDistance` and `SphereDistance`,
+  `ContactSpring` (optional smoothing for optimization) and `ContactDamper` (damps only in
+  contact); `adapt.add_dynamics` gives the finger and the hand their gravity for simulation.
+- Documentation: new home page; concepts (overview, structure, coordinates, components,
+  parameters); guides for the soft arm, the two arms, the finger, the hand and contact; an
+  "Update" section in the install page and the README; `TODO.md`, the plan of record.
+
 ## [0.1.0] - 2026-10-04
 
 First public release.

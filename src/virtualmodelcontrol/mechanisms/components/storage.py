@@ -270,3 +270,35 @@ class Gravity(Component):
     def force(self, ctx: Context, y: Any, yd: Any) -> Any:
         """m_i g on each mass, stacked."""
         return self._weights(ctx)
+
+
+def _penetration(d: Any, smoothing: Any) -> Any:
+    """Smooth max(0, −d): softplus of width ``smoothing`` (exact max for smoothing = 0)."""
+    return ca.if_else(
+        smoothing > 0,
+        smoothing * ca.log1p(ca.exp(-ca.fabs(d) / ca.fmax(smoothing, 1e-300))) + ca.fmax(-d, 0.0),
+        ca.fmax(-d, 0.0),
+    )
+
+
+@register("component", "contact_spring")
+class ContactSpring(Component):
+    """One-sided spring on a signed distance d: pushes out only when d < 0 (contact).
+
+    V = ½ k δ², f = k δ ∂δ/∂(−d) with penetration δ = max(0, −d), smoothed over ``smoothing`` [m]
+    (softplus) so that very stiff contacts stay smooth. ``stiffness`` k [N/m].
+    """
+
+    kind = "storage"
+
+    def __init__(self, coord: Coordinate, stiffness: Any, smoothing: Any = 0.0) -> None:
+        super().__init__(coord)
+        self.stiffness = self._param(
+            "stiffness", stiffness, unit=stiffness_unit(coord.unit), scope="stage"
+        )
+        self.smoothing = self._param("smoothing", smoothing, unit=coord.unit, scope="episode")
+
+    def energy(self, ctx: Context, y: Any) -> Any:
+        """½ k δ²."""
+        delta = _penetration(y, ctx.param(self.smoothing))
+        return ca.sum1(0.5 * ctx.param(self.stiffness) * delta**2)

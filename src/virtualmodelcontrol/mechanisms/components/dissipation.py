@@ -48,3 +48,25 @@ class TanhDamper(Component):
         """−F tanh(d ẏ / F)."""
         d, F = ctx.param(self.damping), ctx.param(self.max_force)
         return -F * ca.tanh(d * yd / F)
+
+
+@register("component", "contact_damper")
+class ContactDamper(Component):
+    """Damper active only in contact (d < 0) on a signed distance d: f = −D σ(−d/w) ḋ.
+
+    ``damping`` D [N·s/m]; the gate σ switches over ``smoothing`` w [m] (a step for w = 0).
+    """
+
+    kind = "dissipation"
+
+    def __init__(self, coord: Coordinate, damping: Any, smoothing: Any = 0.0) -> None:
+        super().__init__(coord)
+        self.damping = self._param("damping", damping, unit=damping_unit(coord.unit), scope="stage")
+        self.smoothing = self._param("smoothing", smoothing, unit=coord.unit, scope="episode")
+
+    def force(self, ctx: Context, y: Any, yd: Any) -> Any:
+        """−D gate(d) ḋ."""
+        w = ctx.param(self.smoothing)
+        smooth = 0.5 * (1 - ca.tanh(y / (2 * ca.fmax(w, 1e-300))))  # σ(−d/w), no overflow
+        gate = ca.if_else(w > 0, smooth, ca.if_else(y < 0, 1.0, 0.0))
+        return -ctx.param(self.damping) * gate * yd

@@ -37,6 +37,45 @@ On Debian/Ubuntu, `python3 -m venv` needs the `python3-venv` package
 (`sudo apt install python3-venv`). A conda environment works the same way: create one with any
 Python ≥ 3.10, activate it and run `pip install virtualmodelcontrol`.
 
+## Update
+
+An installed copy does not update by itself. Pick the line that matches how you installed it.
+
+The latest release, from PyPI:
+
+```bash
+pip install --upgrade virtualmodelcontrol
+```
+
+The current development state (the `main` branch on GitHub, newer than the last release):
+
+```bash
+pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"
+```
+
+Every commit on `main` has its own version number, so pip sees the change and reinstalls. If pip
+answers "Requirement already satisfied" although `main` has changed, add
+`--force-reinstall --no-deps`.
+
+A clone installed with `pip install -e .`: pull, and the change is live (reinstall only when the
+dependencies changed):
+
+```bash
+cd VirtualModelControl
+git pull
+pip install -e .
+```
+
+A fixed version, so an experiment always runs the same code:
+
+```bash
+pip install "virtualmodelcontrol==0.1.0"
+```
+
+Check what you have with `pip show virtualmodelcontrol`, remove it with
+`pip uninstall virtualmodelcontrol`. New releases reach PyPI when a version tag is pushed to
+GitHub; the changes are listed in the {doc}`changelog <../reference/changelog>`.
+
 ## ROS 2
 
 The library never needs ROS. Its optional ROS 2 parts use only `rclpy` and `std_msgs`, so any

@@ -47,3 +47,15 @@ def test_finger_controller_pushes_back_from_the_limits():
     assert np.all(inside["motor_torque"] == 0.0)
     assert np.all(below["motor_torque"] > 0.0)  # flex back into the range
     assert constants(robot.params)["gravity"].shape == (3, 1)
+
+
+def test_add_dynamics_gives_the_simulator_the_gravity_the_controller_compensates():
+    finger = adapt.add_dynamics(adapt.finger(), damping=0.01)
+    assert {"gravity", "damping"} <= set(finger.components)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("gravity", vmc.GravityCompensation(finger))
+    controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(finger, ctrl)))
+    q0 = np.array([0.6, 0.4])
+    plant = vmc.sim.ModelPlant(finger, q0=q0)
+    vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 500), T=0.5)
+    np.testing.assert_allclose(plant.q, q0, atol=1e-9)  # compensated gravity: the finger stays

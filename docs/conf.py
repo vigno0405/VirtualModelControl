@@ -17,6 +17,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx_copybutton",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
 ]
 
 myst_enable_extensions = ["amsmath", "colon_fence", "deflist", "dollarmath"]
@@ -42,7 +43,23 @@ html_theme = "pydata_sphinx_theme"
 html_title = "virtualmodelcontrol"
 exclude_patterns = ["_build", "jupyter_execute"]
 
-html_theme_options = {"github_url": "https://github.com/vigno0405/VirtualModelControl"}
+html_theme_options = {
+    "github_url": "https://github.com/vigno0405/VirtualModelControl",
+    "icon_links": [
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/virtualmodelcontrol/",
+            "icon": "fa-brands fa-python",
+        }
+    ],
+    "navbar_align": "left",
+    "header_links_before_dropdown": 6,
+    "show_toc_level": 2,
+    "navigation_with_keys": False,
+    "footer_start": ["copyright"],
+    "footer_end": [],
+}
+html_context = {"default_mode": "light"}
 html_copy_source = False
 html_show_sourcelink = False
 templates_path = ["_templates"]

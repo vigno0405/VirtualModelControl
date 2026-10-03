@@ -6,6 +6,8 @@ from .control import VMCController
 from .core import SO2, Euclidean, Param, ParamSet, Product, Signals, register
 from .dynamics import Dynamics, compile_dynamics
 from .mechanisms import (
+    ContactDamper,
+    ContactSpring,
     Custom,
     ForceSource,
     FramePoint,
@@ -19,12 +21,14 @@ from .mechanisms import (
     LinearSpring,
     Mechanism,
     Norm,
+    PlaneDistance,
     PointMass,
     PolynomialSpring,
     Projection,
     Ref,
     SigmoidSpring,
     SpeedRegulator,
+    SphereDistance,
     Stack,
     TanhDamper,
     TanhSpring,
@@ -40,6 +44,8 @@ except ImportError:  # a source tree that was never installed
 __all__ = [
     "SO2",
     "Compiled",
+    "ContactDamper",
+    "ContactSpring",
     "Custom",
     "Dynamics",
     "Euclidean",
@@ -58,6 +64,7 @@ __all__ = [
     "Norm",
     "Param",
     "ParamSet",
+    "PlaneDistance",
     "PointMass",
     "PolynomialSpring",
     "Product",
@@ -66,6 +73,7 @@ __all__ = [
     "SigmoidSpring",
     "Signals",
     "SpeedRegulator",
+    "SphereDistance",
     "Stack",
     "TanhDamper",
     "TanhSpring",

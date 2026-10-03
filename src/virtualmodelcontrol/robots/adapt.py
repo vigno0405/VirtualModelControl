@@ -8,7 +8,7 @@ import numpy as np
 
 from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
-from ..mechanisms import Custom, Joint, LimitSpring, Mechanism, PointMass
+from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
 from ..models import Assembly, LinearCoupling, SerialChain
 
 LINK_LENGTHS = (0.040, 0.030, 0.0175)
@@ -84,6 +84,19 @@ def finger(name: str = "finger", gravity: Any = None) -> Mechanism:
     )
     for i, link in enumerate(("mcp", "pip", "dip")):
         robot.add(f"m_{link}", PointMass(robot.point(f"{link}_cog"), LINK_MASSES[i]))
+    return robot
+
+
+def add_dynamics(robot: Mechanism, damping: Any = None) -> Mechanism:
+    """Give the finger or the hand its gravity, for simulation.
+
+    ``damping`` [N·m·s/rad], per motor or one value, adds a viscous damper on the motors.
+    """
+    robot.add("gravity", Gravity(robot))
+    if damping is not None:
+        motors = robot.joint(slice(0, robot.model.space.nv))
+        damping = Param("damping", damping, unit="N*m*s/rad", scope="design")
+        robot.add("damping", LinearDamper(motors, damping))
     return robot
 
 

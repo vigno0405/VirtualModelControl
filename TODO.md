@@ -1,93 +1,433 @@
 # TODO
 
-Everything planned for `virtualmodelcontrol`, release by release. Ticked items are done. Each
-item that ports code already used in the lab comes with a regression test against the original
-results, documentation, and a line in `CHANGELOG.md`.
+The plan of record for `virtualmodelcontrol`: everything still to build, in the order to build it.
+Work from top to bottom. Each item says **what** to build, **why** it is needed, **how** (when the
+design is settled) and **done when** (the checks that close it). Ticked items are done.
 
-## 0.1.0: the core (released 2026-10-04)
+## How to work on this list
 
-- [x] Parameters with units, bounds and scopes; spaces (Euclidean, SO2, products); registry and
-  plugins through entry points
-- [x] Mechanisms: coordinates (points, joints, references, differences, projections, norms,
-  custom) and components (linear, tanh, Gaussian, sigmoid, polynomial and limit springs; linear
-  and tanh dampers; point masses and inertances; force sources; gravity and gravity compensation)
-- [x] Models: piecewise constant curvature, tendon transmission, serial chains (product of
-  exponentials), linear couplings, assemblies
-- [x] Compiler and controller: about 20 µs per control step on a three-segment arm; live gains
-  with the exact energy jump
-- [x] Robot dynamics from components; model-based simulator; run loop with a guard and a recorder
-- [x] Robots: Helyx soft arm (three geometries), ADAPT finger
-- [x] Documentation online, CI, release to PyPI
+- **Order.** Finish a release before starting the next one, unless an item blocks a running
+  experiment.
+- **Port before inventing.** Many items port code that already runs in the lab (identification,
+  Kalman filter, energy tank, offline optimization, hardware scripts). Read the original first,
+  write down the differences, and add a regression test against its results (small fixtures in
+  `tests/data/`).
+- **One symbolic source.** Every model is written once, with CasADi operations. The numpy,
+  sympy, C, JAX and PyTorch versions are generated from that graph (release 0.4.0), never
+  maintained by hand, so they can never disagree.
+- **Everything is a parameter.** Gains and references, and also all geometry (lengths, radii,
+  tendon angles, joint axes, mounting poses), masses, transmissions, motor constants and
+  efficiencies: each is a `Param` with a unit, a default and bounds. Defaults live in `robots/`
+  data, never in model code.
+- **Jacobians and Hessians.** Every model and coordinate gives both, by automatic
+  differentiation, tested against finite differences.
+- **SI units inside.** Degrees, encoder ticks, grams and motor currents exist only at the
+  hardware boundary.
+- **Opt-in.** New behaviour never changes how finished experiments run; projects pin a version.
+- **Modular.** Each subpackage works without the ones above it. Someone with only a kinematic
+  model builds and runs a controller without importing simulation, optimization or learning code.
+- **Safety.** Nothing touches a real robot without the owner's go-ahead. ROS tests use a private
+  `ROS_DOMAIN_ID` between 70 and 79, never 0. No torque limits unless asked for (they are opt-in
+  output stages).
+- **Light on the CPU.** At most two or three processes; optimizers on one core.
+- **Done means** tests (derivatives checked against finite differences where relevant), a
+  documentation page or section with at least one figure, a `CHANGELOG.md` line, green CI, and
+  the box ticked here.
 
-## 0.2.0: every robot, and documentation for everyone
+## Where things stand (4 October 2026)
 
-- [ ] Install every dependency with the package (numpy, SciPy, CasADi, matplotlib, PyYAML,
-  Dynamixel SDK, pyserial); extras only for heavy optional tools
-- [ ] CI on Ubuntu 22.04 and 24.04, including a clean install with the system Python
-- [ ] Robot templates
-  - [x] Helyx soft arm, three geometries
-  - [ ] Bimanual Helyx: two arms on one frame, with each arm's calibration
-  - [x] ADAPT finger
-  - [ ] ADAPT hand: five digits, spread coupling, wrist
-  - [ ] Turtle: two cranks driven through a virtual flywheel, and the VSA angle
-  - [ ] UR5, and the hand mounted on its tool flange
-- [ ] Hardware profiles: motor IDs and order, encoder signs, motor constants, baud rate, control
-  rate, torque limits
-- [ ] Mount a part on another part's frame; orientations of serial-chain sites
-- [ ] Velocity regulator: drives a virtual state at a commanded speed, with a ramp
-- [ ] Figures in the lab style: robots, springs and goals, saved as PDF and SVG
-- [ ] Documentation: how the library is organized, how to build a robot, a page per robot, guides
-  (soft arm, two arms, finger, hand, turtle), components and coordinates at a glance, glossary,
-  troubleshooting
-- [ ] A complete README
+- **0.1.0 is on PyPI:** core, mechanisms, PCC kinematics, tendons, serial chains, compiler and
+  controller, robot dynamics from components, model-based simulator, Helyx arm and ADAPT finger.
+- **On `main`, not yet released:** bimanual, hand, turtle and UR5 templates; Jacobians and
+  Hessians of every site; transmission efficiency; mounting parts on frames; opt-in output stages
+  (friction compensation, pretension, torque offset, efficiency correction, torque limit); speed
+  regulator for virtual states; figures in the lab style; contact; all dependencies installed with
+  the package; CI on Ubuntu 22.04 and 24.04.
+- **To update an installed copy,** see "Update" in `README.md`. Until 0.2.0 is on PyPI, the
+  current state installs from GitHub:
+  `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
 
-## 0.3.0: identification, logs and estimation
+---
 
-- [ ] Run logs saved and loaded atomically; configurations in YAML through the registry
-- [ ] Stiffness and damping identification from step responses: linear least squares with
-  K, D ≥ 0, smoothing, baseline subtraction, a friction term; validation on held-out steps
-- [ ] Calibration of actuator efficiency and transmission ratios
-- [ ] Measurement models: encoders, motion-capture markers, IMU relative rotations, load cells
-- [ ] Shape from motion capture and from IMUs; velocities at the sensors' real rates
-- [ ] Kalman filter fusing encoders and motion capture, with per-sensor gating and health flags
-- [ ] Contact force from the virtual springs (virtual work), and task-space stiffness
-- [ ] Object compliance by probing
+## 0.2.0: finish what is started, and documentation for everyone
 
-## 0.4.0: passivity and adaptation
+The library already does a lot; this release makes it learnable. A student who has never seen
+Virtual Model Control must be able to control a robot from the documentation alone.
 
-- [ ] Energy accounting from logs; passivity checks
+### Done
+
+- [x] Every dependency installs with the package (numpy, SciPy, CasADi, matplotlib, PyYAML,
+  Dynamixel SDK, pyserial)
+- [x] CI on Ubuntu 22.04 and 24.04 (Python 3.10 to 3.14, numpy 1.26 and 2.x), plus a clean install
+- [x] Robot templates: Helyx soft arm (three geometries), bimanual Helyx, ADAPT finger, ADAPT
+  hand, turtle, UR5, and the hand on the UR5 flange
+- [x] Jacobians and Hessians of every site (`vmc.Kinematics`)
+- [x] Mount a part on another part's frame; orientations of serial-chain sites
+- [x] Speed regulator for virtual states
+- [x] Opt-in output stages: friction compensation, pretension, torque offset, efficiency
+  correction, torque limit
+- [x] Figures in the lab style, saved as PDF and SVG (`vmc.viz`)
+- [x] Contact as stiff one-sided springs: `PlaneDistance`, `SphereDistance`, `ContactSpring`,
+  `ContactDamper`, `adapt.add_dynamics`; guide page "Contact"
+- [x] README with install, update and development instructions
+
+### Documentation overhaul (the priority)
+
+Already written: the home page, the concepts pages, and the guides for the soft arm, the two
+arms, the finger, the hand and contact. Everything below is still missing.
+
+**Schematics.** Every concept gets a picture before any code. Draw them as SVG (or Mermaid for
+flow charts), in the lab palette, readable on a phone:
+
+- [ ] Library map: the layers (core, mechanisms, models, compiler and dynamics, control, sim,
+  then estimation, optimization and learning) with the edges (hardware, ROS, robots, viz), and
+  which ones a controller-only user needs.
+- [ ] "What a mechanism is": a robot drawing with its coordinates (points, joints, distances)
+  and components (springs, dampers, masses, sources) attached; the same drawing for a controller.
+- [ ] The control loop: plant (simulated or real) and controller exchanging measurements and
+  torques (read, step, write, advance), with the guard, output stage, logger and ROS bridge in
+  place.
+- [ ] Energy flow: storage, dissipation, sources, and the power balance the library checks.
+- [ ] One schematic per robot: frames and sites, joints, motors in their order, tendons and their
+  angles, sign conventions, units.
+
+**Figures.** Every guide shows results as plots (trajectories, forces, energies), made when the
+docs build. Nothing is pasted as an image if it can be computed.
+
+**Animations and videos.**
+
+- [ ] `vmc.viz.animate(robot, log, ...)`: animation of a run (2D projections now, 3D with
+  meshes after 0.4.0), saved as MP4 (H.264) or animated WebP/GIF under 2 MB. Every guide embeds
+  the animation of its own simulation, regenerated by the docs build or a script, never by hand.
+- [ ] Short clips of the real robots, provided by their owners, on each robot page: compressed
+  MP4 or WebM under 5 MB each in `docs/_static/videos/` (larger ones linked). Embed with an HTML
+  `<video>` element or the `sphinxcontrib-video` extension.
+
+**Pages to write or rewrite.**
+
+- [ ] Getting started: install (pip, venv, conda; Ubuntu 22.04 and 24.04; with ROS sourced),
+  update and uninstall; first controller with a figure; simulate, with plots and an animation.
+- [ ] Guides: turtle (cranks and the virtual flywheel); kinematics (frames, sites, Jacobians,
+  Hessians, task-space stiffness); tuning (choosing stiffness and damping, the loop-delay limit
+  on damping, reading energies); from simulation to the real robot (after 0.3.0).
+- [ ] Robots: one page per template (bimanual, finger, hand, turtle, UR5; update the Helyx
+  page), each with its schematic, a parameter table (name, value, unit, meaning), calibration
+  constants, the output stage, and a short video.
+- [ ] How-to: build a robot (rewrite: from DH or product-of-exponentials data, a continuum
+  model, joint space only, actuation and couplings, masses, a template function, the tests);
+  extend the library (new component, coordinate, model, plant, solver; plugins through entry
+  points); use a model outside CasADi (after 0.4.0).
+- [ ] Reference: glossary; conventions; API with short names and no cut text; changelog; this
+  list.
+- [ ] Development: architecture with the current layers (sim, dynamics and viz included),
+  contributing, testing, releasing.
+- [ ] Troubleshooting: ROS on the `PYTHONPATH`, missing `python3-venv`, CasADi import errors,
+  first compile time, matplotlib and LaTeX.
+
+**Quality bar.**
+
+- [ ] The build passes with `-W` (warnings fail) and every code block executes.
+- [ ] Every page checked at desktop and phone width (screenshots) for cut letters, overlaps and
+  unreadable figures.
+- [ ] No paper references and no project repository names anywhere.
+- [ ] Plain-list references are named `ref` (`point - [x, y, z]` becomes `ctrl.<name>.ref`): say
+  so where `controller.set` is explained, and use `vmc.Ref("goal", ...)` in examples that change
+  goals live.
+
+Done when every page above exists, each guide has figures and an animation, each robot page has
+a schematic, and the build and the screenshots are clean.
+
+### Release
+
+- [ ] Fill `CHANGELOG.md`, tag `v0.2.0`, check the PyPI upload, then run
+  `pip install --upgrade virtualmodelcontrol` in clean environments on Ubuntu 22.04 and 24.04.
+
+---
+
+## 0.3.0: talk to the robots (hardware, ROS 2, logs)
+
+Everything done by hand around an experiment must become one library call: homing, starting the
+bus, running the controller at rate, recording, and stopping safely. The same controller object
+runs in simulation and on the robot.
+
+- [ ] **Hardware profiles** (`hardware/profile.py`): motor IDs and order, encoder signs, zero
+  offsets, motor constant per motor model, baud rate, control rate, operating mode per motor
+  (torque, position, velocity), limits; loaded from YAML; one per robot template. Done when the
+  conversions (ticks and radians, degrees and radians, current and torque) are tested both ways.
+- [ ] **Dynamixel plant** (through the Dynamixel SDK, no ROS): synchronous read and write; units
+  from the profile; homing (go to a known pose, detect lost turns, set the zero); command
+  watchdog (zero torque when commands stop); torque clamp before the integer conversion, so a
+  large command can never overflow or flip sign; zero torque on exit, on exceptions and on
+  Ctrl-C; a bus check (scan IDs and baud rates; USB latency timer on Linux). Done when tested
+  against a fake bus in CI, then one supervised run on a real robot.
+- [ ] **Wall-clock run loop:** the simulated loop's API on real time, with the measured time step,
+  a staleness guard (zero torque when readings are old), rate statistics and overrun warnings.
+- [ ] **ROS 2, any distribution** (`ros/`, rclpy and std_msgs only, imported lazily): joint I/O
+  on the topics of the existing driver (positions and velocities in degrees, goal torques and
+  positions, motor order, signs); `RosPlant`; `serve(sim_plant)`, which publishes the same topics
+  as the driver from a simulated robot (digital twin); a controller node whose ROS parameters map
+  to `controller.set`; a recorder node; messages that swap or retune virtual elements live; the
+  "robot is simulated" flag. Done when an in-process run and the same run over ROS give the same
+  log, and CI runs the ROS tests in Humble and Jazzy containers on a private domain.
+- [ ] **Smooth element swaps:** replace one set of virtual elements by another with a quintic
+  blend, in the controller and later in the planner (the same blend in both).
+- [ ] **Sensors:** load cell over serial (newtons, never grams); IMU array (binary frames);
+  motion capture (rigid-body topics, staleness, frame conversion, base-relative quantities);
+  camera-based estimators as plugins.
+- [ ] **UR5 through RTDE:** read joint states, command positions and speeds; an admittance
+  wrapper for position-controlled actuators (UR5, wrist motors, VSA motor), with command modes
+  mixed per actuator group.
+- [ ] **Run logs:** atomic save and load (`.npz` with a schema version and metadata: library
+  version, git hash, parameters, hardware profile), CSV export, replay of a log in simulation,
+  comparison of runs.
+- [ ] **Configurations:** robots, controllers and experiments in YAML through the registry,
+  round-trip tested.
+- [ ] **Interactive tools:** a small GUI (matplotlib widgets or Qt) to drag goals, change gains
+  and swap elements while running; keyboard or joystick teleoperation; teleoperate and repeat.
+- [ ] **Docs:** "Run on the real robot" for each robot, a ROS topics reference, a safety
+  checklist.
+
+---
+
+## 0.4.0: open modeling (any kinematics, any dynamics, any backend, URDF and meshes)
+
+### Bring your own kinematics
+
+- [ ] `FunctionModel`: wrap a user function `frame(q, at, p) -> (R, p)` written with CasADi
+  operations, or with `vmc.math` (a small set of functions that run on numpy arrays and on CasADi
+  symbols alike), plus its named sites and Params.
+- [ ] Kinematic trees (branching chains) and fixed joints; joint types: revolute, prismatic,
+  helical, spherical, a rail along a spline path, and joints driven by a reference or by a
+  function of time.
+- [ ] Floating bases: SO(3) and SE(3) spaces with their Lie helpers.
+- [ ] `vmc.testing.check_model(model)`: the model contract in one call (derivatives against finite
+  differences, orthonormal rotations, continuity across links and segments, energy conservation
+  without damping, no NaN at the defaults, the bounds and singular poses, serialization round
+  trip).
+- [ ] Docs, "Bring your own kinematics": three ways (a function, DH or product-of-exponentials
+  data, a URDF), each ending in a working controller without simulation or optimization imports.
+
+### Bring your own dynamics
+
+- [ ] Custom residual `r(q, v, a, u, f_ext, p) = 0`, with an optional energy, for black-box,
+  learned or external models.
+- [ ] Rigid-body inertias (3 × 3) with an angular-velocity coordinate; inerters; rotational
+  springs with an orientation-error coordinate; mass distributed along a continuum by quadrature.
+- [ ] Actuator models: motor inertia; elastic transmissions (series and parallel elastic elements,
+  each grounded where the hardware grounds it); VSA potentials with slow motors; allocation with
+  positive tendon tensions; underactuated actuation that reports the part it cannot realize.
+- [ ] Continuum models beyond PCC: affine and polynomial curvature, piecewise-constant strain
+  (Cosserat), each tested against PCC where they coincide; elongation offset as a Param.
+- [ ] Inverse dynamics and operational-space quantities (task-space inertia, operational-space
+  force).
+
+### Every model in CasADi, numpy and sympy (and C, JAX, PyTorch)
+
+- [ ] One translator from a CasADi function's instruction list to: numpy source (runs without
+  CasADi installed), sympy expressions (for papers, symbolic checks and LaTeX), JAX and PyTorch
+  (differentiable, for learning). C comes from CasADi's own code generator (embedded boards,
+  fastest loops).
+- [ ] One way to ask for any of them, for example
+  `vmc.Kinematics(robot).function("tip", backend="numpy")`, `compiled.export("sympy")`,
+  `dynamics.export("torch")`; generated numpy code can be saved as a `.py` file.
+- [ ] Tests: every backend agrees with CasADi to 1e-12 on random inputs, including Jacobians and
+  Hessians.
+- [ ] Docs, "Use a model outside CasADi".
+
+### URDF, meshes, and everything VMRobotControl.jl offers
+
+VMRobotControl.jl (the Julia library that shares this library's vocabulary of coordinates and
+components) is the reference for completeness. Each of its features gets an equivalent here, and
+the docs keep a table that maps one to the other.
+
+- [ ] **URDF import:** joints, axes, origins, limits, masses, centres of mass, inertia tensors,
+  visual and collision meshes (STL, OBJ, DAE). Every number becomes a Param whose default is the
+  URDF value. Checked numerically against pinocchio in the tests.
+- [ ] **Export** to URDF and MJCF (for MuJoCo, Gazebo, Isaac), including a rigid-link
+  approximation of continuum segments.
+- [ ] **Serialization** of whole systems (robot and controller) to YAML or JSON, round trip.
+- [ ] **Visualization:** 3D drawings with meshes; sketches of joints, frames, coordinates and
+  components (coils for springs, dashpots for dampers); frame labels; animations of runs to MP4 or
+  GIF; an interactive 3D viewer in the browser that updates during a run; a distinct colour for
+  the virtual mechanism.
+- [ ] **Coordinates still missing:** sum; orientation error; angular velocity of a frame; a vector
+  expressed in a frame, and back to the base frame.
+- [ ] **Components still missing:** one-sided (rectified) springs and dampers; a diode damper
+  (damps one direction of motion only); linear inerter; rigid inertia; force- and power-limited
+  sources; a helper that adds deadzone springs to joint limits.
+- [ ] **Virtual mechanisms with their own kinematics:** a controller whose model is driven by the
+  virtual state (a virtual cart on a rail along a path, a virtual tool).
+- [ ] **Examples** mirroring it: impedance control of a seven-joint arm loaded from its URDF;
+  reaching with obstacle avoidance; compliant path following; a pendulum on a spline rail.
+
+---
+
+## 0.5.0: simulators
+
+- [ ] Integrators for `ModelPlant`: RK4, the current linearly implicit step, CVODES and IDAS
+  through CasADi; an `ode()` that returns f(t, x) for SciPy's `solve_ivp`.
+- [ ] `MuJoCoPlant`, from a URDF or MJCF: contact with friction, meshes, offscreen rendering to
+  video.
+- [ ] `ElasticaPlant`: the soft arm in PyElastica, to validate PCC and the strain models.
+- [ ] Other engines as plugins: PyBullet; Gazebo through ROS 2 (the ROS plant already speaks its
+  topics); Isaac.
+- [ ] Realism wrappers: delays, sensor rates, noise, quantization, spikes; actuator models
+  (friction, efficiency, torque limits).
+- [ ] Contact, continued: tangential friction (smooth Coulomb); contact forces reported per
+  component by the simulator; more shapes (box, cylinder, capsule); contact between two robot
+  points (self-contact, two arms); soft objects.
+- [ ] Cross-fidelity tests: `ModelPlant` against MuJoCo on the UR5 carrying the hand; PCC against
+  PyElastica.
+- [ ] Closed-loop rollouts compiled with CasADi (`mapaccum`): fast and differentiable, for
+  optimization and learning.
+
+---
+
+## 0.6.0: identification, calibration, estimation
+
+- [ ] Stiffness and damping from step responses: linear least squares with K, D ≥ 0, smoothing,
+  baseline subtraction, a friction column, validation by simulating held-out steps. Masses stay
+  fixed (they cannot be identified from slow data).
+- [ ] Generic linear-in-parameters regression from the derivative of the dynamics residual with
+  respect to the parameters; nonlinear least squares.
+- [ ] Calibration: actuator efficiency (plateaus, fit through the origin), transmission ratios,
+  motor constants, base transforms between arms, Stribeck friction for the compensation stage.
+- [ ] Measurement models shared by simulated sensors and estimators: encoders, motion-capture
+  markers, IMU relative rotations, load cells, cameras.
+- [ ] Shape from motion capture and from IMUs (kinematic inversion), with velocities computed at
+  each sensor's real rate.
+- [ ] Kalman filters (EKF and UKF) fusing encoders with motion capture or IMUs: per-sensor gating,
+  health flags, staleness.
+- [ ] Contact force from the virtual springs (virtual work) and from motor currents; task-space
+  stiffness (congruence transformation, Hessian terms included); object compliance by probing;
+  a momentum observer for external forces.
+
+---
+
+## 0.7.0: passivity, energy tanks, adaptation, underactuation
+
+- [ ] Energy accounting from logs; passivity checks.
 - [ ] Energy tank with exact bounds on parameter steps, including steps that release energy when
-  the tank is empty
-- [ ] Adaptation: stiffness and reference modulation, direct stiffness tracking, integral pose
-  regulation, stiffness schedules K(F) and K(d), symmetric positive semidefinite projection of
-  stiffness updates
-- [ ] Smooth replacement of one set of elements by another (quintic blend), in the controller and
-  in the planner
-- [ ] Output stage, each part opt-in: pretension, efficiency correction, torque clip, friction
-  feed-forward
-- [ ] Extremum seeking for gait and gain tuning
+  the tank is empty.
+- [ ] Adaptation laws: stiffness modulation, reference modulation, direct stiffness tracking,
+  integral pose regulation, stiffness schedules K(F) and K(d), force tracking by reference or by
+  stiffness gradient descent; every stiffness update symmetrized and projected onto positive
+  semidefinite matrices.
+- [ ] Every online update can pass through a passivity filter (tank or projection), opt-in.
+- [ ] Underactuated VMC: actuation projector, torque defect, feasible force set; naive and frozen
+  base controllers; passive and tank corrections; direction-constrained force tracking; each one a
+  flag, so the old and new behaviour can be compared. Templates: a planar three-link arm with one
+  passive joint, a five-link arm with three passive joints, a two-tendon continuum arm.
+- [ ] Controllers for robots where some coordinates are not measured.
+- [ ] Locomotion: phase-modulated stiffness, saturating potentials, steering, a series-VSA
+  potential; extremum seeking of gaits and gains under a passivity cap (turtle).
+- [ ] Co-design structures: series elastic transmission with a parallel elastic element on the
+  motor; slow, non-backdrivable motors that set stiffness and rest angle; power reported for slow
+  actuators.
 
-## 0.5.0: optimization
+---
 
-- [ ] Problems built from scoped variables and blocks: trapezoidal and Hermite–Simpson collocation,
-  multiple shooting, variable scaling, solver settings that work for these problems
-- [ ] Task terms: reaching, obstacle avoidance, effort
-- [ ] Search over reference points; planning of element swaps with the controller's blend
-- [ ] Model predictive control with a shifted warm start
-- [ ] Gradient-free and hardware-in-the-loop tuning (ask and tell)
+## 0.8.0: optimization and MPC
 
-## 0.6.0: hardware and ROS 2
+- [ ] Problems built from scoped variables and blocks (no new language): trajectory blocks
+  (trapezoidal and Hermite-Simpson collocation, multiple shooting, free final time, periodic),
+  equilibrium, data fit (identification, moving-horizon estimation), energy tank; automatic
+  variable scaling; solver presets that work on these problems (IPOPT with L-BFGS and
+  `expand=True`, FATROP, SQP and QP solvers; acados optional).
+- [ ] Port the offline optimization of virtual mechanisms on the soft arm: stiffness, reference
+  and combined optimization with the arm's dynamics; task terms (reaching, obstacle avoidance,
+  effort); grid search over references; planning of element swaps with the controller's own
+  blend; the results applied to the controller and checked in simulation.
+- [ ] MPC: initial state and references as parameters, shifted warm start, a horizon of stiffness
+  and reference trajectories under passivity (tank) constraints; runs asynchronously and applies
+  its result through `controller.set()` with the measured latency; a real-time-iteration option.
+- [ ] Structure optimization: element gates g between 0 and 1 with a sparsity cost (which springs
+  to keep and where to attach them).
+- [ ] Co-design across time scales: design variables (geometry, VSA settings, hardware stiffness),
+  episode variables and stage variables in one problem, through the Param scopes; scenario sets
+  that share design variables; bilevel problems.
+- [ ] Gradient-free and hardware-in-the-loop tuning with an ask-and-tell interface (grid, CMA-ES,
+  Bayesian optimization, extremum seeking); episodes reset by homing on hardware.
 
-- [ ] Dynamixel plant through the SDK: units from the hardware profile, homing, command watchdog,
-  torque clamp before the integer conversion, zero torque on exit
-- [ ] Serial sensors: load cell, IMU
-- [ ] ROS 2 with any distribution (rclpy only): joint I/O, a plant over ROS topics, a simulated
-  robot served as a digital twin, a controller node; tested on Humble and Jazzy
-- [ ] Wall-clock run loop with a staleness guard
+---
 
-## Later
+## 0.9.0: learning
 
-- [ ] Curvature models beyond PCC (affine and polynomial curvature, Cosserat strains)
-- [ ] URDF import; floating bases (SO3, SE3); MuJoCo and PyElastica plants
-- [ ] Co-design across time scales; learning with PyTorch; a gym environment
-- [ ] API freeze (1.0)
+- [ ] PyTorch and JAX versions of every model and controller (from the 0.4.0 translator), and a
+  CasADi and PyTorch autograd bridge for training through compiled functions.
+- [ ] A gymnasium environment over any simulated plant and controller: actions are VMC parameters
+  (stiffness, references, gates), observations configurable, rewards supplied by the user.
+- [ ] Datasets from run logs, data-glove recordings and kinesthetic demonstrations.
+- [ ] Networks that output VMC parameters, always passed through a passivity-consistent
+  projection; small networks exported back to CasADi for the control loop.
+- [ ] Learned residual dynamics as a custom-residual model.
+- [ ] Examples: grasp stiffness learned from demonstrations; reinforcement learning of reference
+  trajectories in simulation.
+
+---
+
+## 1.0.0
+
+- [ ] API review and freeze; deprecated names removed; a support policy.
+
+---
+
+## Research the library must carry
+
+The library exists to serve research on Virtual Model Control of compliant manipulators. Check
+new designs against these themes, so nothing they need is made hard:
+
+- **Distributed, interpretable compliance:** joint- and task-space springs on fingers and along
+  continuum bodies, directional springs, force-dependent stiffness, stiffness distributions across
+  the fingers of a hand, contact at many points of a chain. (Mostly done; contact friction in 0.5.0.)
+- **Model-based sensing:** contact force from spring deflection, object compliance by probing,
+  efficiency calibration. (0.6.0)
+- **Force and stiffness regulation:** open and closed loop; gradient laws on references and
+  stiffness; grasp-force tracking on two arms with an energy tank. (0.7.0)
+- **Optimizing virtual mechanisms:** offline (collocation, reference search, element swaps),
+  online (adaptation within an energy budget), MPC, and structure (which elements, where).
+  (0.8.0)
+- **Underactuated and under-sensed compliant robots.** (0.7.0)
+- **Co-design across time scales with VSAs:** hardware rest state and stiffness, VSA settings and
+  virtual stiffness in one problem; precision-to-power grasp transitions; impact absorption with
+  a wrist VSA. (0.7.0 and 0.8.0)
+- **Locomotion with VMC instead of central pattern generators:** virtual flywheel, ground contact,
+  gait tuning (turtle). (0.3.0 to 0.7.0)
+- **Learning VMC parameters from demonstrations, with passivity guarantees.** (0.9.0)
+- **Vision and IMU proprioception of soft arms** as estimator plugins. (0.6.0)
+
+## Everything done by hand in lab code, and where it lands
+
+| Done by hand today | In the library | Release |
+| --- | --- | --- |
+| PCC and serial kinematics, Jacobians, Hessians | models, `vmc.Kinematics` | done |
+| virtual springs and dampers, summed into torques | mechanisms, `vmc.compile`, `VMCController` | done |
+| gravity compensation | `GravityCompensation` | done |
+| friction compensation, pretension, torque clip | opt-in output stages | done |
+| plant nodes simulating the arm | `ModelPlant`, `vmc.sim.run` | done |
+| homing scripts, bus checks | `hardware` homing and bus check | 0.3.0 |
+| degree, sign and current conversions in every node | hardware profiles, joint I/O | 0.3.0 |
+| controller nodes with GUIs, live gain changes | controller node, GUI, `controller.set` | 0.3.0 |
+| swapping springs live, blended | element swaps with a quintic blend | 0.3.0 |
+| digital twin with simulated sensors | `serve(ModelPlant)` and realism wrappers | 0.3.0, 0.5.0 |
+| logging runs to npz and CSV | run logs | 0.3.0 |
+| load cell, IMU and motion-capture nodes | sensors | 0.3.0 |
+| step experiments and K, D fits | identification | 0.6.0 |
+| efficiency calibration against a load cell | calibration | 0.6.0 |
+| Kalman filter fusing encoders and motion capture | estimation | 0.6.0 |
+| contact-force and task-stiffness estimates | estimation | 0.6.0 |
+| tank-based grasp-force tracking | passivity and adaptation | 0.7.0 |
+| stiffness and reference gradient descent | adaptation | 0.7.0 |
+| offline optimization and reference search | optimization | 0.8.0 |
+
+## Open points to check with the robot owners
+
+- `controller.set()` changes the controller's own copy of the live parameters, not the shared
+  `Param` objects. Confirm this is the wanted behaviour, then document it.
+- Gravity compensation of the soft arms is about 20% stronger than before the arc-formula fix:
+  check it on the next real-arm run.
+- The hand's thumb tip offset is uncertain: measure it.
+- The right arm of the bimanual robot is about 2 cm shorter than the left: calibrate per-arm
+  segment lengths.
+- matplotlib 3.11 drops minus signs from LaTeX-rendered PDFs; render paper figures with 3.10 until
+  it is fixed.

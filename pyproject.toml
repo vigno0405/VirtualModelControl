@@ -42,6 +42,7 @@ docs = [
     "pydata-sphinx-theme>=0.15",
     "sphinx-copybutton>=0.5",
     "sphinx-design>=0.5",
+    "sphinxcontrib-mermaid>=0.9",
 ]
 dev = [
     "pytest>=8",

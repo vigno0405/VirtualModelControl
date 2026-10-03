@@ -12,10 +12,10 @@ library. This page shows each extension point with code that runs.
 | To add | Implement | Register as |
 |---|---|---|
 | a spring, damper or source | a `Component` subclass (`energy` and/or `force`) | `"component"` |
-| a quantity to act on | a `Coordinate` subclass, or `Custom` | — |
-| a robot | a kinematic model (see [Add a model](add-a-model.md)) | `"model"` |
+| a quantity to act on | a `Coordinate` subclass, or `Custom` | none |
+| a robot | a kinematic model (see [Build a robot](build-a-robot.md)) | `"model"` |
 | a transmission | the `Actuation` protocol | `"actuation"` |
-| a simulator or hardware | the `Plant` protocol (`read`, `write`, `close`) | — |
+| a simulator or hardware | the `Plant` protocol (`read`, `write`, `close`) | none |
 
 ## A new component
 
