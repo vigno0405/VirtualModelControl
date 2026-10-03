@@ -74,6 +74,23 @@ class SerialChain:
             R, pos = ca.mtimes(R, Ri), pos + ca.mtimes(R, ti)
         return R, pos + ca.mtimes(R, ca.reshape(p[f"{at}.position"], 3, 1))
 
+    def joint_points(self, q: Any, p: dict[str, Any]) -> list[Any]:
+        """Positions of the joints' axis points at q, base to tip (for drawing)."""
+        R, pos = ca.DM.eye(3), ca.DM.zeros(3, 1)
+        out = []
+        for i in range(len(self.joints)):
+            point = ca.reshape(p[f"j{i + 1}.point"], 3, 1)
+            out.append(pos + ca.mtimes(R, point))
+            axis = ca.reshape(p[f"j{i + 1}.axis"], 3, 1)
+            axis = axis / ca.norm_2(axis)
+            if self.joints[i] == "revolute":
+                Ri = exp_so3(axis, q[i])
+                ti = ca.mtimes(ca.DM.eye(3) - Ri, point)
+            else:
+                Ri, ti = ca.DM.eye(3), axis * q[i]
+            R, pos = ca.mtimes(R, Ri), pos + ca.mtimes(R, ti)
+        return out
+
     def to_dict(self) -> dict[str, Any]:
         """Constructor arguments at the current Param values."""
         n = range(1, len(self.joints) + 1)

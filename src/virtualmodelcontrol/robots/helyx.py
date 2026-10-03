@@ -29,19 +29,27 @@ SEGMENT_MASS = 0.040  # [kg] per REFERENCE_LENGTH of segment, lumped at the segm
 REFERENCE_LENGTH = 0.145  # [m]
 
 
+def model(geometry: str = "145-290-290") -> PCC:
+    """The PCC model of one arm geometry."""
+    return PCC(GEOMETRIES[geometry]["L0"], SECTION_RADIUS)
+
+
+def tendons(efficiency: Any = 1.0) -> TendonTransmission:
+    """The tendon transmission of one arm (three tendons per segment)."""
+    return TendonTransmission(list(TENDON_ANGLES), SPOOL_RADIUS, efficiency)
+
+
 def arm(geometry: str = "145-290-290", name: str = "arm", gravity: Any = None) -> Mechanism:
     """The arm as a robot mechanism: PCC model, tendons, lumped masses and a gravity Param.
 
     ``gravity`` [m/s², base frame] overrides the geometry's mounting.
     """
     spec = GEOMETRIES[geometry]
-    model = PCC(spec["L0"], SECTION_RADIUS)
-    robot = Mechanism(
-        name, model=model, actuation=TendonTransmission(list(TENDON_ANGLES), SPOOL_RADIUS)
-    )
+    robot = Mechanism(name, model=model(geometry), actuation=tendons())
+    pcc = robot.model
     g = spec["gravity"] if gravity is None else gravity
     robot.add_param(Param("gravity", g, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf)))
-    b = model.breakpoints()
+    b = pcc.breakpoints()
     for i, length in enumerate(spec["L0"]):
         mass = SEGMENT_MASS * (length / REFERENCE_LENGTH)
         robot.add(f"m{i + 1}", PointMass(robot.point(s=(b[i] + b[i + 1]) / 2), mass))

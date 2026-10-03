@@ -103,9 +103,11 @@ class TendonTransmission:
     Tendon j of a segment changes length by ΔL_j = Dl − Dx cos δ_j − Dy sin δ_j. Per segment i:
     ``seg{i}.delta`` tendon angles around the section at the base [rad] and ``seg{i}.r`` spool
     radius [m], ``design`` Params. With three tendons per segment the map is invertible.
+    ``efficiency`` η: the robot receives η times the commanded torque (dynamics and estimation);
+    ``allocate`` does not divide by η, so commands are not scaled.
     """
 
-    def __init__(self, delta: Sequence[Any], r: Any) -> None:
+    def __init__(self, delta: Sequence[Any], r: Any, efficiency: Any = 1.0) -> None:
         n = len(delta)
         r_list = list(r) if isinstance(r, (list, tuple, np.ndarray)) else [r] * n
         if len(r_list) != n:
@@ -120,6 +122,9 @@ class TendonTransmission:
             self.params.add(
                 as_param(r_list[i], key, unit=M, scope="design", bounds=(0, np.inf)), key
             )
+        self.params.add(
+            as_param(efficiency, "efficiency", scope="design", bounds=(0.0, 1.0)), "efficiency"
+        )
         self.n_tendons = [self.params[f"seg{i + 1}.delta"].size for i in range(n)]
         self.n_motors = sum(self.n_tendons)
 
@@ -160,8 +165,8 @@ class TendonTransmission:
         return ca.mtimes(self.jacobian(p), v)
 
     def generalized_force(self, u: Any, q: Any, p: dict[str, Any]) -> Any:
-        """τ = B u with B = (∂θ/∂q)ᵀ."""
-        return ca.mtimes(self.jacobian(p).T, u)
+        """τ = η B u with B = (∂θ/∂q)ᵀ: what the robot receives from commanded torques u."""
+        return p["efficiency"] * ca.mtimes(self.jacobian(p).T, u)
 
     def allocate(self, tau: Any, q: Any, p: dict[str, Any]) -> Any:
         """Motor torques u with B u = τ."""
@@ -188,9 +193,10 @@ class TendonTransmission:
             "type": "tendons",
             "delta": [self.params[f"seg{i}.delta"].value.tolist() for i in n],
             "r": [float(self.params[f"seg{i}.r"].value) for i in n],
+            "efficiency": float(self.params["efficiency"].value),
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TendonTransmission:
         """Inverse of ``to_dict``."""
-        return cls(data["delta"], data["r"])
+        return cls(data["delta"], data["r"], data.get("efficiency", 1.0))
