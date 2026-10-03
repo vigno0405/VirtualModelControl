@@ -1,0 +1,71 @@
+name: ci
+
+# Not on every push: automatic commits push often. Run on pull requests, version tags and by hand.
+on:
+  pull_request:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      all_os:
+        description: "Also run the tests on macOS and Windows"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy
+      - run: lint-imports
+      - run: pre-commit run --all-files
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python: "3.10", numpy: "numpy>=1.26,<2" }
+          - { python: "3.12", numpy: "numpy>=1.26,<2" }
+          - { python: "3.12", numpy: "numpy>=2" }
+          - { python: "3.14", numpy: "numpy>=2" }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]" "${{ matrix.numpy }}"
+      - run: python -m pytest
+
+  other-os:
+    if: github.event_name == 'workflow_dispatch' && inputs.all_os
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest

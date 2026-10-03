@@ -1,0 +1,129 @@
+[build-system]
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "virtualmodelcontrol"
+dynamic = ["version"]
+description = "Virtual Model Control: robots and controllers as mechanisms of springs, dampers and inertances, compiled with CasADi."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Lorenzo Vignoli" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "casadi>=3.6",
+]
+keywords = ["robotics", "control", "virtual model control", "passivity", "soft robots", "casadi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.optional-dependencies]
+viz = ["matplotlib>=3.8"]
+docs = [
+    "sphinx>=7.2",
+    "myst-nb>=1.1",
+    "pydata-sphinx-theme>=0.15",
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.5",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "import-linter>=2.0",
+    "pre-commit>=3.5",
+]
+
+[project.urls]
+Repository = "https://github.com/vigno0405/VirtualModelControl"
+Documentation = "https://vigno0405.github.io/VirtualModelControl/"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/virtualmodelcontrol/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["*.pdf", "docs/_build"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/virtualmodelcontrol"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+extend-exclude = ["docs/_build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY", "RUF", "D1"]
+# Unicode symbols (Δ, θ, ẏ) are welcome in docstrings and comments.
+ignore = ["RUF001", "RUF002", "RUF003", "D105", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D1"]
+"docs/**" = ["D1"]
+"benchmarks/**" = ["D1"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --import-mode=importlib -m 'not bench'"
+markers = ["bench: timing benchmarks, opt-in with -m bench"]
+
+[tool.importlinter]
+root_package = "virtualmodelcontrol"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: each layer imports only from the layers below it"
+type = "layers"
+layers = [
+    "virtualmodelcontrol.sim",
+    "virtualmodelcontrol.control",
+    "virtualmodelcontrol.compiler | virtualmodelcontrol.dynamics",
+    "virtualmodelcontrol.system",
+    "virtualmodelcontrol.models",
+    "virtualmodelcontrol.mechanisms",
+    "virtualmodelcontrol.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "Nothing in the library imports ROS"
+type = "forbidden"
+source_modules = ["virtualmodelcontrol"]
+forbidden_modules = ["rclpy", "std_msgs"]
+
+[[tool.importlinter.contracts]]
+name = "Robot data is an edge: the layers never import it"
+type = "forbidden"
+source_modules = [
+    "virtualmodelcontrol.core",
+    "virtualmodelcontrol.mechanisms",
+    "virtualmodelcontrol.models",
+    "virtualmodelcontrol.system",
+    "virtualmodelcontrol.compiler",
+    "virtualmodelcontrol.dynamics",
+    "virtualmodelcontrol.control",
+    "virtualmodelcontrol.sim",
+]
+forbidden_modules = ["virtualmodelcontrol.robots"]

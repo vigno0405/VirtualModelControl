@@ -1,0 +1,4 @@
+/* Long names (modules, classes) wrap instead of running off the page. */
+h1, h2, h3, .prev-next-title, .bd-sidenav a, .bd-breadcrumbs a, .autosummary td {
+  overflow-wrap: anywhere;
+}
