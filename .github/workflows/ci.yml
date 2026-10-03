@@ -1,9 +1,9 @@
 name: ci
 
-# Not on every push: automatic commits push often. Run on pull requests, version tags and by hand.
 on:
   pull_request:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -34,15 +34,16 @@ jobs:
       - run: pre-commit run --all-files
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { python: "3.10", numpy: "numpy>=1.26,<2" }
-          - { python: "3.12", numpy: "numpy>=1.26,<2" }
-          - { python: "3.12", numpy: "numpy>=2" }
-          - { python: "3.14", numpy: "numpy>=2" }
+          - { os: ubuntu-22.04, python: "3.10", numpy: "numpy>=1.26,<2" }
+          - { os: ubuntu-22.04, python: "3.10", numpy: "numpy>=2" }
+          - { os: ubuntu-24.04, python: "3.12", numpy: "numpy>=1.26,<2" }
+          - { os: ubuntu-24.04, python: "3.12", numpy: "numpy>=2" }
+          - { os: ubuntu-24.04, python: "3.14", numpy: "numpy>=2" }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +53,23 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev]" "${{ matrix.numpy }}"
       - run: python -m pytest
+
+  # What a user does on a fresh Ubuntu: the system Python, a venv, pip install of the package.
+  clean-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: sudo apt-get update && sudo apt-get install -y python3-venv
+      - run: python3 -m venv /tmp/build && /tmp/build/bin/pip install build && /tmp/build/bin/python -m build --wheel
+      - run: python3 -m venv /tmp/user && /tmp/user/bin/pip install dist/*.whl pytest
+      - run: /tmp/user/bin/python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
+      - run: /tmp/user/bin/python -m pytest -q -p no:cacheprovider
 
   other-os:
     if: github.event_name == 'workflow_dispatch' && inputs.all_os

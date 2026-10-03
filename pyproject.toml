@@ -15,18 +15,27 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "casadi>=3.6",
+    "matplotlib>=3.8",
+    "pyyaml>=6",
+    "dynamixel-sdk>=3.7",
+    "pyserial>=3.5",
 ]
 keywords = ["robotics", "control", "virtual model control", "passivity", "soft robots", "casadi"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 
 [project.optional-dependencies]
-viz = ["matplotlib>=3.8"]
 docs = [
     "sphinx>=7.2",
     "myst-nb>=1.1",
