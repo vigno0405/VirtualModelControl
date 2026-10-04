@@ -32,7 +32,7 @@ class Video(SphinxDirective):
             logger.warning(f"video over 2 MB ({size} bytes): {path}", location=self.get_location())
         self.env.note_dependency(rel)
         dest = self.env.dlfiles.add_file(self.env.docname, rel)
-        src = "../" * self.env.docname.count("/") + "_downloads/" + dest
+        src = "../" * self.env.docname.count("/") + "_downloads/" + Path(dest).as_posix()
         caption = self.options.get("caption")
         figcaption = f"<figcaption>{html.escape(caption)}</figcaption>" if caption else ""
         markup = (
