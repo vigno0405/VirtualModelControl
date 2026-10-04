@@ -38,16 +38,49 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   documentation page or section with at least one figure, a `CHANGELOG.md` line, green CI, and
   the box ticked here.
 
-## Where things stand (4 October 2026)
+## Where things stand (4 October 2026, evening)
 
-- **0.2.0 is on PyPI** (see `CHANGELOG.md`): on top of 0.1.0, the bimanual, hand, turtle and UR5
-  templates; Jacobians and Hessians of every site; transmission efficiency; mounting parts on
-  frames; opt-in output stages; speed regulator for virtual states; figures and animations;
-  contact; the rebuilt documentation; and the first parts of 0.3.0: hardware profiles, the
-  Dynamixel plant, the real-time run loop and the ROS 2 bridge.
+- **0.2.0 is on PyPI** (see `CHANGELOG.md`): the bimanual, hand, turtle and UR5 templates;
+  Jacobians and Hessians of every site; mounting parts on frames; opt-in output stages; virtual
+  states; figures and animations; contact; the rebuilt documentation; and the first parts of
+  0.3.0 (hardware profiles, the Dynamixel plant, the real-time run loop, the ROS 2 bridge).
+- **On `main`, for 0.3.0** (see `CHANGELOG.md`, "Unreleased"): the ROS controller node and live
+  element swaps; every robot's efficiency is 1 by default, and `vmc.Efficiency` gives a
+  polynomial one per motor; `vmc.identification` fits efficiencies and stiffness and damping
+  from data; the constrained springs and dampers are components of their own; the two
+  single-arm examples run their own arm's experiments; concepts pages on Virtual Model Control,
+  passivity, finger and hand kinematics and efficiency.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
+
+## The plan, step by step
+
+Everything still to do, in order. Each step is done when its items below are ticked.
+
+1. **Review the repository** before building anything new: every package, the tests, the
+   documentation, the packaging and CI, for bugs, mistakes and improvements, each finding
+   verified before it is fixed (0.3.0, first item).
+2. **Finish 0.3.0**, in this order: configurations in YAML; interactive tools; run logs and the
+   ROS recorder node; the documentation for real robots (and the sections still missing for
+   hardware profiles, the Dynamixel plant, the real-time loop, the ROS bridge and element
+   swaps); one supervised run of the Dynamixel plant on a real robot; then the release, with
+   the owner's go.
+3. **0.4.0, open modeling:** bring your own kinematics; bring your own dynamics; every model in
+   numpy, sympy, C, JAX and PyTorch; URDF import and export, serialization, 3D drawings, the
+   missing coordinates and components.
+4. **0.5.0, simulators:** better integrators and compiled rollouts; MuJoCo, PyElastica and other
+   engines; realism wrappers; contact with friction.
+5. **0.6.0, identification and estimation:** the step experiment as a library tool (and run on
+   the arm mounted on its side), regression and calibration; state estimation with motion
+   capture and IMUs; contact-force and task-stiffness estimation.
+6. **0.7.0, passivity and adaptation:** energy tanks and passivity filters; adaptation laws;
+   underactuated VMC and locomotion; co-design structures.
+7. **0.8.0, optimization and MPC:** the lab's offline optimization of virtual mechanisms; MPC;
+   structure and co-design optimization; gradient-free and hardware-in-the-loop tuning.
+8. **0.9.0, learning:** learning VMC parameters from demonstrations, imitation learning with
+   diffusion models, learned residual dynamics, PyTorch and JAX (no reinforcement learning).
+9. **1.0.0:** API review and freeze.
 
 ---
 
@@ -174,6 +207,11 @@ Everything done by hand around an experiment must become one library call: homin
 bus, running the controller at rate, recording, and stopping safely. The same controller object
 runs in simulation and on the robot.
 
+- [ ] **Review the repository:** read every package (core, mechanisms, models, compiler,
+  dynamics, control, sim, identification, hardware, ros, robots, viz), the tests, every
+  documentation page, the README, the packaging and CI, looking for bugs, mistakes, unclear
+  text and improvements. Done when every finding is verified (a failing test or a measured
+  wrong number) and fixed, or listed here with the reason it stays.
 - [ ] **Hardware profiles** (`hardware/profile.py`): motor IDs and order, encoder signs, zero
   offsets, motor constant per motor model, baud rate, control rate, operating mode per motor
   (torque, position, velocity), limits; loaded from YAML; one per robot template. Done when the
@@ -221,6 +259,8 @@ runs in simulation and on the robot.
   comparison of runs.
 - [ ] **Docs:** "Run on the real robot" for each robot, a ROS topics reference, a safety
   checklist.
+- [ ] **Release 0.3.0:** one supervised run of the Dynamixel plant on a real robot (with its
+  owner), a clean check from a fresh clone, the CHANGELOG, then the tag with the owner's go.
 
 ---
 
@@ -471,3 +511,11 @@ new designs against these themes, so nothing they need is made hard:
   Measure it, then decide which one the controllers should use.
 - matplotlib 3.11 drops minus signs from LaTeX-rendered PDFs; render paper figures with 3.10 until
   it is fixed.
+- The arm mounted on its side (`145-145-145`) uses the stiffness and damping identified on
+  another Helyx arm: its closed-loop runs cannot identify it, since its tendons go slack under
+  small torques. Identify it with the step experiment (0.6.0).
+- The hanging arm's bus (`helyx.hardware("145-290-290")`): IDs 1 to 9 at 4 Mbaud with the
+  motor constant 0.001783, from its start script; its documentation says IDs 11 to 19. Confirm
+  on the arm.
+- The finger's distal phalanx weighs 0.025 kg in the finger's parameters but 0.0025 kg in the
+  hand's: weigh it.
