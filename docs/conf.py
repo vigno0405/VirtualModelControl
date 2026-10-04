@@ -75,15 +75,15 @@ html_theme_options = {
         {
             "media": "(prefers-color-scheme: light)",
             "scheme": "default",
-            "primary": "white",
-            "accent": "indigo",
+            "primary": "custom",  # colours in _static/custom.css
+            "accent": "custom",
             "toggle": {"icon": "material/weather-night", "name": "Dark mode"},
         },
         {
             "media": "(prefers-color-scheme: dark)",
             "scheme": "slate",
-            "primary": "black",
-            "accent": "indigo",
+            "primary": "custom",
+            "accent": "custom",
             "toggle": {"icon": "material/weather-sunny", "name": "Light mode"},
         },
     ],

@@ -34,13 +34,48 @@
   --mystnb-source-margin-color: transparent;
 }
 
-/* Colours from the figures' palette: navy links, lavender in dark mode. */
-[data-md-color-scheme="default"] {
-  --md-typeset-a-color: #3c5488;
+/* Colours: a deep navy header on a cool, very light page; in dark mode, deep blues throughout.
+   Links in blue, the figures' red as the accent. */
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color: #13294b;
+  --md-primary-fg-color--light: #1f3d6b;
+  --md-primary-fg-color--dark: #0b1b33;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.72);
+}
+[data-md-color-accent="custom"] {
   --md-accent-fg-color: #e64b35;
+  --md-accent-fg-color--transparent: rgba(230, 75, 53, 0.1);
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.72);
+}
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #f5f8fc;
+  --md-code-bg-color: #e9eff7;
+  --md-typeset-a-color: #2b5797;
+  --md-footer-bg-color: #13294b;
+  --md-footer-bg-color--dark: #0b1b33;
 }
 [data-md-color-scheme="slate"] {
-  --md-typeset-a-color: #8491b4;
+  --mystnb-source-border-color: transparent;
+  --md-hue: 216;
+  --md-default-bg-color: #0d1a2d;
+  --md-default-bg-color--light: rgba(13, 26, 45, 0.54);
+  --md-default-bg-color--lighter: rgba(13, 26, 45, 0.26);
+  --md-default-bg-color--lightest: rgba(13, 26, 45, 0.07);
+  --md-code-bg-color: #13243d;
+  --md-typeset-a-color: #8ab4f8;
+  --md-footer-bg-color: #08121f;
+  --md-footer-bg-color--dark: #050c16;
+}
+[data-md-color-scheme="slate"][data-md-color-primary="custom"] {
+  --md-primary-fg-color: #08121f;
+  --md-primary-fg-color--light: #12223a;
+  --md-primary-fg-color--dark: #050c16;
+}
+[data-md-color-scheme="slate"][data-md-color-accent="custom"] {
+  --md-accent-fg-color: #ff7b66;
+  --md-accent-fg-color--transparent: rgba(255, 123, 102, 0.12);
 }
 
 /* Animations written by the pages (the video directive), shown at their own size or smaller. */
