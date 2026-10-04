@@ -139,6 +139,12 @@ a schematic, and the build and the screenshots are clean.
 
 ### Release
 
+- [ ] README: show
+  `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"` in the
+  "Install" section too, right under `pip install virtualmodelcontrol`, as the way to get the
+  current `main` before a release (today it appears only under "Update"). Run it end to end in a
+  scratch environment: install at one commit, push a newer one, run the command again, and check
+  that `vmc.__version__` changed.
 - [ ] Fill `CHANGELOG.md`, tag `v0.2.0`, check the PyPI upload, then run
   `pip install --upgrade virtualmodelcontrol` in clean environments on Ubuntu 22.04 and 24.04.
 
