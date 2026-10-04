@@ -136,13 +136,25 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "Nothing in the library imports ROS"
+name = "Only the ROS bridge imports ROS"
 type = "forbidden"
-source_modules = ["virtualmodelcontrol"]
+source_modules = [
+    "virtualmodelcontrol.core",
+    "virtualmodelcontrol.mechanisms",
+    "virtualmodelcontrol.models",
+    "virtualmodelcontrol.system",
+    "virtualmodelcontrol.compiler",
+    "virtualmodelcontrol.dynamics",
+    "virtualmodelcontrol.control",
+    "virtualmodelcontrol.sim",
+    "virtualmodelcontrol.hardware",
+    "virtualmodelcontrol.viz",
+    "virtualmodelcontrol.robots",
+]
 forbidden_modules = ["rclpy", "std_msgs"]
 
 [[tool.importlinter.contracts]]
-name = "Robot data, hardware and figures are edges: the layers never import them"
+name = "Robot data, hardware, ROS and figures are edges: the layers never import them"
 type = "forbidden"
 source_modules = [
     "virtualmodelcontrol.core",
@@ -157,6 +169,7 @@ source_modules = [
 forbidden_modules = [
     "virtualmodelcontrol.robots",
     "virtualmodelcontrol.hardware",
+    "virtualmodelcontrol.ros",
     "virtualmodelcontrol.viz",
     "matplotlib",
 ]
