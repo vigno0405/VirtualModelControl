@@ -18,7 +18,7 @@ import docs_setup
 
 `helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
 kinematics, its nine tendon motors and the masses of its segments. It receives only
-{glue:text}`eta:.0f` % of each motor torque, the efficiency of its tendons measured on the real
+{glue:text}`eta:.0f` % of each motor torque, the efficiency of its tendons measured on a real
 arm (`helyx.EFFICIENCY`). A simulator also needs the arm's own stiffness and damping, and gravity;
 `helyx.add_dynamics` adds them.
 
