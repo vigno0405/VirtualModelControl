@@ -35,6 +35,18 @@
 .md-nav--primary .lab-logo {
   display: none;
 }
+/* Narrow windows and phones have no right column: the logo sits at the right end of the
+   header instead, so it is always on screen. */
+@media screen and (max-width: 59.9375em) {
+  .md-header__inner::after {
+    content: "";
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    margin: 0 0.2rem 0 0.4rem;
+    background: url("create-lab.png") center / contain no-repeat;
+  }
+}
 
 /* The layout fills wide windows. */
 .md-grid {
