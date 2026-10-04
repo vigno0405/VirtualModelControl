@@ -394,14 +394,15 @@ the docs keep a table that maps one to the other.
 
 - [ ] PyTorch and JAX versions of every model and controller (from the 0.4.0 translator), and a
   CasADi and PyTorch autograd bridge for training through compiled functions.
-- [ ] A gymnasium environment over any simulated plant and controller: actions are VMC parameters
-  (stiffness, references, gates), observations configurable, rewards supplied by the user.
 - [ ] Datasets from run logs, data-glove recordings and kinesthetic demonstrations.
 - [ ] Networks that output VMC parameters, always passed through a passivity-consistent
   projection; small networks exported back to CasADi for the control loop.
+- [ ] Imitation learning with diffusion models: policies trained on demonstrations that output
+  VMC parameters (stiffness, references), passed through the same passivity-consistent
+  projection.
 - [ ] Learned residual dynamics as a custom-residual model.
-- [ ] Examples: grasp stiffness learned from demonstrations; reinforcement learning of reference
-  trajectories in simulation.
+- [ ] Examples: grasp stiffness learned from demonstrations; a diffusion policy that reproduces
+  demonstrated stiffness and reference changes in simulation.
 
 ---
 
