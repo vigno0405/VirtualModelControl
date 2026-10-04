@@ -38,6 +38,11 @@ def output_stage(motors: int = 9) -> list[Any]:
     return [Pretension(np.full(motors, PRETENSION_WEIGHTS))]
 
 
+EFFICIENCY = 0.12
+"""Delivered over commanded motor torque of the tendon transmission, calibrated against a load
+cell."""
+
+
 def model(
     geometry: str = "145-290-290", *, lengths: Any = None, section_radius: Any = SECTION_RADIUS
 ) -> PCC:
@@ -46,7 +51,7 @@ def model(
 
 
 def tendons(
-    efficiency: Any = 1.0, *, angles: Any = TENDON_ANGLES, spool_radius: Any = SPOOL_RADIUS
+    efficiency: Any = EFFICIENCY, *, angles: Any = TENDON_ANGLES, spool_radius: Any = SPOOL_RADIUS
 ) -> TendonTransmission:
     """The tendon transmission of one arm: ``angles`` [rad] holds a row of tendons per segment."""
     return TendonTransmission(list(np.asarray(angles, dtype=float)), spool_radius, efficiency)
@@ -62,12 +67,13 @@ def arm(
     spool_radius: Any = SPOOL_RADIUS,
     tendon_angles: Any = TENDON_ANGLES,
     masses: Any = None,
+    efficiency: Any = EFFICIENCY,
 ) -> Mechanism:
     """The arm as a robot mechanism: PCC model, tendons, lumped masses and a gravity Param.
 
     ``geometry`` gives the defaults; ``lengths`` [m], ``section_radius`` [m], ``spool_radius``
-    [m], ``tendon_angles`` [rad], ``masses`` [kg, one per segment] and ``gravity`` [m/s², base
-    frame] override them, for any number of segments.
+    [m], ``tendon_angles`` [rad], ``masses`` [kg, one per segment], ``gravity`` [m/s², base
+    frame] and the transmission's ``efficiency`` override them, for any number of segments.
     """
     spec = GEOMETRIES[geometry]
     L0 = spec["L0"] if lengths is None else lengths
@@ -80,7 +86,7 @@ def arm(
     robot = Mechanism(
         name,
         model=model(lengths=L0, section_radius=section_radius),
-        actuation=tendons(angles=tendon_angles, spool_radius=spool_radius),
+        actuation=tendons(efficiency, angles=tendon_angles, spool_radius=spool_radius),
     )
     g = spec["gravity"] if gravity is None else gravity
     robot.add_param(Param("gravity", g, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf)))
@@ -94,16 +100,16 @@ SIM_STIFFNESS = np.array([
     233.9329569634883, 199.3719645292524, 410.00362883032545,
     391.6936839908778, 475.436633573179, 831.8383997691384,
     445.34472425862594, 517.8961860162584, 938.3740743393556,
-]) / 0.12  # fmt: skip
-"""Diagonal stiffness in Δ of the simulated 145-290-290 arm [N/m], referred to commanded torque
-(identified values referred to delivered torque, divided by the efficiency 0.12)."""
+])  # fmt: skip
+"""Diagonal stiffness in Δ of the simulated 145-290-290 arm [N/m]: the identified, physical
+values (the transmission's ``EFFICIENCY`` scales the commanded torque, not these)."""
 
 SIM_DAMPING = np.array([
     125.13438533964865, 104.5563494024772, 205.43182586195965,
     139.28436710395044, 148.1129490938869, 284.33900221754124,
     135.3243281016147, 141.08179561149416, 280.464403371687,
-]) / 0.12  # fmt: skip
-"""Diagonal damping in Δ of the simulated 145-290-290 arm [N·s/m], referred like the stiffness."""
+])  # fmt: skip
+"""Diagonal damping in Δ of the simulated 145-290-290 arm [N·s/m], physical like the stiffness."""
 
 
 def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -> Mechanism:

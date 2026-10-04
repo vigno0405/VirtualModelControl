@@ -8,7 +8,7 @@ import numpy as np
 
 from ..core.params import Param
 from ..mechanisms import Mechanism
-from ..models import Assembly, SerialChain
+from ..models import Assembly, Direct, SerialChain
 from . import adapt
 
 DH_D = (0.089159, 0.0, 0.0, 0.10915, 0.09465, 0.0823)
@@ -42,6 +42,7 @@ def with_hand(
     a: Any = DH_A,
     alpha: Any = DH_ALPHA,
     link_masses: Any = None,
+    efficiency: Any = adapt.HAND_MOTOR_EFFICIENCY,
     **hand: Any,
 ) -> Mechanism:
     """The UR5 with the ADAPT hand on its flange: q = (6 arm joints, 13 hand motors).
@@ -49,8 +50,9 @@ def with_hand(
     Gravity stays in the arm's base frame, so the hand's gravity follows the arm's pose. The arm's
     joints are measured only: send the last 13 torques to the hand. The hand sits at
     ``mounting_position`` [m] in the flange frame, turned by ``mounting_angle`` [rad] about its z
-    axis; ``hand`` takes the keyword arguments of ``adapt.hand_model``, and ``link_masses`` [kg]
-    overrides the hand's masses by key.
+    axis; ``hand`` takes the keyword arguments of ``adapt.hand_model``, ``link_masses`` [kg]
+    overrides the hand's masses by key and ``efficiency`` its motors' delivered over commanded
+    torque.
     """
     body = Assembly({
         "ur5": (model(d=d, a=a, alpha=alpha), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
@@ -61,7 +63,9 @@ def with_hand(
             "ur5/tool",
         ),
     })  # fmt: skip
-    robot = Mechanism(name, model=body)
+    robot = Mechanism(
+        name, model=body, actuation=body.stacked_actuation({"hand": Direct(efficiency)})
+    )
     robot.add_param(
         Param("gravity", GRAVITY, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf))
     )

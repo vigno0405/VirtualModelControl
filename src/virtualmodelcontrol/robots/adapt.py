@@ -9,7 +9,7 @@ import numpy as np
 from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
 from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
-from ..models import Assembly, LinearCoupling, SerialChain
+from ..models import Assembly, Direct, LinearCoupling, SerialChain
 
 LINK_LENGTHS = (0.040, 0.030, 0.0175)
 """Proximal, middle and distal phalanx [m], from the MCP joint to the fingertip."""
@@ -85,12 +85,14 @@ def finger(
     motor_radius: float = MOTOR_RADIUS,
     pulley_radius: float = FINGER_PULLEY_RADIUS,
     pip_transmission: float = PIP_TRANSMISSION,
+    efficiency: Any = MOTOR_EFFICIENCY,
 ) -> Mechanism:
     """The finger as a robot mechanism; q holds the two motor angles [rad].
 
     Sites: ``pip``, ``dip``, ``tip`` and the phalanges' centres of gravity ``*_cog``. The
     phalanges' lengths [m], masses [kg] and centres of gravity [m, in each phalanx's frame], the
-    joint axes, the pulley radii [m] and the PIP cable constant [m] override the defaults.
+    joint axes, the pulley radii [m], the PIP cable constant [m] and the motors' ``efficiency``
+    (delivered over commanded torque) override the defaults.
     """
     a, b, c = link_lengths
     joints = ([0.0, 0.0, 0.0], [0.0, a, 0.0], [0.0, a + b, 0.0])
@@ -104,7 +106,7 @@ def finger(
     coupling = finger_coupling(motor_radius, pulley_radius, pip_transmission)
     axes = [list(axis) for axis in joint_axes]
     model = LinearCoupling(SerialChain(["revolute"] * 3, axes, list(joints), sites), coupling)
-    robot = Mechanism(name, model=model)
+    robot = Mechanism(name, model=model, actuation=Direct(efficiency))
     robot.add_param(
         Param(
             "gravity",
@@ -484,16 +486,22 @@ def add_hand_masses(robot: Mechanism, prefix: str = "", link_masses: Any = None)
 
 
 def hand(
-    name: str = "hand", gravity: Any = None, *, link_masses: Any = None, **geometry: Any
+    name: str = "hand",
+    gravity: Any = None,
+    *,
+    link_masses: Any = None,
+    efficiency: Any = HAND_MOTOR_EFFICIENCY,
+    **geometry: Any,
 ) -> Mechanism:
     """The hand as a robot: q holds the 13 motor angles [rad] in ``HAND_MOTORS`` order.
 
     Sites: ``"<digit>/tip"`` and ``"<digit>/<link>_cog"``. The wrist is rigid. ``geometry`` takes
-    the keyword arguments of ``hand_model``, ``link_masses`` [kg] overrides masses by key. On an
+    the keyword arguments of ``hand_model``, ``link_masses`` [kg] overrides masses by key and
+    ``efficiency`` the motors' delivered over commanded torque. On an
     arm whose orientation changes, compile with ``runtime=["*.gravity"]`` and set
     ``hand_gravity(R)`` each step, or use the arm and hand together (``robots.ur5.with_hand``).
     """
-    robot = Mechanism(name, model=hand_model(**geometry))
+    robot = Mechanism(name, model=hand_model(**geometry), actuation=Direct(efficiency))
     robot.add_param(
         Param(
             "gravity",

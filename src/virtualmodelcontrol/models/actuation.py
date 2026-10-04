@@ -53,10 +53,18 @@ class Actuation(Protocol):
 
 @register("actuation", "direct")
 class Direct:
-    """One actuator per generalized coordinate: motor angles θ = q, B = I, u = τ."""
+    """One actuator per generalized coordinate: motor angles θ = q, B = I, u = τ.
 
-    def __init__(self) -> None:
+    ``efficiency`` η (optional; scalar or one value per motor): the robot receives η ∘ u
+    (dynamics and estimation); ``allocate`` does not divide by η, so commands are not scaled.
+    """
+
+    def __init__(self, efficiency: Any = None) -> None:
         self.params = ParamSet()
+        if efficiency is not None:
+            self.params.add(
+                as_param(efficiency, "efficiency", scope="design", bounds=(0.0, 1.0)), "efficiency"
+            )
 
     def motor_sizes(self, space: Any) -> tuple[int, int]:
         """Numbers of motor angles and motor rates: nq and nv."""
@@ -71,8 +79,8 @@ class Direct:
         return v
 
     def generalized_force(self, u: Any, q: Any, p: dict[str, Any]) -> Any:
-        """τ = u."""
-        return u
+        """τ = η ∘ u (τ = u without an efficiency)."""
+        return u * p["efficiency"] if "efficiency" in p else u
 
     def allocate(self, tau: Any, q: Any, p: dict[str, Any]) -> Any:
         """u = τ."""
@@ -87,13 +95,15 @@ class Direct:
         return theta_dot
 
     def to_dict(self) -> dict[str, Any]:
-        """No arguments."""
-        return {"type": "direct"}
+        """The efficiency, when there is one."""
+        if "efficiency" not in self.params:
+            return {"type": "direct"}
+        return {"type": "direct", "efficiency": self.params["efficiency"].value.tolist()}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Direct:
         """Inverse of ``to_dict``."""
-        return cls()
+        return cls(data.get("efficiency"))
 
 
 @register("actuation", "tendons")
