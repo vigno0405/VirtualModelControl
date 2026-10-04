@@ -21,11 +21,19 @@
   height: 2rem;
 }
 
-/* The lab's logo, on the right of the home page's introduction. */
-.md-typeset img.lab-logo {
-  float: right;
-  height: 4.5rem;
-  margin: 0 0 1rem 1.5rem;
+/* The lab's logo, on the right above the page outline, on every page (not in the phone menu,
+   which reuses the outline). */
+.md-sidebar--secondary .lab-logo {
+  display: inline-block;
+  margin: 0 0 1.2rem 0.6rem;
+}
+.md-sidebar--secondary .lab-logo img {
+  display: block;
+  height: 4rem;
+  width: auto;
+}
+.md-nav--primary .lab-logo {
+  display: none;
 }
 
 /* The layout fills wide windows. */

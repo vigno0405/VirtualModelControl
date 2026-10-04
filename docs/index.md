@@ -6,8 +6,6 @@ kernelspec:
 
 # virtualmodelcontrol
 
-<a href="https://www.epfl.ch/labs/create/"><img src="_static/create-lab.png" class="lab-logo" alt="CREATE Lab, EPFL"></a>
-
 `virtualmodelcontrol` is a Python library for Virtual Model Control. You build a controller by
 attaching virtual springs, dampers and masses to your robot, and the library turns them into
 motor torques at the control rate, in simulation and on the real robot.
