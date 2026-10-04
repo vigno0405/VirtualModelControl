@@ -8,6 +8,7 @@ import numpy as np
 
 from ..control.output import Pretension, TorqueLimit, TorqueOffset
 from ..core.params import Param
+from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
 from ..models import Assembly
 from . import helyx
@@ -61,10 +62,22 @@ ENCODER_SIGN = 1.0
 
 CONTROL_RATE = 500.0  # [Hz]
 
+MOTOR_IDS = (1, 3, 2, 5, 9, 7, 4, 8, 6, 10, 12, 11, 14, 18, 16, 13, 17, 15)
+"""Bus IDs of the 18 XL330-M288 motors in the motor order: the right arm's nine, then the left's."""
+
+BAUDRATE = 3_000_000  # [bit/s]
+KT = 0.00115  # [N·m per unit of goal current], the constant the efficiency was calibrated with
+
 TORQUE_OFFSET = 0.03  # [N·m] on every motor
 PRETENSION_WEIGHTS = 0.03  # [N·m/rad] per motor, only on tendons released past the threshold
 PRETENSION_THRESHOLD = np.radians(30.0)  # [rad]
 TORQUE_LIMIT = 0.5  # [N·m]
+
+
+def hardware() -> HardwareProfile:
+    """The two arms' motors and their bus."""
+    motors = tuple(Motor(i, "XL330-M288", ENCODER_SIGN, kt=KT) for i in MOTOR_IDS)
+    return HardwareProfile(motors, baudrate=BAUDRATE, rate=CONTROL_RATE)
 
 
 def output_stage(motors: int = 18) -> list[Any]:

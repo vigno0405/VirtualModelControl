@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from ..core.signals import Signals
+from ..hardware import HardwareProfile, Motor
 from ..mechanisms import (
     ForceSource,
     Inertance,
@@ -27,6 +28,14 @@ MOTOR_SIGNS = (1.0, -1.0)
 
 CONTROL_RATE = 450.0  # [Hz]
 
+MOTOR_IDS = (1, 2)
+"""Bus IDs of the two crank motors (XC330-T288), left then right."""
+
+VSA_ID = 0
+"""Bus ID of the VSA motor, held at its start position."""
+
+BAUDRATE = 4_000_000  # [bit/s]
+
 VSA_RANGE = (0.0, np.pi / 2)
 """Range of the VSA motor's angle [rad] (position-controlled, not part of the crank law)."""
 
@@ -43,6 +52,13 @@ DEFAULTS = {
     "torque_bias": 0.0,  # [N·m] on both cranks
 }
 """Default controller parameters (starting values, not tuned)."""
+
+
+def hardware() -> HardwareProfile:
+    """The cranks' motors and the held VSA motor, and their bus."""
+    cranks = tuple(Motor(i, sign=sign) for i, sign in zip(MOTOR_IDS, MOTOR_SIGNS, strict=True))
+    motors = (*cranks, Motor(VSA_ID, mode="hold"))
+    return HardwareProfile(motors, baudrate=BAUDRATE, rate=CONTROL_RATE)
 
 
 def robot(name: str = "turtle") -> Mechanism:

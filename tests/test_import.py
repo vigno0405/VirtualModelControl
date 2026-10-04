@@ -19,3 +19,12 @@ def test_viz_loads_matplotlib_only_when_used():
         "vmc.viz.animate; assert 'matplotlib' in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_hardware_loads_only_when_used():
+    code = (
+        "import sys, virtualmodelcontrol as vmc; "
+        "assert 'virtualmodelcontrol.hardware' not in sys.modules; "
+        "vmc.hardware.HardwareProfile; assert 'dynamixel_sdk' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)

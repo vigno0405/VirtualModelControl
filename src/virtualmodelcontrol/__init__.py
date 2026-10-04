@@ -45,13 +45,13 @@ except ImportError:  # a source tree that was never installed
     __version__ = "0.0.0+unknown"
 
 if TYPE_CHECKING:
-    from . import viz
+    from . import hardware, viz
 
 
 def __getattr__(name: str) -> Any:
-    # ``vmc.viz`` loads matplotlib only when first used.
-    if name == "viz":
-        return importlib.import_module(".viz", __name__)
+    # ``vmc.viz`` (matplotlib) and ``vmc.hardware`` load only when first used.
+    if name in ("viz", "hardware"):
+        return importlib.import_module(f".{name}", __name__)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -96,6 +96,7 @@ __all__ = [
     "__version__",
     "compile",
     "compile_dynamics",
+    "hardware",
     "register",
     "sim",
     "viz",

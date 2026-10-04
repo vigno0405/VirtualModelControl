@@ -61,6 +61,14 @@ versions, with one minor version of deprecation before a removal).
   kinematics, conventions and glossary). Every figure, schematic, table value and animation is
   computed when the documentation builds.
 
+- `vmc.hardware.HardwareProfile`: the motors of a robot (bus ID, Dynamixel model, sign, mode,
+  motor constant, optional torque limit) in the library's motor order, with the bus settings;
+  conversions both ways between encoder ticks, raw velocities, goal currents and the published
+  degrees of a ROS driver and SI units, with commands clamped before the integer conversion so
+  they saturate instead of overflowing; saved and loaded as YAML. Each template has its
+  profile: `helyx.hardware()`, `bimanual.hardware()`, `adapt.finger_hardware()`,
+  `adapt.hand_hardware()`, `turtle.hardware()`.
+
 ### Changed
 
 - The soft arm models the efficiency of its tendons: it receives η = 0.12 times the commanded

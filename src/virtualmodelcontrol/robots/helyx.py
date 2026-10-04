@@ -8,6 +8,7 @@ import numpy as np
 
 from ..control.output import Pretension
 from ..core.params import Param
+from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
 from ..models import PCC, TendonTransmission
 
@@ -41,6 +42,23 @@ def output_stage(motors: int = 9) -> list[Any]:
 EFFICIENCY = 0.12
 """Delivered over commanded motor torque of the tendon transmission, calibrated against a load
 cell."""
+
+MOTOR_IDS = {"145-145-145": tuple(range(11, 20)), "145-290-290": tuple(range(1, 10))}
+"""Bus IDs of each arm's nine XL330-M288 motors, in the motor order."""
+
+BUS = {"145-145-145": (1_000_000, 0.000354), "145-290-290": (4_000_000, 0.001783)}
+"""Baud rate [bit/s] and motor constant [N·m per unit of goal current] of each arm's bus."""
+
+CONTROL_RATE = 330.0  # [Hz]
+
+
+def hardware(geometry: str = "145-290-290") -> HardwareProfile:
+    """The arm's motors and bus (the 290-145-145 arms belong to ``bimanual.hardware``)."""
+    baudrate, kt = BUS[geometry]
+    motors = tuple(
+        Motor(i, "XL330-M288", ENCODER_SIGN[geometry], kt=kt) for i in MOTOR_IDS[geometry]
+    )
+    return HardwareProfile(motors, baudrate=baudrate, rate=CONTROL_RATE)
 
 
 def model(

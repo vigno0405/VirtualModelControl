@@ -8,6 +8,7 @@ import numpy as np
 
 from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
+from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
 from ..models import Assembly, Direct, LinearCoupling, SerialChain
 
@@ -67,6 +68,19 @@ estimates. Not the default: unequal efficiencies on coupled motors make virtual 
 non-conservative in simulation."""
 
 TORQUE_LIMIT = 0.8  # [N·m] per motor, for an optional clip at the hardware boundary
+
+FINGER_MOTOR_IDS = (1, 2)
+"""Bus IDs of the finger's XC330-T288 motors (MCP, PIP)."""
+
+FINGER_BAUDRATE = 1_000_000  # [bit/s]
+FINGER_CONTROL_RATE = 900.0  # [Hz]
+
+
+def finger_hardware() -> HardwareProfile:
+    """The finger's motors and their bus."""
+    motors = tuple(Motor(i) for i in FINGER_MOTOR_IDS)
+    return HardwareProfile(motors, baudrate=FINGER_BAUDRATE, rate=FINGER_CONTROL_RATE)
+
 
 FRICTION = (0.20, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
 
@@ -343,6 +357,41 @@ HAND_MOTOR_EFFICIENCY = (
 )
 """Delivered over commanded torque per motor, in ``HAND_MOTORS`` order: a static calibration, like
 ``MOTOR_EFFICIENCY``."""
+
+HAND_MOTOR_IDS = {
+    "thumb_CMC1": 5,
+    "thumb_CMC2": 4,
+    "thumb_MCP": 7,
+    "thumb_IP": 6,
+    "spread": 12,
+    "index_MCP": 3,
+    "index_PIP": 8,
+    "middle_MCP": 2,
+    "middle_PIP": 9,
+    "ring_MCP": 1,
+    "ring_PIP": 10,
+    "pinky_MCP": 0,
+    "pinky_PIP": 11,
+}
+"""Bus ID of each hand motor (XC330-T288)."""
+
+HAND_WRIST_IDS = (13, 14)
+"""Bus IDs of the wrist motors, held at their start position."""
+
+HAND_BAUDRATE = 2_000_000  # [bit/s]
+HAND_CONTROL_RATE = 330.0  # [Hz]
+
+
+def hand_hardware() -> HardwareProfile:
+    """The hand's motors in ``HAND_MOTORS`` order, the held wrist, and their bus; a ROS driver
+    publishes the 13 motors in the order of their IDs."""
+    motors = tuple(Motor(HAND_MOTOR_IDS[name]) for name in HAND_MOTORS)
+    wrist = tuple(Motor(i, mode="hold") for i in HAND_WRIST_IDS)
+    order = tuple(sorted(HAND_MOTOR_IDS.values()))
+    return HardwareProfile(
+        (*motors, *wrist), baudrate=HAND_BAUDRATE, rate=HAND_CONTROL_RATE, bus_order=order
+    )
+
 
 HAND_LIMIT_STIFFNESS = 0.6  # [N·m/rad]
 HAND_TORQUE_LIMIT = 0.8  # [N·m]
