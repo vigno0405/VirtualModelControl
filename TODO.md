@@ -40,15 +40,13 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 
 ## Where things stand (4 October 2026)
 
-- **0.1.0 is on PyPI:** core, mechanisms, PCC kinematics, tendons, serial chains, compiler and
-  controller, robot dynamics from components, model-based simulator, Helyx arm and ADAPT finger.
-- **On `main`, ready to be released as 0.2.0** (see `CHANGELOG.md`): bimanual, hand, turtle and
-  UR5 templates; Jacobians and Hessians of every site; transmission efficiency; mounting parts on
+- **0.2.0 is on PyPI** (see `CHANGELOG.md`): on top of 0.1.0, the bimanual, hand, turtle and UR5
+  templates; Jacobians and Hessians of every site; transmission efficiency; mounting parts on
   frames; opt-in output stages; speed regulator for virtual states; figures and animations;
   contact; the rebuilt documentation; and the first parts of 0.3.0: hardware profiles, the
   Dynamixel plant, the real-time run loop and the ROS 2 bridge.
-- **To update an installed copy,** see "Update" on the documentation's Installation page. Until
-  0.2.0 is on PyPI, the current state installs from GitHub:
+- **To update an installed copy,** see "Update" on the documentation's Installation page:
+  `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
 
 ---
@@ -165,10 +163,8 @@ example opens with its robot's schematic, and the build and the screenshots are 
   current `main` before a release (today it appears only under "Update"). Run it end to end in a
   scratch environment: install at one commit, push a newer one, run the command again, and check
   that `vmc.__version__` changed.
-- [ ] Fill `CHANGELOG.md`, tag `v0.2.0`, check the PyPI upload, then run
+- [x] Fill `CHANGELOG.md`, tag `v0.2.0`, check the PyPI upload, then run
   `pip install --upgrade virtualmodelcontrol` in clean environments on Ubuntu 22.04 and 24.04.
-  (The changelog is filled and the release commit checked from a fresh clone; the tag waits for
-  the owner's go.)
 
 ---
 
