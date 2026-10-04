@@ -42,8 +42,9 @@ The compiled controller computes its terms of the figure, and so do the robot's 
 
 The energies come in opposite orders: `(V, T)` for the controller, `(T, V)` for the robot.
 `z` holds the controller's virtual states (positions, then velocities), `p` the live Params of
-each and `u` the motor torques. The input equals the port when the motors deliver the torques
-the controller asks for: an efficiency of 1 and no output stages.
+each and `u` the motor torques. The input is the port times the efficiency $\eta$ of the
+robot's transmission: the motors deliver $\eta$ of each torque the controller asks for, as
+long as no output stage changes the torques.
 
 ## A run
 
@@ -91,12 +92,15 @@ V_c, T_c = along(law.energy, q, v, z, p_c, t)
 port, diss_c, src_c = along(law.power, q, v, z, p_c, t)
 T_r, V_r = along(plant.dynamics.energy, q, v, p_r, t)
 inflow, diss_r, src_r = along(plant.dynamics.power, q, v, u, p_r, t)
-np.abs(inflow - port).max()  # [W]
+np.abs(inflow - helyx.EFFICIENCY * port).max()  # [W]
 ```
 
-At every step the robot receives exactly the power the controller gives. The energies of the
-two mechanisms then change by what the dampers take and the sources give, integrated over time;
-whatever is left over is the residual:
+At every step the robot receives exactly $\eta$ times the power the controller gives. To the
+robot, the controller acts with $\eta$ of its forces, as if its springs and dampers were
+$\eta$ times as stiff, so it counts with $\eta$ of its energy, its dissipation and its
+sources. The energy of the robot plus $\eta$ times the energy of the controller then changes
+by what the dampers take and the sources give, integrated over time; whatever is left over is
+the residual:
 
 ```{code-cell} python
 def integral(power):  # from the start to every step [J]
@@ -104,14 +108,15 @@ def integral(power):  # from the start to every step [J]
     return np.concatenate([[0.0], np.cumsum(steps)])
 
 
+eta = helyx.EFFICIENCY
 E_c, E_r = V_c + T_c, T_r + V_r
-dampers = integral(diss_c + diss_r)
-sources = integral(src_c + src_r)
-residual = (E_c - E_c[0]) + (E_r - E_r[0]) - dampers - sources
+dampers = integral(eta * diss_c + diss_r)
+sources = integral(eta * src_c + src_r)
+residual = eta * (E_c - E_c[0]) + (E_r - E_r[0]) - dampers - sources
 
 ms = 1000 * t
 fig, (top, bottom) = plt.subplots(2, 1, figsize=(6.4, 7.2), sharex=True)
-top.plot(ms, E_c - E_c[0], label="controller")
+top.plot(ms, eta * (E_c - E_c[0]), label=r"controller $\times\,\eta$")
 top.plot(ms, E_r - E_r[0], label="robot")
 top.plot(ms, dampers, label="dampers")
 top.plot(ms, sources, label="sources")
@@ -128,23 +133,31 @@ from myst_nb import glue
 
 released = (E_c[0] - E_c) / (E_c[0] - E_c[-1])
 glue("stored", float(E_c[0]), display=False)
+glue("felt", float(eta * E_c[0]), display=False)
 glue("t90", float(ms[np.argmax(released >= 0.9)]), display=False)
 glue("kinetic", float(T_r.max()), display=False)
 glue("res", 1000 * float(np.abs(residual).max()), display=False)
 glue("pct", 100 * float(np.abs(residual).max() / -dampers[-1]), display=False)
+glue("back", 100 * float(np.mean(port < 0)), display=False)
 glue("work", float(integral(port)[-1]), display=False)
-glue("supplied", 1000 * float(sources[-1]), display=False)
+glue("delivered", float(integral(inflow)[-1]), display=False)
+glue("supplied", 1000 * float(integral(src_c)[-1]), display=False)
+glue("eta", 100 * eta, display=False)
 ```
 
 The top panel shows how the energy of each mechanism changed since the start, the energy the
 dampers took (negative) and the energy the sources gave. The controller's spring starts with
-{glue:text}`stored:.2f` J, and nine tenths of what it releases in this run are gone after
-{glue:text}`t90:.0f` ms: some goes into the arm, whose kinetic energy peaks at
-{glue:text}`kinetic:.2f` J, and most into the dampers of the arm and of the controller.
+{glue:text}`stored:.2f` J, of which the arm feels {glue:text}`felt:.2f` J, and nine tenths of
+what it releases in this run are gone after {glue:text}`t90:.0f` ms: some goes into the arm,
+whose kinetic energy peaks at {glue:text}`kinetic:.2f` J, and most into the dampers of the arm
+and of the controller.
 
 The residual stays within {glue:text}`res:.1f` mJ, {glue:text}`pct:.1f` % of the energy the
 dampers took. It is the error of the time steps: the simulator advances in discrete steps and
 holds each torque for a control period, and the powers are integrated from the logged steps.
+Without the factor $\eta$ the balance would not close: in {glue:text}`back:.0f` % of the steps
+the arm pushes back, power flows from the robot to the controller, and the controller would
+gain more energy than the arm gives up.
 
 ## Passivity
 
@@ -157,14 +170,17 @@ $$
 
 since dissipation is never positive and springs and masses never store negative energy.
 Whatever the robot does, such a controller can only give back the energy it stored: it is
-passive. On a robot that only has masses, springs, gravity and dampers of its own, the energy of
-the two together can then only fall.
+passive, and the robot receives $\eta$ of that work. On a robot that only has masses, springs,
+gravity and dampers of its own, the energy of the robot plus $\eta$ times the energy of the
+controller can then only fall.
 
-Gravity compensation is a source, but a tame one: its forces cancel the weight of the robot's
-masses, so it supplies exactly the energy that the robot stores in gravity, and the arm moves as
-if it weighed nothing. In this run the controller did {glue:text}`work:.2f` J of work on the
-arm, of the {glue:text}`stored:.2f` J its spring stored at the start, and its gravity
-compensation supplied {glue:text}`supplied:.1f` mJ.
+Gravity compensation is a source, but a tame one: its forces are those that cancel the weight
+of the robot's masses, so the energy it supplies is the energy that the robot stores in
+gravity. The arm receives {glue:text}`eta:.0f` % of these forces and moves as if it kept the
+rest of its weight. In this run the controller gave {glue:text}`work:.2f` J through its port,
+of the {glue:text}`stored:.2f` J its spring stored at the start, and the arm received
+{glue:text}`delivered:.2f` J of it; the gravity compensation supplied
+{glue:text}`supplied:.1f` mJ.
 
 Changing a live parameter while running changes the controller's energy too, by the jump that
 `controller.set` returns ([Parameters](parameters.md)).
