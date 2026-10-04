@@ -92,7 +92,11 @@ jobs:
         with:
           fetch-depth: 0
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - run: python3 -m venv --system-site-packages /tmp/venv && /tmp/venv/bin/pip install -e ".[dev]"
+      # A recent pip keeps the system's old packages out of the package build (Humble's is 22.0).
+      - run: |
+          python3 -m venv --system-site-packages /tmp/venv
+          /tmp/venv/bin/pip install --upgrade pip
+          /tmp/venv/bin/pip install -e ".[dev]"
       # ROS's own pytest plugins do not load with a recent pytest; these tests do not need them.
       - run: |
           source /opt/ros/${{ matrix.distro }}/setup.bash
