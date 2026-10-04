@@ -50,3 +50,16 @@ def test_dict_round_trip_and_direct_drive():
     assert isinstance(direct, Direct)
     x = ca.DM([1.0, 2.0])
     assert direct.allocate(x, None, {}) is x and direct.config_from_motors(x, {}) is x
+
+
+def test_direct_drive_delivers_efficiency_times_the_command():
+    u = ca.DM([1.0, -2.0])
+    np.testing.assert_allclose(num(Direct().generalized_force(u, None, {})), [1.0, -2.0])
+    for eta, delivered in ((0.5, [0.5, -1.0]), ([0.8, 0.4], [0.8, -0.8])):
+        direct = Direct(eta)
+        p = constants(direct.params)
+        np.testing.assert_allclose(num(direct.generalized_force(u, None, p)), delivered)
+        assert direct.allocate(u, None, p) is u  # commands are not divided by η
+        copy = from_dict(direct.to_dict(), kind="actuation")
+        assert copy.to_dict() == direct.to_dict() == {"type": "direct", "efficiency": eta}
+    assert Direct().to_dict() == {"type": "direct"} and "efficiency" not in Direct().params

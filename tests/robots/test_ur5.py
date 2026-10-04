@@ -1,8 +1,10 @@
 """UR5 from its DH table, and the hand on its flange."""
 
+import casadi as ca
 import numpy as np
 
 import virtualmodelcontrol as vmc
+from virtualmodelcontrol.core import constants
 from virtualmodelcontrol.models import evaluate_frame
 from virtualmodelcontrol.robots import adapt, ur5
 
@@ -66,3 +68,11 @@ def test_gravity_on_the_arm_equals_the_hand_alone_with_rotated_gravity():
             "motor_torque"
         ]
         np.testing.assert_allclose(u_arm, u_hand, atol=1e-14)
+
+
+def test_only_the_hand_motors_deliver_less_than_the_command():
+    robot = ur5.with_hand()
+    u = np.linspace(-1.0, 1.0, 19)
+    tau = robot.actuation.generalized_force(ca.DM(u), ca.DM.zeros(19), constants(robot.params))
+    eta = np.concatenate([np.ones(6), adapt.HAND_MOTOR_EFFICIENCY])
+    np.testing.assert_allclose(np.array(ca.evalf(tau)).ravel(), eta * u, rtol=1e-15)
