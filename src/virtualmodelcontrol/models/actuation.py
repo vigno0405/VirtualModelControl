@@ -11,6 +11,7 @@ import numpy as np
 from ..core.params import ParamSet, as_param
 from ..core.registry import register
 from ..core.units import RAD, M
+from .efficiency import as_efficiency, coefficients
 
 
 class Actuation(Protocol):
@@ -55,16 +56,15 @@ class Actuation(Protocol):
 class Direct:
     """One actuator per generalized coordinate: motor angles θ = q, B = I, u = τ.
 
-    ``efficiency`` η (optional; scalar or one value per motor): the robot receives η ∘ u
-    (dynamics and estimation); ``allocate`` does not divide by η, so commands are not scaled.
+    ``efficiency``: the torque each motor delivers for the commanded one, an ``Efficiency`` or
+    its linear coefficient (one value or one per motor). It is 1 by default: models identified
+    from commanded torques already include it. ``allocate`` never divides by it.
     """
 
-    def __init__(self, efficiency: Any = None) -> None:
+    def __init__(self, efficiency: Any = 1.0) -> None:
+        self.efficiency = as_efficiency(efficiency)
         self.params = ParamSet()
-        if efficiency is not None:
-            self.params.add(
-                as_param(efficiency, "efficiency", scope="design", bounds=(0.0, 1.0)), "efficiency"
-            )
+        self.params.merge(self.efficiency.params, "efficiency")
 
     def motor_sizes(self, space: Any) -> tuple[int, int]:
         """Numbers of motor angles and motor rates: nq and nv."""
@@ -79,8 +79,8 @@ class Direct:
         return v
 
     def generalized_force(self, u: Any, q: Any, p: dict[str, Any]) -> Any:
-        """τ = η ∘ u (τ = u without an efficiency)."""
-        return u * p["efficiency"] if "efficiency" in p else u
+        """τ = the torques the motors deliver for ``u`` (τ = u at the default efficiency)."""
+        return self.efficiency.delivered(u, coefficients(p))
 
     def allocate(self, tau: Any, q: Any, p: dict[str, Any]) -> Any:
         """u = τ."""
@@ -95,15 +95,13 @@ class Direct:
         return theta_dot
 
     def to_dict(self) -> dict[str, Any]:
-        """The efficiency, when there is one."""
-        if "efficiency" not in self.params:
-            return {"type": "direct"}
-        return {"type": "direct", "efficiency": self.params["efficiency"].value.tolist()}
+        """The efficiency at its current coefficients."""
+        return {"type": "direct", "efficiency": self.efficiency.to_dict()}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Direct:
         """Inverse of ``to_dict``."""
-        return cls(data.get("efficiency"))
+        return cls(data.get("efficiency", 1.0))
 
 
 @register("actuation", "tendons")
@@ -113,8 +111,8 @@ class TendonTransmission:
     Tendon j of a segment changes length by ΔL_j = Dl − Dx cos δ_j − Dy sin δ_j. Per segment i:
     ``seg{i}.delta`` tendon angles around the section at the base [rad] and ``seg{i}.r`` spool
     radius [m], ``design`` Params. With three tendons per segment the map is invertible.
-    ``efficiency`` η: the robot receives η times the commanded torque (dynamics and estimation);
-    ``allocate`` does not divide by η, so commands are not scaled.
+    ``efficiency``: the torque each motor delivers for the commanded one, as for ``Direct``; 1 by
+    default. ``allocate`` never divides by it.
     """
 
     def __init__(self, delta: Sequence[Any], r: Any, efficiency: Any = 1.0) -> None:
@@ -132,9 +130,8 @@ class TendonTransmission:
             self.params.add(
                 as_param(r_list[i], key, unit=M, scope="design", bounds=(0, np.inf)), key
             )
-        self.params.add(
-            as_param(efficiency, "efficiency", scope="design", bounds=(0.0, 1.0)), "efficiency"
-        )
+        self.efficiency = as_efficiency(efficiency)
+        self.params.merge(self.efficiency.params, "efficiency")
         self.n_tendons = [self.params[f"seg{i + 1}.delta"].size for i in range(n)]
         self.n_motors = sum(self.n_tendons)
 
@@ -175,8 +172,8 @@ class TendonTransmission:
         return ca.mtimes(self.jacobian(p), v)
 
     def generalized_force(self, u: Any, q: Any, p: dict[str, Any]) -> Any:
-        """τ = η B u with B = (∂θ/∂q)ᵀ: what the robot receives from commanded torques u."""
-        return p["efficiency"] * ca.mtimes(self.jacobian(p).T, u)
+        """τ = B τ_m with B = (∂θ/∂q)ᵀ and τ_m the torques the motors deliver for ``u``."""
+        return ca.mtimes(self.jacobian(p).T, self.efficiency.delivered(u, coefficients(p)))
 
     def allocate(self, tau: Any, q: Any, p: dict[str, Any]) -> Any:
         """Motor torques u with B u = τ."""
@@ -203,7 +200,7 @@ class TendonTransmission:
             "type": "tendons",
             "delta": [self.params[f"seg{i}.delta"].value.tolist() for i in n],
             "r": [float(self.params[f"seg{i}.r"].value) for i in n],
-            "efficiency": float(self.params["efficiency"].value),
+            "efficiency": self.efficiency.to_dict(),
         }
 
     @classmethod

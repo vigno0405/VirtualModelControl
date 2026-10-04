@@ -7,9 +7,10 @@
 - A positive motor angle pulls its tendon. Each template states the sign of its robot's
   encoders against this convention (`helyx.ENCODER_SIGN`, `bimanual.ENCODER_SIGN`,
   `turtle.MOTOR_SIGNS`); multiply raw readings and commands by it.
-- Delivered torque is the efficiency η times the commanded torque. Controllers send their
-  torques as computed, never divided by η, and the robots' own stiffness and damping are
-  physical values, balanced by the delivered torque.
+- Controllers send their torques as computed, never divided by an efficiency. A robot's
+  efficiency maps the commanded motor torques to the delivered ones; it is 1 by default,
+  because the templates' stiffness and damping were identified from the commanded torques
+  (see [Transmission efficiency](efficiency.md)).
 
 ## Coordinates and forces
 

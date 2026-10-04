@@ -41,7 +41,7 @@ def test_two_arms_with_their_own_lengths_and_bases():
     q = np.zeros(18)
     np.testing.assert_allclose(tip(robot, q, ("right", 1.0)), [0.15, 0, 0.56], atol=1e-12)
     np.testing.assert_allclose(tip(robot, q, ("left", 1.0)), [-0.125, 0, 0.58], atol=1e-12)
-    assert float(robot.params["right.efficiency"].value) == 0.2
+    assert float(robot.params["right.efficiency.c1"].value) == 0.2
 
 
 def test_two_arms_dynamics_override_one_arm():

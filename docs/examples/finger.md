@@ -62,10 +62,11 @@ turns faster than about {glue:text}`speed:.2f` rad/s, then clips the commands to
 
 The motors pass on only part of their torque: {glue:text}`eta_mcp:.0f` % at the MCP and
 {glue:text}`eta_pip:.0f` % at the PIP (`adapt.MOTOR_EFFICIENCY`), fitted to measured fingertip
-forces. The template is lossless by default, and the simulations below deliver the full
-torque: with a different efficiency on each of two motors that one virtual spring couples, the
-force the finger receives no longer derives from the spring's energy, and a simulated finger can
-start to vibrate. `adapt.finger(efficiency=adapt.MOTOR_EFFICIENCY)` includes them.
+forces. The template's efficiency is 1, the default of every template, and the simulations
+below deliver the full torque: with a different efficiency on each of two motors that one
+virtual spring couples, the force the finger receives no longer derives from the spring's
+energy, and a simulated finger can start to vibrate.
+`adapt.finger(efficiency=adapt.MOTOR_EFFICIENCY)` includes them.
 
 The template takes its geometry and transmission as arguments. A longer finger with a larger
 pulley on the MCP joint, for example, has a new first coupling ratio:

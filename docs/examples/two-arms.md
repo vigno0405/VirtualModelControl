@@ -44,7 +44,8 @@ glue("threshold", float(np.degrees(bimanual.PRETENSION_THRESHOLD)), display=Fals
 params.table(bimanual.add_dynamics(bimanual.arms()), {
     "right.seg1.L0": "rest length of segment 1 (also `seg2`, `seg3`, and the left arm's)",
     "right.mount.position": "base of the right arm in the frame (also `left.mount.position`)",
-    "right.efficiency": "delivered over commanded motor torque (also `left.efficiency`)",
+    "right.efficiency.c1": "linear coefficient of the delivered over commanded motor torque "
+    "(also `left.efficiency.c1`)",
     "gravity": "gravity in the frame: the arms point up",
     "right_m1.mass": "mass of the right arm's segment 1, lumped at its middle",
     "right_stiffness.stiffness": "stiffness of the right arm in $\\Delta$, one value per axis",
@@ -54,9 +55,12 @@ params.table(bimanual.add_dynamics(bimanual.arms()), {
 })
 ```
 
-The stiffness and damping, which only the simulator uses, were identified on the real arms and
-refer to the delivered torque, so each arm's transmission keeps the measured efficiency: the
-simulated arms receive {glue:text}`EFFICIENCY:.2f` times the commanded torque.
+The stiffness and damping, which only the simulator uses, were identified on the real arms
+from the torques the motors were commanded, so the simulated arms take each torque as the
+controller sends it: their efficiency is 1, the default of every template. The efficiency of
+the tendons measured against a load cell, `bimanual.EFFICIENCY` ({glue:text}`EFFICIENCY:.2f`),
+matters for the forces the real arms exert on their surroundings; the
+[efficiency page](../concepts/efficiency.md) explains when to use it.
 
 The arms' encoders follow the library's sign convention (`bimanual.ENCODER_SIGN` is
 {glue:text}`ENCODER_SIGN:+.0f`), and their controller runs at {glue:text}`CONTROL_RATE:.0f` Hz.
@@ -97,8 +101,7 @@ arms.add("object", vmc.ContactSpring(distance - width, k_object))
 ```
 
 The controller pulls the tips together with a spring of zero rest length between them, slows
-their closing with a damper in parallel, and cancels the weight of the segments. Like every
-command, these reach the arms at {glue:text}`EFFICIENCY:.2f` of their value.
+their closing with a damper in parallel, and cancels the weight of the segments.
 
 ```{code-cell} python
 K = 20.0  # [N/m]
@@ -114,8 +117,8 @@ clock = vmc.sim.SimClock(dt=1 / bimanual.CONTROL_RATE)
 log = vmc.sim.run(plant, controller, clock, T=2.0)
 ```
 
-We follow the distance between the tips, the force of the spring that reaches the arms and the
-force on the object:
+We follow the distance between the tips, the force of the spring and the force on the
+object:
 
 ```{code-cell} python
 import matplotlib.pyplot as plt
@@ -135,7 +138,7 @@ top.plot(rows["t"], 100 * d)
 top.axhline(100 * width, color=viz.PALETTE[1], ls="--", label="object")
 top.set_ylabel("tip distance [cm]")
 top.legend()
-bottom.plot(rows["t"], bimanual.EFFICIENCY * K * d, label="spring")
+bottom.plot(rows["t"], K * d, label="spring")
 bottom.plot(rows["t"], on_object, label="on the object")
 bottom.set_xlabel("time [s]")
 bottom.set_ylabel("force [N]")
@@ -148,14 +151,12 @@ t = rows["t"].ravel()
 assert (d <= width).any(), "the tips never reach the object"
 glue("touch", float(t[np.argmax(d <= width)]), display=False)
 glue("spring", float(K * d[-1]), display=False)
-glue("delivered", float(bimanual.EFFICIENCY * K * d[-1]), display=False)
 glue("squeeze", float(on_object[-1]), display=False)
 ```
 
 The tips meet the object after {glue:text}`touch:.2f` s and stop on it. The spring's torques
-then ask for {glue:text}`spring:.2f` N, of which the arms receive {glue:text}`delivered:.2f` N,
-and the object feels {glue:text}`squeeze:.2f` N: the rest holds the soft arms bent. A stiffer
-spring squeezes harder.
+then pull with {glue:text}`spring:.2f` N and the object feels {glue:text}`squeeze:.2f` N: the
+rest holds the soft arms bent. A stiffer spring squeezes harder.
 
 ## Animate
 

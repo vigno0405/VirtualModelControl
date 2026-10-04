@@ -2,7 +2,7 @@ import casadi as ca
 import numpy as np
 
 from virtualmodelcontrol.core import constants
-from virtualmodelcontrol.models import Direct, TendonTransmission, from_dict
+from virtualmodelcontrol.models import Direct, Efficiency, TendonTransmission, from_dict
 from virtualmodelcontrol.robots import helyx
 
 rng = np.random.default_rng(5)
@@ -52,14 +52,41 @@ def test_dict_round_trip_and_direct_drive():
     assert direct.allocate(x, None, {}) is x and direct.config_from_motors(x, {}) is x
 
 
-def test_direct_drive_delivers_efficiency_times_the_command():
+def test_direct_drive_delivers_what_its_efficiency_gives():
     u = ca.DM([1.0, -2.0])
-    np.testing.assert_allclose(num(Direct().generalized_force(u, None, {})), [1.0, -2.0])
-    for eta, delivered in ((0.5, [0.5, -1.0]), ([0.8, 0.4], [0.8, -0.8])):
-        direct = Direct(eta)
+    assert float(Direct().params["efficiency.c1"].value) == 1.0  # the default
+    cases = (
+        (1.0, [1.0, -2.0]),
+        (0.5, [0.5, -1.0]),
+        ([0.8, 0.4], [0.8, -0.8]),
+        (Efficiency(0.5, 0.1), [0.6, -0.6]),  # 0.5 u + 0.1 u²
+    )
+    for efficiency, delivered in cases:
+        direct = Direct(efficiency)
         p = constants(direct.params)
         np.testing.assert_allclose(num(direct.generalized_force(u, None, p)), delivered)
-        assert direct.allocate(u, None, p) is u  # commands are not divided by η
-        copy = from_dict(direct.to_dict(), kind="actuation")
-        assert copy.to_dict() == direct.to_dict() == {"type": "direct", "efficiency": eta}
-    assert Direct().to_dict() == {"type": "direct"} and "efficiency" not in Direct().params
+        assert direct.allocate(u, None, p) is u  # commands are never divided by the efficiency
+        assert from_dict(direct.to_dict(), kind="actuation").to_dict() == direct.to_dict()
+    # dicts written by 0.2.0
+    assert from_dict({"type": "direct"}, kind="actuation").to_dict() == Direct().to_dict()
+    old = from_dict({"type": "direct", "efficiency": [0.8, 0.4]}, kind="actuation")
+    assert old.to_dict() == Direct([0.8, 0.4]).to_dict()
+
+
+def test_tendons_deliver_through_their_efficiency():
+    u = rng.normal(size=9) * 0.05
+    B = num(TENDONS.jacobian(P).T)
+    np.testing.assert_allclose(num(TENDONS.generalized_force(ca.DM(u), None, P)), B @ u)
+    lossy = TendonTransmission(
+        list(helyx.TENDON_ANGLES), helyx.SPOOL_RADIUS, Efficiency(0.9, -1.0, 3.0)
+    )
+    delivered = 0.9 * u - u**2 + 3.0 * u**3
+    p = constants(lossy.params)
+    np.testing.assert_allclose(num(lossy.generalized_force(ca.DM(u), None, p)), B @ delivered)
+    tau = rng.normal(size=9)
+    np.testing.assert_allclose(
+        num(lossy.allocate(ca.DM(tau), None, p)), num(TENDONS.allocate(ca.DM(tau), None, P))
+    )
+    assert from_dict(lossy.to_dict(), kind="actuation").to_dict() == lossy.to_dict()
+    old = dict(TENDONS.to_dict(), efficiency=0.12)  # a dict written by 0.2.0
+    assert from_dict(old, kind="actuation").to_dict()["efficiency"] == Efficiency(0.12).to_dict()

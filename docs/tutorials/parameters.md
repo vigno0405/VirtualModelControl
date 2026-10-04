@@ -158,13 +158,11 @@ peak_tip = t[second][np.argmax(paths[second, 0])]
 gap = np.linalg.norm(paths - rows["goal"], axis=1)[second]
 glue("lag", 1000 * float(peak_tip - peak_goal), display=False)
 glue("gap", 100 * float(gap.max()), display=False)
-glue("eta", 100 * helyx.EFFICIENCY, display=False)
 ```
 
 The tip follows the goal about {glue:text}`lag:.0f` ms behind and stays within
 {glue:text}`gap:.1f` cm of it. The gap is mostly vertical: the arm hangs below the goal, where
-{glue:text}`eta:.0f` % of the spring balances the arm's own stiffness and the part of its weight
-left uncompensated.
+the spring balances the arm's own stiffness.
 
 ## Animate
 

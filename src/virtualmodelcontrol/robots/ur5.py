@@ -42,7 +42,7 @@ def with_hand(
     a: Any = DH_A,
     alpha: Any = DH_ALPHA,
     link_masses: Any = None,
-    efficiency: Any = None,
+    efficiency: Any = 1.0,
     **hand: Any,
 ) -> Mechanism:
     """The UR5 with the ADAPT hand on its flange: q = (6 arm joints, 13 hand motors).
@@ -52,7 +52,7 @@ def with_hand(
     ``mounting_position`` [m] in the flange frame, turned by ``mounting_angle`` [rad] about its z
     axis; ``hand`` takes the keyword arguments of ``adapt.hand_model``, ``link_masses`` [kg]
     overrides the hand's masses by key and ``efficiency`` its motors' delivered over commanded
-    torque (lossless by default).
+    torque (1 by default).
     """
     body = Assembly({
         "ur5": (model(d=d, a=a, alpha=alpha), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),

@@ -27,35 +27,38 @@ SEGMENT_MASS = 0.030
 """Lumped mass [kg] per 145 mm of arm, at each section's centre (60, 30, 30 g)."""
 
 EFFICIENCY = 0.12
-"""Delivered over commanded motor torque, calibrated against a load cell."""
+"""Delivered over commanded motor torque, calibrated against a load cell: for estimates of
+external forces. Not the default (1), because the stiffness and damping are referred to the
+commanded torque."""
 
 STIFFNESS = {
-    "right": [
+    "right": np.array([
         234.0878082533943, 199.5160032646154, 410.00652675113776,
         391.7368779384143, 475.48588391722103, 831.8400830004166,
         445.3460323321939, 517.897763947965, 938.3750233876958,
-    ],
-    "left": [
+    ]) / 0.12,
+    "left": np.array([
         248.00753057771666, 270.89848713023935, 451.2551978336581,
         631.3985192570362, 619.4268893527735, 1205.3960742665633,
         779.3445118931818, 801.3675528661909, 1478.1926805912778,
-    ],
+    ]) / 0.12,
 }  # fmt: skip
-"""Diagonal stiffness in Δ of each arm [N/m], physical (referred to the delivered torque)."""
+"""Diagonal stiffness in Δ of each arm [N/m], referred to the commanded torque (identified values
+referred to the delivered torque, divided by the efficiency 0.12 they were identified with)."""
 
 DAMPING = {
-    "right": [
+    "right": np.array([
         125.02998503799478, 104.47366885419642, 205.44115492186452,
         139.25665709952858, 148.06713140688805, 284.3437615659688,
         135.32320950338075, 141.0787208817908, 280.4637921085779,
-    ],
-    "left": [
+    ]) / 0.12,
+    "left": np.array([
         110.79813679873712, 109.05602570818645, 169.78235387942692,
         135.8665659409267, 136.7603243830659, 262.78637230057535,
         129.65653312195928, 128.6226181777195, 237.87572608992838,
-    ],
+    ]) / 0.12,
 }  # fmt: skip
-"""Diagonal damping in Δ of each arm [N·s/m], physical."""
+"""Diagonal damping in Δ of each arm [N·s/m], referred like the stiffness."""
 
 ENCODER_SIGN = 1.0
 """Sign of the motor encoders against the library convention (θ > 0 pulls a tendon)."""
@@ -108,7 +111,7 @@ def arms(
     *,
     lengths: Any = None,
     base_positions: Any = None,
-    efficiency: Any = EFFICIENCY,
+    efficiency: Any = 1.0,
     segment_mass: float = SEGMENT_MASS,
     section_radius: Any = helyx.SECTION_RADIUS,
     spool_radius: Any = helyx.SPOOL_RADIUS,
@@ -118,7 +121,7 @@ def arms(
 
     Points: ``robot.point("right", s=1.0)`` is the right tip. ``lengths`` [m] (one tuple for
     both arms, or a dict by arm), ``base_positions`` [m] (a dict by arm; arms left out keep
-    their defaults), ``efficiency``,
+    their defaults), ``efficiency`` (1 by default),
     ``segment_mass`` [kg per 145 mm], the radii [m] and ``tendon_angles`` [rad] (one array for
     both arms, or a dict by arm) override the defaults.
     """

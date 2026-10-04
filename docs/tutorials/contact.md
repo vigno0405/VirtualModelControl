@@ -108,11 +108,12 @@ stops, then settles. Each deeper goal raises the force by one step; the last one
 {glue:text}`press_end:.3f` N against {glue:text}`press_goal:.3f` N expected. To press more
 gently, lower $K$ or damp the tip more.
 
-This finger delivers the full torque of its motors. On a robot whose transmission passes on
-only a share $\eta$ of each torque, such as the soft arm ($\eta$ = {glue:text}`eta_arm:.2f`),
-the controller's torques stay the same and the spring presses with $\eta K$ times its stretch:
-a chosen force needs $1/\eta$ times the stretch, corrected for the robot's own stiffness and
-weight.
+This finger delivers the full torque of its motors. A real transmission can pass on less: the
+soft arm's tendons deliver a share $\eta$ = {glue:text}`eta_arm:.2f` of each motor torque. The
+arm's model does not need it, because its stiffness and damping were identified from the
+commanded torques, but its forces on the surroundings do: the spring presses with $\eta K$
+times its stretch, so a chosen force needs $1/\eta$ times the stretch, corrected for the arm's
+own stiffness and weight. The [efficiency page](../concepts/efficiency.md) explains both.
 
 ```{code-cell} python
 :tags: [remove-output]

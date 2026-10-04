@@ -120,6 +120,7 @@ examples/turtle
 
 concepts/library
 concepts/pcc
+concepts/efficiency
 concepts/conventions
 ```
 

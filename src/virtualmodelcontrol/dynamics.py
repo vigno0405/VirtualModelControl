@@ -55,11 +55,13 @@ def compile_dynamics(robot: Mechanism, runtime: Iterable[str] = ()) -> Dynamics:
     """
     if robot.model is None:
         raise ValueError(f"robot {robot.name!r} needs a kinematic model")
+    actuation = robot.actuation if robot.actuation is not None else Direct()
     params = ParamSet()
     params.merge(robot.params, robot.name)
+    if robot.actuation is None:
+        params.merge(actuation.params, robot.name)
     binding = Binding(params, params.select(patterns=runtime, scopes=["stage"]))
     space = robot.model.space
-    actuation = robot.actuation if robot.actuation is not None else Direct()
     pa = binding.view(actuation.params)
     n_u = actuation.motor_sizes(space)[1]
     q, v, a = ca.SX.sym("q", space.nq), ca.SX.sym("v", space.nv), ca.SX.sym("a", space.nv)

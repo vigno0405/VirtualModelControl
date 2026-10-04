@@ -83,7 +83,7 @@ params.table(arm, {
     "seg1.d": "distance of the tendons from the backbone",
     "seg1.delta": "angles of the three tendons around segment 1",
     "seg1.r": "spool radius of the motors",
-    "efficiency": "delivered over commanded motor torque",
+    "efficiency.c1": "linear coefficient of the delivered over commanded motor torque",
     "gravity": "gravity in the base frame, as mounted",
     "m1.mass": "mass of segment 1, lumped at its middle",
     "m1.s": "where that mass sits on the arm",
@@ -93,10 +93,11 @@ params.table(arm, {
 ```
 
 The stiffness and damping come from an identification on a real arm; only the simulator uses
-them. The efficiency, measured against a load cell, is the share of each motor torque that the
-tendons pass on to the arm. Controllers send their torques as computed, as on the real arm,
-and the simulated arm receives {glue:text}`eta:.0f` % of each, so it feels that share of every
-virtual element, gravity compensation included.
+them. They were fitted to the torques the motors were commanded, so the simulated arm takes
+each torque as the controller sends it: its efficiency is 1, the default of every template.
+The efficiency of the tendons measured against a load cell, `helyx.EFFICIENCY`
+({glue:text}`eta:.0f` %), matters for the forces the real arm exerts on its surroundings; the
+[efficiency page](../concepts/efficiency.md) explains when to use it.
 
 On the real arm, `helyx.output_stage()` adds a small pretension to every motor command
 (0.010 N·m per radian of motor angle). The simulations below leave it out.
@@ -159,10 +160,10 @@ glue("reach_99", float(t[np.nonzero(outside)[0][-1] + 1]), display=False)
 glue("eta", 100 * helyx.EFFICIENCY, display=False)
 ```
 
-The tip starts {glue:text}`reach_start:.0f` cm from the goal, swings twice and is within 1 % of
-its final distance after {glue:text}`reach_99:.1f` s. It stops {glue:text}`reach_end:.1f` cm
-short of the goal, where {glue:text}`eta:.0f` % of the virtual spring balances the arm's own
-stiffness and the part of its weight left uncompensated; a stiffer spring brings it closer.
+The tip starts {glue:text}`reach_start:.0f` cm from the goal, comes in without overshooting
+and is within 1 % of its final distance after {glue:text}`reach_99:.1f` s. It stops
+{glue:text}`reach_end:.1f` cm short of the goal, where the virtual spring balances the arm's own
+stiffness; a stiffer spring brings it closer.
 
 ## Avoid an obstacle
 
@@ -250,4 +251,4 @@ glue("height_off", 100 * float(kin.position(q, 1.0)[2] - height), display=False)
 
 The middle of the arm settles {glue:text}`middle_off:.1f` cm from its goal and the tip
 {glue:text}`height_off:.1f` cm below the dashed line, free to slide along it: as in the first
-run, the arm's own stiffness and the uncompensated part of its weight hold both a little short.
+run, the arm's own stiffness holds both a little short.

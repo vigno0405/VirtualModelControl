@@ -156,7 +156,7 @@ example opens with its robot's schematic, and the build and the screenshots are 
   efficiencies on coupled motors make virtual elements non-conservative; controllers never
   divide by η. Done when its two failing tests are updated, every page that simulates these
   robots is re-run and its text checked against the new numbers, and the CHANGELOG says what
-  changed.
+  changed. Changed back in 0.3.0: every robot's efficiency is 1 by default (see below).
 - [x] README: show
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"` in the
   "Install" section too, right under `pip install virtualmodelcontrol`, as the way to get the
@@ -206,6 +206,12 @@ runs in simulation and on the robot.
   blend, in the controller and later in the planner (the same blend in both).
   Progress: done in the controller (`vmc.control.SwapController`, `blend_weight`) and over ROS
   (swap messages); the planner uses `blend_weight` in 0.8.0; the documentation remains.
+- [x] **Transmission efficiency:** 1 by default for every robot, because models identified
+  from the commanded torques already include their transmission (the soft arm and the two arms
+  back to stiffness and damping referred to the commanded torque); `vmc.Efficiency`, the
+  delivered torque as a polynomial of the commanded one, motor by motor, to tune and identify;
+  `identification.plateaus` and `fit_efficiency`, checked against the lab's calibration code
+  and the finger's recorded data; a concepts page.
 - [ ] **Configurations:** robots, controllers and experiments in YAML through the registry,
   round-trip tested.
 - [ ] **Interactive tools:** a small GUI (matplotlib widgets or Qt) to drag goals, change gains
@@ -319,8 +325,8 @@ the docs keep a table that maps one to the other.
   fixed (they cannot be identified from slow data).
 - [ ] Generic linear-in-parameters regression from the derivative of the dynamics residual with
   respect to the parameters; nonlinear least squares.
-- [ ] Calibration: actuator efficiency (plateaus, fit through the origin), transmission ratios,
-  motor constants, base transforms between arms, Stribeck friction for the compensation stage.
+- [ ] Calibration: transmission ratios, motor constants, base transforms between arms, Stribeck
+  friction for the compensation stage (the efficiency fit is done, in 0.3.0).
 - [ ] Measurement models shared by simulated sensors and estimators: encoders, motion-capture
   markers, IMU relative rotations, load cells.
 - [ ] Shape from motion capture and from IMUs (kinematic inversion), with velocities computed at
@@ -441,7 +447,7 @@ new designs against these themes, so nothing they need is made hard:
 | digital twin with simulated sensors | `serve(ModelPlant)` and realism wrappers | 0.3.0, 0.5.0 |
 | logging runs to npz and CSV | run logs | 0.3.0 |
 | step experiments and K, D fits | identification | 0.6.0 |
-| efficiency calibration against a load cell | calibration | 0.6.0 |
+| efficiency calibration against a load cell | `identification.fit_efficiency` | done |
 | Kalman filter fusing encoders and motion capture | estimation | 0.6.0 |
 | contact-force and task-stiffness estimates | estimation | 0.6.0 |
 | tank-based grasp-force tracking | passivity and adaptation | 0.7.0 |

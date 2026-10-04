@@ -64,5 +64,6 @@ $$
 and its motor, with spool radius $r$, turns by $\theta_m = -\Delta L / r$: a positive motor
 angle pulls the tendon. With three tendons per segment this map is invertible, so the measured
 motor angles give $\Delta$ exactly, and the motor torques that realize a generalized force
-$\tau$ solve $B u = \tau$ with $B = (\partial\theta_m/\partial\Delta)^\top$. A transmission
-with efficiency $\eta$ delivers $\eta\,\tau$.
+$\tau$ solve $B u = \tau$ with $B = (\partial\theta_m/\partial\Delta)^\top$. The
+transmission's [efficiency](efficiency.md), 1 by default, maps the commanded motor torques to
+the delivered ones.

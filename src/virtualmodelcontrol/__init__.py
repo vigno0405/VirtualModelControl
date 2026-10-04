@@ -3,7 +3,7 @@
 import importlib
 from typing import TYPE_CHECKING, Any
 
-from . import sim
+from . import identification, sim
 from .compiler import Compiled, compile
 from .control import VMCController
 from .core import SO2, Euclidean, Param, ParamSet, Product, Signals, register
@@ -36,7 +36,7 @@ from .mechanisms import (
     TanhDamper,
     TanhSpring,
 )
-from .models import Kinematics
+from .models import Efficiency, Kinematics
 from .system import VirtualMechanismSystem
 
 try:
@@ -62,6 +62,7 @@ __all__ = [
     "ContactSpring",
     "Custom",
     "Dynamics",
+    "Efficiency",
     "Euclidean",
     "ForceSource",
     "FramePoint",
@@ -97,6 +98,7 @@ __all__ = [
     "compile",
     "compile_dynamics",
     "hardware",
+    "identification",
     "register",
     "sim",
     "viz",

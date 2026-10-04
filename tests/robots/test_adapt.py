@@ -51,7 +51,7 @@ def test_finger_controller_pushes_back_from_the_limits():
 
 def test_add_dynamics_gives_the_simulator_the_gravity_the_controller_compensates():
     q0, drift = np.array([0.6, 0.4]), []
-    for efficiency in (None, adapt.MOTOR_EFFICIENCY):
+    for efficiency in (1.0, adapt.MOTOR_EFFICIENCY):
         finger = adapt.add_dynamics(adapt.finger(efficiency=efficiency), damping=0.01)
         assert {"gravity", "damping"} <= set(finger.components)
         ctrl = vmc.Mechanism("ctrl")
@@ -60,13 +60,13 @@ def test_add_dynamics_gives_the_simulator_the_gravity_the_controller_compensates
         plant = vmc.sim.ModelPlant(finger, q0=q0)
         vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 500), T=0.5)
         drift.append(np.abs(plant.q - q0).max())
-    assert drift[0] < 1e-9  # an ideal transmission: the compensated finger stays
+    assert drift[0] < 1e-9  # efficiency 1 (the default): the compensated finger stays
     assert drift[1] > 1e-3  # the motors deliver η of the compensation: the finger sags
 
 
 def test_the_finger_and_the_hand_receive_efficiency_times_the_command():
-    assert "efficiency" not in adapt.finger().params  # lossless by default
-    assert "efficiency" not in adapt.hand().params
+    assert adapt.finger().params["efficiency.c1"].value == 1.0  # the default efficiency
+    assert adapt.hand().params["efficiency.c1"].value == 1.0
     cases = ((adapt.finger, adapt.MOTOR_EFFICIENCY), (adapt.hand, adapt.HAND_MOTOR_EFFICIENCY))
     for template, eta in cases:
         dyn = vmc.compile_dynamics(adapt.add_dynamics(template(efficiency=eta)))

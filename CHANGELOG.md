@@ -19,6 +19,30 @@ versions, with one minor version of deprecation before a removal).
   with a quintic blend of the two controllers' torques (continuous torque and first two
   derivatives), the blend the lab's controller uses; a swap asked for during a blend waits for
   it. `vmc.ros.control(..., swaps={name: controller})` swaps on a `String` message.
+- `vmc.Efficiency`: the motor torque a transmission delivers, as a polynomial of the commanded
+  one, τ = c₁u + c₂u² + … + cₙuⁿ, each coefficient one value for every motor or one per motor.
+  The coefficients are `design` Params, to change, tune, keep live in a simulator or identify.
+  `Direct` and `TendonTransmission` take one, or a number for its linear coefficient.
+- `vmc.identification`: `plateaus`, the settled end of every hold of a command in a log, and
+  `fit_efficiency`, a least-squares fit through the origin, motor by motor or shared, from
+  delivered torques or from one measured quantity with a weight per motor (a fingertip force,
+  say). Both agree with the lab's calibration code, and the fit gives the finger's
+  `adapt.MOTOR_EFFICIENCY` back from its recorded data.
+- Docs: a "Transmission efficiency" page in the concepts.
+
+### Changed
+
+- Every robot's efficiency is 1 by default: models identified from the commanded torques
+  already include their transmission. The soft arm and the two arms take each torque as the
+  controller sends it again, with `helyx.SIM_STIFFNESS`, `helyx.SIM_DAMPING`,
+  `bimanual.STIFFNESS` and `bimanual.DAMPING` referred to the commanded torque (the identified
+  values divided by the 0.12 they were fitted with), as in 0.1.0. 0.2.0 applied 0.12 to every
+  torque with physical stiffness and damping: the same equilibria without gravity, but natural
+  frequencies about 2.9 times lower and a gravity compensation that cancelled only 12 % of the
+  weight. `helyx.EFFICIENCY`, `bimanual.EFFICIENCY`, `adapt.MOTOR_EFFICIENCY` and
+  `adapt.HAND_MOTOR_EFFICIENCY` stay as calibrations, never as defaults.
+- A transmission's efficiency Param is now `efficiency.c1` (and `c2`, … for a polynomial);
+  transmissions saved by 0.2.0 still load.
 
 ## [0.2.0] - 2026-10-04
 

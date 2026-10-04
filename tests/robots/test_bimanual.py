@@ -16,7 +16,7 @@ def test_straight_arms_stand_on_their_bases():
         )
     masses = [float(robot.params[f"right_m{i}.mass"].value) for i in (1, 2, 3)]
     np.testing.assert_allclose(masses, [0.06, 0.03, 0.03])
-    assert float(robot.params["right.efficiency"].value) == bimanual.EFFICIENCY
+    assert float(robot.params["right.efficiency.c1"].value) == 1.0  # the default efficiency
 
 
 def test_each_arm_matches_the_single_arm_model():

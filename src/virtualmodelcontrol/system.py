@@ -35,10 +35,12 @@ class VirtualMechanismSystem:
 
     @property
     def params(self) -> ParamSet:
-        """Every Param of the system, robot first."""
+        """Every Param of the system, robot first (with the default actuation's, if it has none)."""
         ps = ParamSet()
         for mechanism in (self.robot, *self.controllers):
             ps.merge(mechanism.params, mechanism.name)
+        if self.robot.actuation is None:
+            ps.merge(self.actuation.params, self.robot.name)
         return ps
 
     @property
