@@ -153,16 +153,16 @@ example opens with its robot's schematic, and the build and the screenshots are 
 
 ### Release
 
-- [ ] **Transmission efficiency in the templates**, as in the lab's own models: the robot
+- [x] **Transmission efficiency in the templates**, as in the lab's own models: the robot
   receives η times the commanded torque, and its own stiffness and damping are the physical,
   identified values (the soft arm kept η = 1 and divided its stiffness and damping by 0.12: the
   same equilibria without gravity, but natural frequencies about 2.9 times too high). Soft arm
   and two arms 0.12 in the tendon transmission; the finger and the hand stay lossless by default,
   their measured per-motor efficiencies opt-in (`Direct(efficiency=...)`), because unequal
   efficiencies on coupled motors make virtual elements non-conservative; controllers never
-  divide by η. The code is on the branch `efficiency-transmission`. Done when its two failing tests are updated, every page that
-  simulates these robots is re-run and its text checked against the new numbers, and the
-  CHANGELOG says what changed.
+  divide by η. Done when its two failing tests are updated, every page that simulates these
+  robots is re-run and its text checked against the new numbers, and the CHANGELOG says what
+  changed.
 - [ ] README: show
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"` in the
   "Install" section too, right under `pip install virtualmodelcontrol`, as the way to get the
