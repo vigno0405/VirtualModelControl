@@ -241,15 +241,17 @@ pull of the goal and the push of the obstacle balance.
 
 ## Shape the whole body
 
-Springs can act anywhere along the arm. Here one holds the middle of the arm at a point, and
-another acts on the tip's position along $z$ only: it pulls on the projection of the tip on
-the $z$ axis.
+Springs can pull on any point of the arm, not only on its tip, so together they set the shape
+of the whole body. Here one spring pulls the middle of the arm ($s = 0.5$) to a point, the
+cross, and a second one pulls the tip towards the dashed line $z = 0.38$ m. The second spring
+acts along $z$ only: it stretches with the tip's distance from the line, so it does not mind
+where along the line the tip ends.
 
 ```{code-cell} python
 middle = np.array([-0.05, 0.0, 0.2])  # [m]
 reach_z = 0.38  # [m]
 
-along_z = vmc.Projection(tip - [0, 0, reach_z], [0, 0, 1])
+along_z = vmc.Projection(tip - [0, 0, reach_z], [0, 0, 1])  # distance
 
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("middle", vmc.LinearSpring(arm.point(s=0.5) - middle, 600.0))
@@ -261,8 +263,8 @@ q = simulate(arm, ctrl).arrays()["q"][-1]
 fig, ax = plt.subplots(figsize=(4.4, 5.2))
 viz.draw_robot(ax, arm, np.zeros(9), color="0.85")
 viz.draw_robot(ax, arm, q)
-viz.draw_goal(ax, middle)
-ax.axhline(reach_z, color=viz.PALETTE[2], ls="--", label="tip goal in $z$")
+viz.draw_goal(ax, middle, label="goal of the middle")
+ax.axhline(reach_z, color=viz.PALETTE[2], ls="--", label="line for the tip")
 viz.label_axes(ax)
 ax.legend(loc="lower left");
 ```
@@ -273,6 +275,7 @@ glue("middle_off", 100 * float(np.linalg.norm(kin.position(q, 0.5) - middle)), d
 glue("z_off", 100 * float(kin.position(q, 1.0)[2] - reach_z), display=False)
 ```
 
-The middle of the arm settles {glue:text}`middle_off:.1f` cm from its goal and the tip
-{glue:text}`z_off:.1f` cm beyond the dashed line, free to slide along it: as in the first run,
-the arm's own stiffness holds both a little short.
+The middle of the arm stops {glue:text}`middle_off:.1f` cm from the cross and the tip
+{glue:text}`z_off:.1f` cm above the line: as in the first run, the arm's own stiffness holds
+both a little short of their goals. Nothing pulls the tip along the line, so where it ends there
+follows from the shape the two springs give the body.
