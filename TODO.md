@@ -322,7 +322,11 @@ the docs keep a table that maps one to the other.
 
 - [ ] Stiffness and damping from step responses: linear least squares with K, D ≥ 0, smoothing,
   baseline subtraction, a friction column, validation by simulating held-out steps. Masses stay
-  fixed (they cannot be identified from slow data).
+  fixed (they cannot be identified from slow data). Progress: the fit is done
+  (`identification.fit_stiffness_damping`, checked on simulated runs); the step experiment as
+  a library tool and the friction column remain. The 145-145-145 arm needs it: closed-loop runs
+  cannot identify it (its tendons go slack under small VMC torques), so it uses the other
+  arm's stiffness and damping until a step experiment is run on it.
 - [ ] Generic linear-in-parameters regression from the derivative of the dynamics residual with
   respect to the parameters; nonlinear least squares.
 - [ ] Calibration: transmission ratios, motor constants, base transforms between arms, Stribeck
@@ -446,7 +450,7 @@ new designs against these themes, so nothing they need is made hard:
 | swapping springs live, blended | element swaps with a quintic blend | 0.3.0 |
 | digital twin with simulated sensors | `serve(ModelPlant)` and realism wrappers | 0.3.0, 0.5.0 |
 | logging runs to npz and CSV | run logs | 0.3.0 |
-| step experiments and K, D fits | identification | 0.6.0 |
+| step experiments and K, D fits | `identification.fit_stiffness_damping`; the experiment in 0.6.0 | 0.6.0 |
 | efficiency calibration against a load cell | `identification.fit_efficiency` | done |
 | Kalman filter fusing encoders and motion capture | estimation | 0.6.0 |
 | contact-force and task-stiffness estimates | estimation | 0.6.0 |

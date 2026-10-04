@@ -29,6 +29,13 @@ versions, with one minor version of deprecation before a removal).
   say). Both agree with the lab's calibration code, and the fit gives the finger's
   `adapt.MOTOR_EFFICIENCY` back from its recorded data.
 - Docs: a "Transmission efficiency" page in the concepts.
+- `vmc.identification.fit_stiffness_damping`: a robot's diagonal stiffness and damping from
+  logged runs under known motor torques, by least squares with K, D ≥ 0 in motor torques,
+  relative to a resting baseline, with the robot's masses and gravity known; each run can carry
+  its own gravity. It recovers the stiffness and damping of a simulated arm within a few percent.
+- Docs: the soft-arm example uses the arm mounted on its side (`145-145-145`), and the arm that
+  hangs from its base (`145-290-290`) has an example of its own; both use the same stiffness
+  and damping.
 
 ### Changed
 

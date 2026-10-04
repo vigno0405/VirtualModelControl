@@ -121,9 +121,9 @@ SIM_STIFFNESS = np.array([
     391.6936839908778, 475.436633573179, 831.8383997691384,
     445.34472425862594, 517.8961860162584, 938.3740743393556,
 ]) / 0.12  # fmt: skip
-"""Diagonal stiffness in Δ of the simulated 145-290-290 arm [N/m], referred to the commanded
-torque (identified values referred to the delivered torque, divided by the efficiency 0.12 they
-were identified with)."""
+"""Diagonal stiffness in Δ [N/m] of the simulated arm, from an identification on a real Helyx
+arm, used for every three-segment arm; referred to the commanded torque (identified values
+referred to the delivered torque, divided by the efficiency 0.12 they were identified with)."""
 
 SIM_DAMPING = np.array([
     125.13438533964865, 104.5563494024772, 205.43182586195965,
@@ -137,7 +137,8 @@ def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -
     """Give the arm its stiffness and damping in Δ and gravity, for simulation.
 
     ``stiffness`` [N/m] and ``damping`` [N·s/m] are per-axis (3 values per segment); the
-    defaults are the simulated three-segment arm's, so other arms must give their own.
+    defaults, ``SIM_STIFFNESS`` and ``SIM_DAMPING``, serve every three-segment arm, so arms with
+    another number of segments must give their own.
     """
     n = robot.model.space.nq
     if n != SIM_STIFFNESS.size and (stiffness is None or damping is None):

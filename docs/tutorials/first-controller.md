@@ -16,7 +16,7 @@ import docs_setup
 
 ## The robot
 
-`helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
+`helyx.arm` builds the soft arm of the [hanging-arm example](../examples/hanging-arm.md): its
 kinematics, its nine tendon motors and the masses of its segments. A simulator also needs the
 arm's own stiffness and damping, and gravity; `helyx.add_dynamics` adds them.
 

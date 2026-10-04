@@ -87,6 +87,7 @@ log = vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 330), T=3.0)
 Each example builds a ready-made robot, controls it in simulation and animates the run:
 
 - [Soft arm][soft-arm]: reach a point, avoid an obstacle, shape the whole arm.
+- [Hanging soft arm][hanging-arm]: the same with an arm that hangs from its base.
 - [Two arms][two-arms]: squeeze an object between the tips of two soft arms.
 - [Finger][finger]: a stiff fingertip and soft joint limits.
 - [Hand][hand]: grasp a ball, alone or mounted on a UR5 arm.
@@ -108,6 +109,7 @@ The code is under the [MIT license][license].
 [install]: https://vigno0405.github.io/VirtualModelControl/installation.html
 [figure]: https://github.com/vigno0405/VirtualModelControl/blob/main/docs/scripts/readme_figure.py
 [soft-arm]: https://vigno0405.github.io/VirtualModelControl/examples/soft-arm.html
+[hanging-arm]: https://vigno0405.github.io/VirtualModelControl/examples/hanging-arm.html
 [two-arms]: https://vigno0405.github.io/VirtualModelControl/examples/two-arms.html
 [finger]: https://vigno0405.github.io/VirtualModelControl/examples/finger.html
 [hand]: https://vigno0405.github.io/VirtualModelControl/examples/hand.html

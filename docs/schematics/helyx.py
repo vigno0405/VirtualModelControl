@@ -58,7 +58,7 @@ def figure(geometry: str = "145-290-290") -> Any:
     for s in breaks:
         z = kin.position(q, s)[2]
         ax.plot([-0.02, 0.02], [z, z], color=NAVY, lw=2)
-        ax.text(0.035, z, f"$s = {s:g}$", va="center", color=NAVY)
+        ax.text(0.035, z, f"$s = {s:.2g}$", va="center", color=NAVY)
     for i in range(3):
         z = kin.position(q, (breaks[i] + breaks[i + 1]) / 2)[2]
         ax.text(0.035, z, f"segment {i + 1}\n{1000 * L0[i]:.0f} mm", va="center")

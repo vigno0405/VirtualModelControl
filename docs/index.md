@@ -67,7 +67,8 @@ pip install virtualmodelcontrol
 [tutorials](tutorials/coordinates-and-components.md) then go through the library step by step,
 up to building your own robot, and the examples apply it to complete tasks on ready-made robots:
 
-- [a soft arm](examples/soft-arm.md) that reaches a point, avoids an obstacle and changes shape;
+- [a soft arm](examples/soft-arm.md) that reaches a point, avoids an obstacle and changes shape, and
+  [one that hangs](examples/hanging-arm.md) from its base;
 - [two soft arms](examples/two-arms.md) that squeeze an object between them;
 - [a finger](examples/finger.md) with a stiff fingertip and soft joint limits;
 - [a hand](examples/hand.md) that grasps, alone or mounted on a UR5 arm;
@@ -108,6 +109,7 @@ tutorials/extend
 :caption: Examples
 
 examples/soft-arm
+examples/hanging-arm
 examples/two-arms
 examples/finger
 examples/hand
