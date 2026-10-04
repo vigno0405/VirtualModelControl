@@ -48,7 +48,10 @@ robot's dynamics all come from that one graph by automatic differentiation, so t
 disagree with each other. The robot's dynamics take one form for every robot, the residual
 
 $$
-M(q)\,\dot v + h(q, v) - B(q)\,u - \textstyle\sum_k J_k^\top f_k = 0,
+\begin{aligned}
+&M(q)\,\dot v + h(q, v) \\
+&\quad - B(q)\,u - \textstyle\sum_k J_k^\top f_k = 0,
+\end{aligned}
 $$
 
 with $M$ the mass matrix, $h$ the velocity and gravity terms, $B$ the actuation map, $f_k$ the

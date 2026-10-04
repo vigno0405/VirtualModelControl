@@ -27,7 +27,10 @@ towards $(D_x, D_y)$, and $D_l$ lengthens it. With rest length $L_0$, section ra
 local arc fraction $s \in [0, 1]$,
 
 $$
-D = \sqrt{D_x^2 + D_y^2 + \varepsilon}, \qquad \theta(s) = s\,D/d .
+\begin{gathered}
+D = \sqrt{D_x^2 + D_y^2 + \varepsilon}, \\
+\theta(s) = s\,D/d .
+\end{gathered}
 $$
 
 The frame at $s$ is turned by $\theta$ about the axis $(-D_y, D_x, 0)/D$, and its origin is

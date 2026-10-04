@@ -164,8 +164,12 @@ gain more energy than the arm gives up.
 From its balance, a controller without sources does on the robot the work
 
 $$
+\begin{aligned}
 \int_0^t \text{port}\,\mathrm{d}t
-= E(0) - E(t) + \int_0^t \text{dissipation}\,\mathrm{d}t \;\le\; E(0),
+&= E(0) - E(t) \\
+&\quad + \int_0^t \text{dissipation}\,\mathrm{d}t \\
+&\le E(0),
+\end{aligned}
 $$
 
 since dissipation is never positive and springs and masses never store negative energy.

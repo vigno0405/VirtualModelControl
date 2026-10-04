@@ -86,3 +86,19 @@ ul.contains-task-list {
 .md-typeset table.docutils td:last-child {
   min-width: 14em;
 }
+
+/* Display equations: a wide one scrolls sideways inside itself on a phone, not the page. */
+.md-typeset mjx-container[display="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+/* The general index: its two columns stack on a phone, and long module names wrap. */
+@media screen and (max-width: 44.9375em) {
+  table.genindextable td {
+    display: block;
+    width: auto !important;
+    overflow-wrap: anywhere;
+  }
+}
