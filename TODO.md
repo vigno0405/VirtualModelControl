@@ -42,11 +42,11 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 
 - **0.1.0 is on PyPI:** core, mechanisms, PCC kinematics, tendons, serial chains, compiler and
   controller, robot dynamics from components, model-based simulator, Helyx arm and ADAPT finger.
-- **On `main`, not yet released:** bimanual, hand, turtle and UR5 templates; Jacobians and
-  Hessians of every site; transmission efficiency; mounting parts on frames; opt-in output stages
-  (friction compensation, pretension, torque offset, torque limit); speed
-  regulator for virtual states; figures in the lab style; contact; all dependencies installed with
-  the package; CI on Ubuntu 22.04 and 24.04.
+- **On `main`, ready to be released as 0.2.0** (see `CHANGELOG.md`): bimanual, hand, turtle and
+  UR5 templates; Jacobians and Hessians of every site; transmission efficiency; mounting parts on
+  frames; opt-in output stages; speed regulator for virtual states; figures and animations;
+  contact; the rebuilt documentation; and the first parts of 0.3.0: hardware profiles, the
+  Dynamixel plant, the real-time run loop and the ROS 2 bridge.
 - **To update an installed copy,** see "Update" on the documentation's Installation page. Until
   0.2.0 is on PyPI, the current state installs from GitHub:
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -167,6 +167,8 @@ example opens with its robot's schematic, and the build and the screenshots are 
   that `vmc.__version__` changed.
 - [ ] Fill `CHANGELOG.md`, tag `v0.2.0`, check the PyPI upload, then run
   `pip install --upgrade virtualmodelcontrol` in clean environments on Ubuntu 22.04 and 24.04.
+  (The changelog is filled and the release commit checked from a fresh clone; the tag waits for
+  the owner's go.)
 
 ---
 
@@ -180,14 +182,19 @@ runs in simulation and on the robot.
   offsets, motor constant per motor model, baud rate, control rate, operating mode per motor
   (torque, position, velocity), limits; loaded from YAML; one per robot template. Done when the
   conversions (ticks and radians, degrees and radians, current and torque) are tested both ways.
+  Progress: code and tests done (`vmc.hardware.HardwareProfile`, a profile per template);
+  the documentation section remains.
 - [ ] **Dynamixel plant** (through the Dynamixel SDK, no ROS): synchronous read and write; units
   from the profile; homing (go to a known pose, detect lost turns, set the zero); command
   watchdog (zero torque when commands stop); torque clamp before the integer conversion, so a
   large command can never overflow or flip sign; zero torque on exit, on exceptions and on
   Ctrl-C; a bus check (scan IDs and baud rates; USB latency timer on Linux). Done when tested
   against a fake bus in CI, then one supervised run on a real robot.
+  Progress: code and fake-bus tests done (`vmc.hardware.DynamixelPlant`, `home`, `scan`);
+  the supervised run on a real robot and the documentation remain.
 - [ ] **Wall-clock run loop:** the simulated loop's API on real time, with the measured time step,
   a staleness guard (zero torque when readings are old), rate statistics and overrun warnings.
+  Progress: done (`vmc.sim.WallClock`); the documentation remains.
 - [ ] **ROS 2, any distribution** (`ros/`, rclpy and std_msgs only, imported lazily): joint I/O
   on the topics of the existing driver (positions and velocities in degrees, goal torques and
   positions, motor order, signs); `RosPlant`; `serve(sim_plant)`, which publishes the same topics
@@ -195,6 +202,9 @@ runs in simulation and on the robot.
   to `controller.set`; a recorder node; messages that swap or retune virtual elements live; the
   "robot is simulated" flag. Done when an in-process run and the same run over ROS give the same
   log, and CI runs the ROS tests in Humble and Jazzy containers on a private domain.
+  Progress: joint I/O, `RosPlant`, the digital twin `serve` (with a lockstep mode that
+  repeats in-process runs) and live parameters done and tested on Jazzy; the CI containers, the
+  recorder node, the messages that swap elements and the documentation remain.
 - [ ] **Smooth element swaps:** replace one set of virtual elements by another with a quintic
   blend, in the controller and later in the planner (the same blend in both).
 - [ ] **Sensors:** load cell over serial (newtons, never grams); IMU array (binary frames);
