@@ -7,6 +7,8 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
 ### Added
 
 - Every dependency installs with the package: numpy, SciPy, CasADi, matplotlib, PyYAML, the
@@ -53,14 +55,13 @@ versions, with one minor version of deprecation before a removal).
   `ContactSpring` (optional smoothing for optimization) and `ContactDamper` (damps only in
   contact); `adapt.add_dynamics` gives the finger and the hand their gravity for simulation.
 - Documentation rebuilt for students: the Material layout (sections as tabs, the pages of each
-  section in the left sidebar) and large type;
+  section in the left sidebar), large type, the library's logo and navy colours;
   installation and troubleshooting; tutorials (how it works, a first controller, coordinates
   and components, parameters, energy, kinematics, tuning, contact, building a robot, extending
   the library); an example per robot (soft arm, two arms, finger, hand and the UR5, turtle), each
   opening with its robot's schematic and parameters; concepts (the library's structure, soft-arm
   kinematics, conventions and glossary). Every figure, schematic, table value and animation is
   computed when the documentation builds.
-
 - `vmc.hardware.HardwareProfile`: the motors of a robot (bus ID, Dynamixel model, sign, mode,
   motor constant, optional torque limit) in the library's motor order, with the bus settings;
   conversions both ways between encoder ticks, raw velocities, goal currents and the published
@@ -81,6 +82,12 @@ versions, with one minor version of deprecation before a removal).
   zero torque; a late step starts the next one from now instead of catching up; the log
   records each step's `dt`, and `log.info` the rate, the slowest step, the overruns and the
   stale readings, with a warning when steps overran.
+- `virtualmodelcontrol.ros` (ROS 2, any distribution; rclpy and std_msgs, loaded only when
+  used): `RosPlant`, the robot behind the lab driver's topics (degrees, the bus order, raw
+  signs, torques kept within the range of the driver's goal current); `serve`, a digital twin
+  that publishes a simulated robot on the same topics, with a lockstep mode in which a run over
+  ROS repeats the simulator's; `LiveParams`, a controller's live Params as ROS parameters,
+  applied between steps.
 
 ### Changed
 
@@ -136,5 +143,6 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vigno0405/VirtualModelControl/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vigno0405/VirtualModelControl/releases/tag/v0.1.0
