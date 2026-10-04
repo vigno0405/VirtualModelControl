@@ -71,7 +71,7 @@ def test_gravity_on_the_arm_equals_the_hand_alone_with_rotated_gravity():
 
 
 def test_only_the_hand_motors_deliver_less_than_the_command():
-    robot = ur5.with_hand()
+    robot = ur5.with_hand(efficiency=adapt.HAND_MOTOR_EFFICIENCY)
     u = np.linspace(-1.0, 1.0, 19)
     tau = robot.actuation.generalized_force(ca.DM(u), ca.DM.zeros(19), constants(robot.params))
     eta = np.concatenate([np.ones(6), adapt.HAND_MOTOR_EFFICIENCY])

@@ -62,7 +62,9 @@ JOINT_LIMITS = {"MCP": (0.0, np.pi / 2), "PIP": (0.0, 1.22173), "DIP": (0.0, 1.2
 LIMIT_STIFFNESS = 1.0  # [N·m/rad], stiffness of the joint-limit springs
 
 MOTOR_EFFICIENCY = (0.8373, 0.3594)
-"""Delivered over commanded torque of the two motors (MCP, PIP)."""
+"""Delivered over commanded torque of the two motors (MCP, PIP), a static calibration for force
+estimates. Not the default: unequal efficiencies on coupled motors make virtual elements
+non-conservative in simulation."""
 
 TORQUE_LIMIT = 0.8  # [N·m] per motor, for an optional clip at the hardware boundary
 
@@ -85,14 +87,15 @@ def finger(
     motor_radius: float = MOTOR_RADIUS,
     pulley_radius: float = FINGER_PULLEY_RADIUS,
     pip_transmission: float = PIP_TRANSMISSION,
-    efficiency: Any = MOTOR_EFFICIENCY,
+    efficiency: Any = None,
 ) -> Mechanism:
     """The finger as a robot mechanism; q holds the two motor angles [rad].
 
     Sites: ``pip``, ``dip``, ``tip`` and the phalanges' centres of gravity ``*_cog``. The
     phalanges' lengths [m], masses [kg] and centres of gravity [m, in each phalanx's frame], the
     joint axes, the pulley radii [m], the PIP cable constant [m] and the motors' ``efficiency``
-    (delivered over commanded torque) override the defaults.
+    (delivered over commanded torque, lossless by default; see ``MOTOR_EFFICIENCY``) override the
+    defaults.
     """
     a, b, c = link_lengths
     joints = ([0.0, 0.0, 0.0], [0.0, a, 0.0], [0.0, a + b, 0.0])
@@ -338,6 +341,9 @@ HAND_MOTOR_EFFICIENCY = (
     0.8373,
     0.3594,
 )
+"""Delivered over commanded torque per motor, in ``HAND_MOTORS`` order: a static calibration, like
+``MOTOR_EFFICIENCY``."""
+
 HAND_LIMIT_STIFFNESS = 0.6  # [N·m/rad]
 HAND_TORQUE_LIMIT = 0.8  # [N·m]
 HAND_FRICTION = (0.1, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
@@ -490,16 +496,17 @@ def hand(
     gravity: Any = None,
     *,
     link_masses: Any = None,
-    efficiency: Any = HAND_MOTOR_EFFICIENCY,
+    efficiency: Any = None,
     **geometry: Any,
 ) -> Mechanism:
     """The hand as a robot: q holds the 13 motor angles [rad] in ``HAND_MOTORS`` order.
 
     Sites: ``"<digit>/tip"`` and ``"<digit>/<link>_cog"``. The wrist is rigid. ``geometry`` takes
     the keyword arguments of ``hand_model``, ``link_masses`` [kg] overrides masses by key and
-    ``efficiency`` the motors' delivered over commanded torque. On an
-    arm whose orientation changes, compile with ``runtime=["*.gravity"]`` and set
-    ``hand_gravity(R)`` each step, or use the arm and hand together (``robots.ur5.with_hand``).
+    ``efficiency`` the motors' delivered over commanded torque (lossless by default; see
+    ``HAND_MOTOR_EFFICIENCY``). On an arm whose orientation changes, compile with
+    ``runtime=["*.gravity"]`` and set ``hand_gravity(R)`` each step, or use the arm and hand
+    together (``robots.ur5.with_hand``).
     """
     robot = Mechanism(name, model=hand_model(**geometry), actuation=Direct(efficiency))
     robot.add_param(

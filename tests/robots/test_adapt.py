@@ -65,10 +65,12 @@ def test_add_dynamics_gives_the_simulator_the_gravity_the_controller_compensates
 
 
 def test_the_finger_and_the_hand_receive_efficiency_times_the_command():
-    for robot, eta in ((adapt.finger(), adapt.MOTOR_EFFICIENCY), (adapt.hand(), None)):
-        eta = np.asarray(adapt.HAND_MOTOR_EFFICIENCY if eta is None else eta)
-        dyn = vmc.compile_dynamics(adapt.add_dynamics(robot))
+    assert "efficiency" not in adapt.finger().params  # lossless by default
+    assert "efficiency" not in adapt.hand().params
+    cases = ((adapt.finger, adapt.MOTOR_EFFICIENCY), (adapt.hand, adapt.HAND_MOTOR_EFFICIENCY))
+    for template, eta in cases:
+        dyn = vmc.compile_dynamics(adapt.add_dynamics(template(efficiency=eta)))
         p, n = dyn.live_values(), len(eta)
         q, u = np.full(n, 0.2), np.linspace(-0.5, 0.5, n)
         r = [np.array(dyn.residual(q, 0 * q, 0 * q, x, p, 0.0)).ravel() for x in (0 * u, u)]
-        np.testing.assert_allclose(r[0] - r[1], eta * u, rtol=1e-12, atol=1e-15)
+        np.testing.assert_allclose(r[0] - r[1], np.asarray(eta) * u, rtol=1e-12, atol=1e-15)
