@@ -21,6 +21,13 @@
   height: 2rem;
 }
 
+/* The lab's logo, on the right of the home page's introduction. */
+.md-typeset img.lab-logo {
+  float: right;
+  height: 4.5rem;
+  margin: 0 0 1rem 1.5rem;
+}
+
 /* The layout fills wide windows. */
 .md-grid {
   max-width: 68rem;

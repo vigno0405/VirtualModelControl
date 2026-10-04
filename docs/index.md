@@ -6,6 +6,8 @@ kernelspec:
 
 # virtualmodelcontrol
 
+<a href="https://www.epfl.ch/labs/create/"><img src="_static/create-lab.png" class="lab-logo" alt="CREATE Lab, EPFL"></a>
+
 `virtualmodelcontrol` is a Python library for Virtual Model Control. You build a controller by
 attaching virtual springs, dampers and masses to your robot, and the library turns them into
 motor torques at the control rate, in simulation and on the real robot.
@@ -75,8 +77,8 @@ up to building your own robot, and the examples apply it to complete tasks on re
 
 ## Authors
 
-`virtualmodelcontrol` is developed by Lorenzo Vignoli at EPFL, in a collaboration between EPFL
-(Prof. Josie Hughes) and the University of Cambridge (Prof. Fulvio Forni). To cite it, use the
+`virtualmodelcontrol` is developed by Lorenzo Vignoli at the [CREATE Lab](https://www.epfl.ch/labs/create/) of EPFL (Prof.
+Josie Hughes), in a collaboration with the University of Cambridge (Prof. Fulvio Forni). To cite it, use the
 `CITATION.cff` file of the [repository](https://github.com/vigno0405/VirtualModelControl).
 
 ```{toctree}

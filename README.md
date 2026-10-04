@@ -1,3 +1,5 @@
+<a href="https://www.epfl.ch/labs/create/"><img align="right" height="72" src="https://raw.githubusercontent.com/vigno0405/VirtualModelControl/main/docs/_static/create-lab.png" alt="CREATE Lab, EPFL"></a>
+
 # VirtualModelControl
 
 `virtualmodelcontrol` is a Python library for Virtual Model Control. You build a controller by
@@ -98,10 +100,11 @@ contribute in [Contributing][contributing].
 
 ## Authors
 
-Lorenzo Vignoli, at EPFL, in a collaboration between EPFL (Prof. Josie Hughes) and the
-University of Cambridge (Prof. Fulvio Forni). To cite the library, see [CITATION.cff][cite].
+Lorenzo Vignoli, at the [CREATE Lab][lab] of EPFL (Prof. Josie Hughes), in a collaboration
+with the University of Cambridge (Prof. Fulvio Forni). To cite the library, see [CITATION.cff][cite].
 The code is under the [MIT license][license].
 
+[lab]: https://www.epfl.ch/labs/create/
 [install]: https://vigno0405.github.io/VirtualModelControl/installation.html
 [figure]: https://github.com/vigno0405/VirtualModelControl/blob/main/docs/scripts/readme_figure.py
 [soft-arm]: https://vigno0405.github.io/VirtualModelControl/examples/soft-arm.html
