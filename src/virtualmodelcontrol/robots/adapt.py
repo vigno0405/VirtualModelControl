@@ -72,13 +72,16 @@ TORQUE_LIMIT = 0.8  # [N·m] per motor, for an optional clip at the hardware bou
 FINGER_MOTOR_IDS = (1, 2)
 """Bus IDs of the finger's XC330-T288 motors (MCP, PIP)."""
 
+FINGER_HOME = (2657, 4038)
+"""Home pose of the finger's motors [absolute ticks], recorded on the robot."""
+
 FINGER_BAUDRATE = 1_000_000  # [bit/s]
 FINGER_CONTROL_RATE = 900.0  # [Hz]
 
 
 def finger_hardware() -> HardwareProfile:
     """The finger's motors and their bus."""
-    motors = tuple(Motor(i) for i in FINGER_MOTOR_IDS)
+    motors = tuple(Motor(i, home=h) for i, h in zip(FINGER_MOTOR_IDS, FINGER_HOME, strict=True))
     return HardwareProfile(motors, baudrate=FINGER_BAUDRATE, rate=FINGER_CONTROL_RATE)
 
 

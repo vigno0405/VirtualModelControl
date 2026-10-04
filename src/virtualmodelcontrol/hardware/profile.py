@@ -36,7 +36,7 @@ _RAD_PER_TICK = 2.0 * np.pi / TICKS_PER_TURN
 class Motor:
     """One motor: bus ``id``, Dynamixel ``model``, ``sign`` against the library's convention,
     operating ``mode``, motor constant ``kt`` [N·m per unit of goal current; the model's when
-    None] and an optional ``torque_limit`` [N·m]."""
+    None], an optional ``torque_limit`` [N·m] and its ``home`` position [absolute ticks]."""
 
     id: int
     model: str = "XC330-T288"
@@ -44,6 +44,7 @@ class Motor:
     mode: str = "torque"
     kt: float | None = None
     torque_limit: float | None = None
+    home: int | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:

@@ -68,6 +68,14 @@ versions, with one minor version of deprecation before a removal).
   they saturate instead of overflowing; saved and loaded as YAML. Each template has its
   profile: `helyx.hardware()`, `bimanual.hardware()`, `adapt.finger_hardware()`,
   `adapt.hand_hardware()`, `turtle.hardware()`.
+- `vmc.hardware.DynamixelPlant`: a robot's Dynamixel motors as a plant through the Dynamixel
+  SDK, without ROS. It sets a safe goal before each motor's torque goes on, takes the start
+  positions as zero, reads angles and smoothed rates, writes torques as clamped goal currents,
+  sends zero torque when commands stop (a watchdog), and on leaving (exceptions and Ctrl-C
+  included) sends zero torque and switches the torque motors off; held motors keep their
+  position. `hardware.home` drives the motors slowly to recorded home positions and refuses a
+  motor that lost a turn; `hardware.scan` finds the motors and their baud rate;
+  `hardware.FakeBus` stands in for the bus in tests and dry runs.
 
 ### Changed
 
