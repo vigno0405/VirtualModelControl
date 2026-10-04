@@ -133,11 +133,6 @@ docs build. Nothing is pasted as an image if it can be computed.
   first compile time, matplotlib and LaTeX.
 - [x] Create a logo for the library: in the site header, as the favicon and at the top of the
   README.
-- [ ] Add the EPFL logo to the home page and the README, following EPFL's rules for using its
-  logo (EPFL's guidelines place it top left, in red).
-- [ ] Add the University of Cambridge logo next to it, following Cambridge's rules for using its
-  logo (Cambridge supplies the artwork after a permission request supported by a Cambridge staff
-  member).
 
 **Quality bar.**
 
