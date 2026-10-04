@@ -199,8 +199,10 @@ runs in simulation and on the robot.
   "robot is simulated" flag. Done when an in-process run and the same run over ROS give the same
   log, and CI runs the ROS tests in Humble and Jazzy containers on a private domain.
   Progress: joint I/O, `RosPlant`, the digital twin `serve` (with a lockstep mode that
-  repeats in-process runs) and live parameters done and tested on Jazzy; the CI containers, the
-  recorder node, the messages that swap elements and the documentation remain.
+  repeats in-process runs), live parameters and the controller node `vmc.ros.control` done,
+  tested in CI in Humble and Jazzy containers on a private domain; the recorder node (with the
+  run logs), the messages that swap elements (with the element swaps) and the documentation
+  remain.
 - [ ] **Smooth element swaps:** replace one set of virtual elements by another with a quintic
   blend, in the controller and later in the planner (the same blend in both).
 - [ ] **Sensors:** load cell over serial (newtons, never grams); IMU array (binary frames);
