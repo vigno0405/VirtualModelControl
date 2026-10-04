@@ -15,6 +15,10 @@ versions, with one minor version of deprecation before a removal).
 - On real time (`WallClock`), `vmc.sim.run(..., T=None)` runs until Ctrl-C, and Ctrl-C ends
   any run with the log so far.
 - CI runs the ROS tests in ROS 2 Humble and Jazzy containers, on a private domain.
+- `vmc.control.SwapController` and `blend_weight`: one set of virtual elements replaces another
+  with a quintic blend of the two controllers' torques (continuous torque and first two
+  derivatives), the blend the lab's controller uses; a swap asked for during a blend waits for
+  it. `vmc.ros.control(..., swaps={name: controller})` swaps on a `String` message.
 
 ## [0.2.0] - 2026-10-04
 

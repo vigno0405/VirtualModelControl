@@ -200,11 +200,12 @@ runs in simulation and on the robot.
   log, and CI runs the ROS tests in Humble and Jazzy containers on a private domain.
   Progress: joint I/O, `RosPlant`, the digital twin `serve` (with a lockstep mode that
   repeats in-process runs), live parameters and the controller node `vmc.ros.control` done,
-  tested in CI in Humble and Jazzy containers on a private domain; the recorder node (with the
-  run logs), the messages that swap elements (with the element swaps) and the documentation
-  remain.
+  tested in CI in Humble and Jazzy containers on a private domain, and swap messages; the
+  recorder node (with the run logs) and the documentation remain.
 - [ ] **Smooth element swaps:** replace one set of virtual elements by another with a quintic
   blend, in the controller and later in the planner (the same blend in both).
+  Progress: done in the controller (`vmc.control.SwapController`, `blend_weight`) and over ROS
+  (swap messages); the planner uses `blend_weight` in 0.8.0; the documentation remains.
 - [ ] **Sensors:** load cell over serial (newtons, never grams); IMU array (binary frames);
   motion capture (rigid-body topics, staleness, frame conversion, base-relative quantities);
   camera-based estimators as plugins.

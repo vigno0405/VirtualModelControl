@@ -111,3 +111,23 @@ def test_the_controller_node_runs_in_real_time_on_a_twin(ros):
     assert 30 <= log.info["steps"] <= 40 and log.info["stale"] == 0
     assert np.abs(rows["motor_torque"]).max() > 0.0
     assert np.ptp(rows["motor_position"], axis=0).max() > 0.01  # the twin's finger moved
+
+
+def test_a_swap_message_blends_to_another_controller(ros):
+    from std_msgs.msg import String
+
+    robot, controller = finger_controller()
+    other = finger_controller()[1]
+    stop, thread = start_twin(robot, rate=500.0)
+    sender = rclpy.create_node("swap_sender")
+    publisher = sender.create_publisher(String, "/vmc_swap", 10)
+    timer = threading.Timer(0.1, lambda: publisher.publish(String(data="other")))
+    try:
+        timer.start()
+        profile = adapt.finger_hardware().replace(rate=200.0)
+        control(controller, profile, duration=0.4, swaps={"other": other}, swap_time=0.1)
+    finally:
+        stop.set()
+        thread.join()
+        sender.destroy_node()
+    assert other.t is not None and other.t > 0.2  # the other controller took over

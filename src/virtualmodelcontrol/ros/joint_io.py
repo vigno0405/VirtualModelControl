@@ -14,8 +14,9 @@ TOPICS = {
     "velocities": "/joint_velocities",  # Float64MultiArray [deg/s], bus order
     "torque": "/goal_torque",  # Float64MultiArray [N·m], bus order
     "simulated": "/robot_is_simulated",  # Bool, latched; True when a digital twin publishes
+    "swap": "/vmc_swap",  # String: the name of the controller to swap to
 }
-"""The topics of the driver, and the flag a digital twin adds."""
+"""The driver's topics, the flag a digital twin adds and the controller node's swap topic."""
 
 
 class JointIO:
