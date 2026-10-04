@@ -460,6 +460,9 @@ new designs against these themes, so nothing they need is made hard:
   `Param` objects. Confirm this is the wanted behaviour, then document it.
 - Gravity compensation of the soft arms is about 20% stronger than before the arc-formula fix:
   check it on the next real-arm run.
-- The hand's thumb tip offset is uncertain: measure it.
+- The hand's thumb tip: the template keeps the point the hand's controllers attach to,
+  (0, 0, 0.0175) in the last joint frame, which lies beside the thumb's last phalanx (it runs
+  along −x); the end of the phalanx is about (−0.025, 0, 0), which the grasp example uses.
+  Measure it, then decide which one the controllers should use.
 - matplotlib 3.11 drops minus signs from LaTeX-rendered PDFs; render paper figures with 3.10 until
   it is fixed.

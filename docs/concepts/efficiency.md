@@ -109,8 +109,8 @@ fig, ax = plt.subplots()
 ax.plot(u, y, "o", color=viz.PALETTE[0], label="plateaus")
 ax.plot(grid, linear(grid), "--", color=viz.PALETTE[1], label="linear fit")
 ax.plot(grid, cubic(grid), color=viz.PALETTE[2], label="cubic fit")
-ax.set_xlabel("commanded torque [N·m]")
-ax.set_ylabel("delivered torque [N·m]")
+ax.set_xlabel(r"commanded torque [N$\cdot$m]")
+ax.set_ylabel(r"delivered torque [N$\cdot$m]")
 ax.legend();
 ```
 

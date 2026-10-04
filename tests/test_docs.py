@@ -41,3 +41,34 @@ def test_no_em_dashes_in_public_text():
         if "_build" not in f.parts and "\u2014" in f.read_text()
     ]
     assert not hits, hits
+
+
+FIGURE_TEXT = re.compile(r"(set_[xyz]?label|set_title|suptitle|\.text|annotate)\(|\b(label|title)=")
+
+
+def figure_code():
+    """Code that draws figures: the pages' cells, the docs' scripts and schematics, and viz."""
+    for page in PAGES:
+        if "_build" not in page.parts:
+            for block in re.findall(r"```\{code-cell\} python\n(.*?)```", page.read_text(), re.S):
+                yield page, block.splitlines()
+    for f in [
+        *(ROOT / "docs").rglob("*.py"),
+        *(ROOT / "src" / "virtualmodelcontrol" / "viz").rglob("*.py"),
+    ]:
+        if "_build" not in f.parts:
+            yield f, f.read_text().splitlines()
+
+
+def test_figure_text_renders_in_the_figure_font():
+    """Without LaTeX, figures use Computer Modern (cmr10), which lacks ·, °, Δ and the like:
+    outside $...$ math, figure text must be ASCII."""
+    hits = []
+    for f, lines in figure_code():
+        for line in lines:
+            code = line.split(" # ")[0]
+            if FIGURE_TEXT.search(code) and re.search(
+                r"[^\x00-\x7f]", re.sub(r"\$[^$]*\$", "", code)
+            ):
+                hits.append(f"{f.relative_to(ROOT)}: {line.strip()}")
+    assert not hits, "\n".join(hits)

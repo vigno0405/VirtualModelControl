@@ -44,6 +44,15 @@ versions, with one minor version of deprecation before a removal).
 - A transmission's efficiency Param is now `efficiency.c1` (and `c2`, … for a polynomial);
   transmissions saved by 0.2.0 still load.
 
+### Fixed
+
+- The hand example grasps the ball with the pads of the thumb, index and middle fingers: the
+  ball sits where the thumb opposes the fingers, and the grasp takes the thumb's tip at the end
+  of its last phalanx. Before, the thumb pressed on the ball with its side. The template's
+  kinematics are unchanged.
+- Figure labels written as math where the figure font has no glyph (N·m on the efficiency
+  page); a test keeps figure text to characters the font draws.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

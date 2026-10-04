@@ -65,7 +65,8 @@ for robot in (adapt.hand(), custom):
 
 On the real hand, `adapt.hand_output_stage()` adds a friction feed-forward of
 {glue:text}`friction:.1f` N·m that fades out above about {glue:text}`fade:.2f` rad/s, then
-clips each command to ±{glue:text}`limit:.1f` N·m. The simulation below leaves it out.
+clips each command to ±{glue:text}`limit:.1f` N·m. The simulation below leaves it out. The real
+hand's tendons only pull; the model lets every motor turn both ways.
 
 The measured motor efficiencies, `adapt.HAND_MOTOR_EFFICIENCY` (the finger's two values on the
 MCP and PIP motors of each finger and on the thumb's MCP and IP motors, 1 elsewhere), are left
@@ -77,14 +78,19 @@ out of the simulation for the reason given in the [finger example](finger.md);
 A ball sits in front of the palm, in the robot mechanism: the simulator feels it, while the
 controller, compiled from its own components only, does not know it is there (see
 [contact](../tutorials/contact.md)). Springs pull three fingertips to the ball's centre. The
-motor damping and the ball's stiffness are illustrative.
+template's thumb tip, (0, 0, 0.0175) in its last joint frame like the fingers', is the point
+the hand's controllers attach to, beside the thumb's last phalanx, which runs along $-x$; for
+a fingertip grasp we take the end of that phalanx, as in the custom hand above. The motor
+damping and the ball's stiffness are illustrative.
 
 ```{code-cell} python
-centre, radius = np.array([-0.02, 0.115, 0.06]), 0.03  # [m]
+centre, radius = np.array([-0.02, 0.08, 0.035]), 0.03  # [m]
 k_ball = 5000.0  # [N/m], stiffness of the ball's surface
 digits = ("thumb", "index", "middle")
+thumb_end = {"thumb": (-0.025, 0.0, 0.0)}  # [m], end of the last phalanx
 
-hand = adapt.add_dynamics(adapt.hand(), damping=0.01)  # [N·m·s/rad]
+hand = adapt.hand(tip_offsets=thumb_end)
+hand = adapt.add_dynamics(hand, damping=0.01)  # [N·m·s/rad]
 ctrl = vmc.Mechanism("ctrl")
 for d in digits:
     tip = hand.point(f"{d}/tip")
@@ -116,16 +122,18 @@ ax.legend();
 ```{code-cell} python
 :tags: [remove-cell]
 t, force = rows["t"].ravel(), [line.get_ydata() for line in ax.get_lines()]  # [s], [N]
+first = [t[np.argmax(f > 0)] for f in force]
+assert first[0] < min(first[1:]), "the thumb no longer touches first"
 glue("fingers", 1000 * float(max(t[np.argmax(f > 0)] for f in force[1:])), display=False)
 glue("thumb", float(t[np.argmax(force[0] > 0)]), display=False)
 glue("force", float(np.mean([f[-1] for f in force])), display=False)
 glue("pull", float(ctrl.params["grasp_index.stiffness"].value) * radius, display=False)
 ```
 
-The ball pushes a fingertip back once the tip enters it. The index and middle fingertips touch
-it within {glue:text}`fingers:.0f` ms, the thumb after {glue:text}`thumb:.1f` s. After a short
-peak at impact, each presses with {glue:text}`force:.2f` N: the pull of its spring at the
-surface, stiffness times radius ({glue:text}`pull:.1f` N), a little less as the ball gives.
+The ball pushes a fingertip back once the tip enters it. The thumb reaches it first, after
+{glue:text}`thumb:.2f` s, and the index and middle fingertips within {glue:text}`fingers:.0f`
+ms. Each then presses with {glue:text}`force:.2f` N: the pull of its spring at the surface,
+stiffness times radius ({glue:text}`pull:.1f` N), a little less as the ball gives.
 
 ```{code-cell} python
 :tags: [remove-output]
