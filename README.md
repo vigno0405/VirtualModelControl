@@ -48,7 +48,7 @@ pip installs them with the library:
 | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | 0.5 or newer | MP4 videos of the animations |
 | [PyYAML](https://pyyaml.org) | 6 or newer | robot and hardware files |
 | [Dynamixel SDK](https://github.com/ROBOTIS-GIT/DynamixelSDK) | 3.7 or newer | Dynamixel motors |
-| [pyserial](https://github.com/pyserial/pyserial) | 3.5 or newer | serial sensors |
+| [pyserial](https://github.com/pyserial/pyserial) | 3.5 or newer | the serial port of the Dynamixel SDK |
 
 ## The example in the figure
 

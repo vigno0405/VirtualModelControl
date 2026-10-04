@@ -206,19 +206,13 @@ runs in simulation and on the robot.
   blend, in the controller and later in the planner (the same blend in both).
   Progress: done in the controller (`vmc.control.SwapController`, `blend_weight`) and over ROS
   (swap messages); the planner uses `blend_weight` in 0.8.0; the documentation remains.
-- [ ] **Sensors:** load cell over serial (newtons, never grams); IMU array (binary frames);
-  motion capture (rigid-body topics, staleness, frame conversion, base-relative quantities);
-  camera-based estimators as plugins.
-- [ ] **UR5 through RTDE:** read joint states, command positions and speeds; an admittance
-  wrapper for position-controlled actuators (UR5, wrist motors, VSA motor), with command modes
-  mixed per actuator group.
-- [ ] **Run logs:** atomic save and load (`.npz` with a schema version and metadata: library
-  version, git hash, parameters, hardware profile), CSV export, replay of a log in simulation,
-  comparison of runs.
 - [ ] **Configurations:** robots, controllers and experiments in YAML through the registry,
   round-trip tested.
 - [ ] **Interactive tools:** a small GUI (matplotlib widgets or Qt) to drag goals, change gains
   and swap elements while running; keyboard or joystick teleoperation; teleoperate and repeat.
+- [ ] **Run logs:** atomic save and load (`.npz` with a schema version and metadata: library
+  version, git hash, parameters, hardware profile), CSV export, replay of a log in simulation,
+  comparison of runs.
 - [ ] **Docs:** "Run on the real robot" for each robot, a ROS topics reference, a safety
   checklist.
 
@@ -328,7 +322,7 @@ the docs keep a table that maps one to the other.
 - [ ] Calibration: actuator efficiency (plateaus, fit through the origin), transmission ratios,
   motor constants, base transforms between arms, Stribeck friction for the compensation stage.
 - [ ] Measurement models shared by simulated sensors and estimators: encoders, motion-capture
-  markers, IMU relative rotations, load cells, cameras.
+  markers, IMU relative rotations, load cells.
 - [ ] Shape from motion capture and from IMUs (kinematic inversion), with velocities computed at
   each sensor's real rate.
 - [ ] Kalman filters (EKF and UKF) fusing encoders with motion capture or IMUs: per-sensor gating,
@@ -429,7 +423,7 @@ new designs against these themes, so nothing they need is made hard:
 - **Locomotion with VMC instead of central pattern generators:** virtual flywheel, ground contact,
   gait tuning (turtle). (0.3.0 to 0.7.0)
 - **Learning VMC parameters from demonstrations, with passivity guarantees.** (0.9.0)
-- **Vision and IMU proprioception of soft arms** as estimator plugins. (0.6.0)
+- **IMU proprioception of soft arms** as an estimator plugin. (0.6.0)
 
 ## Everything done by hand in lab code, and where it lands
 
@@ -446,7 +440,6 @@ new designs against these themes, so nothing they need is made hard:
 | swapping springs live, blended | element swaps with a quintic blend | 0.3.0 |
 | digital twin with simulated sensors | `serve(ModelPlant)` and realism wrappers | 0.3.0, 0.5.0 |
 | logging runs to npz and CSV | run logs | 0.3.0 |
-| load cell, IMU and motion-capture nodes | sensors | 0.3.0 |
 | step experiments and K, D fits | identification | 0.6.0 |
 | efficiency calibration against a load cell | calibration | 0.6.0 |
 | Kalman filter fusing encoders and motion capture | estimation | 0.6.0 |
