@@ -26,7 +26,7 @@ import virtualmodelcontrol as vmc
 from virtualmodelcontrol import viz
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.add_dynamics(helyx.arm("145-290-290"))
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))
 length = arm.params["seg1.L0"]
 length, length.bounds
 ```
@@ -51,7 +51,7 @@ ranges) and `stage` at any control step (stiffnesses, dampings, goals). Each com
 its Params their scopes:
 
 ```{code-cell} python
-goal = vmc.Ref("goal", value=[0.0, 0.0, 0.70])  # a named goal [m]
+goal = vmc.Ref("goal", value=[0.0, 0.0, 0.40])  # a named goal [m]
 tip = arm.point(s=1.0)
 
 ctrl = vmc.Mechanism("ctrl")
@@ -93,7 +93,7 @@ keep their values, and a new controller starts from those.
 ```{code-cell} python
 controller = vmc.VMCController(law)
 plant = vmc.sim.ModelPlant(arm)
-controller.step(plant.t, plant.read())  # the arm hangs straight
+controller.step(plant.t, plant.read())  # the arm at rest, straight
 stored = controller.energy()  # [J]
 jump = controller.set({"ctrl.reach.stiffness": 1200.0})
 stored, jump
@@ -104,7 +104,7 @@ stored. Goals are live Params too. A plain list on either side of `-` becomes on
 
 ```{code-cell} python
 other = vmc.Mechanism("ctrl")
-other.add("reach", vmc.LinearSpring(tip - [0.0, 0.0, 0.70], 600.0))
+other.add("reach", vmc.LinearSpring(tip - [0.0, 0.0, 0.40], 600.0))
 list(other.params)
 ```
 
@@ -124,7 +124,7 @@ log = vmc.sim.RunLog()
 dt = 1 / 330  # [s]
 controller.reset(plant.t, plant.read())
 for _ in range(round(4.0 / dt)):
-    target = [0.12 * np.sin(np.pi * plant.t), 0.0, 0.70]  # [m]
+    target = [0.12 * np.sin(np.pi * plant.t), 0.0, 0.40]  # [m]
     controller.set({"ctrl.reach.goal": target})
     meas = plant.read()
     plant.write(controller.step(plant.t, meas))
@@ -161,8 +161,8 @@ glue("gap", 100 * float(gap.max()), display=False)
 ```
 
 The tip follows the goal about {glue:text}`lag:.0f` ms behind and stays within
-{glue:text}`gap:.1f` cm of it. The gap is mostly vertical: the arm hangs below the goal, where
-the spring balances the arm's own stiffness.
+{glue:text}`gap:.1f` cm of it. The gap is mostly along $z$: the tip stays beyond the goal,
+where the spring balances the arm's own stiffness.
 
 ## Animate
 
@@ -175,7 +175,7 @@ def draw(ax, row):
     viz.draw_spring(ax, kin.position(row["q"], 1.0), row["goal"])
     viz.draw_goal(ax, row["goal"])
 
-viz.animate(arm, log, "parameters.mp4", draw=draw, trace=1.0, invert=True)
+viz.animate(arm, log, "parameters.mp4", draw=draw, trace=1.0)
 ```
 
 ```{video} parameters.mp4

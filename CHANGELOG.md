@@ -33,9 +33,14 @@ versions, with one minor version of deprecation before a removal).
   logged runs under known motor torques, by least squares with K, D ≥ 0 in motor torques,
   relative to a resting baseline, with the robot's masses and gravity known; each run can carry
   its own gravity. It recovers the stiffness and damping of a simulated arm within a few percent.
-- Docs: the soft-arm example uses the arm mounted on its side (`145-145-145`), and the arm that
-  hangs from its base (`145-290-290`) has an example of its own; both use the same stiffness
-  and damping.
+- Docs: two single-arm examples, each about its own arm and its own experiments. The soft arm on
+  its side (`145-145-145`) reaches past an obstacle with two repulsive fields, over a sweep of
+  their strength, and a tanh spring limits the force on a string tied to the tip. The hanging
+  arm (`145-290-290`) is identified from simulated step responses with
+  `fit_stiffness_damping` and reaches around an obstacle with a tanh spring and two fields.
+  Both use the same stiffness and damping. The tutorials, the home page and the README use the
+  arm on its side; the Helyx geometries and the parametric template are on the soft-arm
+  kinematics page.
 
 ### Changed
 

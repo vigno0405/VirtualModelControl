@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.arm("145-290-290")
+arm = helyx.arm("145-145-145")
 tip = arm.point(s=1.0)  # the tip, 3 entries [m]
 middle = arm.point(s=0.5)  # halfway along the arm
 segment1 = arm.joint(slice(0, 3))  # the first segment's Δ [m]
@@ -42,18 +42,18 @@ Subtracting, projecting, measuring, slicing and stacking coordinates gives new o
 library differentiates all of them exactly.
 
 ```{code-cell} python
-goal = vmc.Ref("goal", value=[0.1, 0.0, 0.6])  # a goal [m]
+goal = vmc.Ref("goal", value=[0.1, 0.0, 0.40])  # a goal [m]
 reach = tip - goal  # where the tip is, minus where it should be
 height = vmc.Projection(reach, [0.0, 0.0, 1.0])  # along z only
 distance = vmc.Norm(middle - tip)  # [m]
-floor = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.7])
-for c in (reach, height, distance, floor, reach[0], vmc.Stack(tip, middle)):
+wall = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.45])
+for c in (reach, height, distance, wall, reach[0], vmc.Stack(tip, middle)):
     print(c)
 ```
 
 A projection, a norm and a distance are one number each: a spring on `height` pulls along $z$
 only. `PlaneDistance` and `SphereDistance` are signed distances to a surface, for
-[contacts](contact.md). A plain list works as a goal too (`tip - [0.1, 0.0, 0.6]`); it becomes
+[contacts](contact.md). A plain list works as a goal too (`tip - [0.1, 0.0, 0.40]`); it becomes
 a live parameter named `ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom`
 wraps a function written with CasADi operations ([Extend the library](extend.md)).
 

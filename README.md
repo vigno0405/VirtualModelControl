@@ -60,11 +60,11 @@ import numpy as np
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.arm("145-290-290")  # a soft arm with nine tendon motors
+arm = helyx.arm("145-145-145")  # a soft arm with nine tendon motors
 tip = arm.point(s=1.0)
 
 ctrl = vmc.Mechanism("ctrl")
-ctrl.add("reach", vmc.LinearSpring(tip - [0.25, 0.0, 0.55], 600.0))  # [N/m]
+ctrl.add("reach", vmc.LinearSpring(tip - [0.15, 0.0, 0.35], 600.0))  # [N/m]
 ctrl.add("damp", vmc.LinearDamper(tip, 5.0))  # [N·s/m]
 ctrl.add("gravity", vmc.GravityCompensation(arm))
 controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl)))
@@ -86,8 +86,9 @@ log = vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 330), T=3.0)
 
 Each example builds a ready-made robot, controls it in simulation and animates the run:
 
-- [Soft arm][soft-arm]: reach a point, avoid an obstacle, shape the whole arm.
-- [Hanging soft arm][hanging-arm]: the same with an arm that hangs from its base.
+- [Soft arm][soft-arm]: reach past an obstacle, and limit the force with a tanh spring.
+- [Hanging soft arm][hanging-arm]: identify its stiffness and damping, and reach around an
+  obstacle.
 - [Two arms][two-arms]: squeeze an object between the tips of two soft arms.
 - [Finger][finger]: a stiff fingertip and soft joint limits.
 - [Hand][hand]: grasp a ball, alone or mounted on a UR5 arm.

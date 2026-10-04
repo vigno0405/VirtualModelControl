@@ -58,8 +58,8 @@ import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.add_dynamics(helyx.arm("145-290-290"))
-goal = np.array([0.08, 0.0, 0.68])  # [m]
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))
+goal = np.array([0.08, 0.0, 0.40])  # [m]
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 300.0))
 ctrl.add("damp", vmc.LinearDamper(arm.point(s=1.0), 5.0))
@@ -77,7 +77,7 @@ rows = vmc.sim.run(plant, controller, clock, T=0.2).arrays()
 from virtualmodelcontrol import viz
 
 viz.animate(arm, rows, "energy.mp4", springs=[(1.0, goal)], trace=1.0,
-            invert=True, speed=0.1)
+            speed=0.1)
 ```
 
 ```{video} energy.mp4
@@ -145,9 +145,9 @@ glue("t90", float(ms[np.argmax(released >= 0.9)]), display=False)
 glue("kinetic", float(T_r.max()), display=False)
 glue("res", 1000 * float(np.abs(residual).max()), display=False)
 glue("pct", 100 * float(np.abs(residual).max() / -dampers[-1]), display=False)
-glue("back", 100 * float(np.mean(port < 0)), display=False)
+assert port.min() > -1e-9, "the arm pushes back: rewrite the text"
 glue("work", float(integral(port)[-1]), display=False)
-glue("supplied", 1000 * float(integral(src_c)[-1]), display=False)
+assert abs(integral(src_c)[-1]) < 1e-6, "gravity compensation does work: rewrite"
 ```
 
 The top panel shows how the energy of each mechanism changed since the start, the energy the
@@ -160,8 +160,9 @@ and of the controller.
 The residual stays within {glue:text}`res:.1f` mJ, {glue:text}`pct:.1f` % of the energy the
 dampers took. It is the error of the time steps: the simulator advances in discrete steps and
 holds each torque for a control period, and the powers are integrated from the logged steps.
-Power flows both ways: in {glue:text}`back:.0f` % of the steps the arm pushes back and gives
-energy to the controller, and the balance still closes.
+In this run power flows from the controller to the arm at every step; when an arm swings back
+against its controller, the port carries energy the other way, and the balance closes all the
+same.
 
 ## Passivity
 
@@ -183,9 +184,9 @@ of the robot plus the energy of the controller can then only fall.
 
 Gravity compensation is a source, but a tame one: its forces are those that cancel the weight
 of the robot's masses, so the energy it supplies is the energy that the robot stores in
-gravity, and the arm moves as if it had no weight. In this run the controller gave
-{glue:text}`work:.2f` J through its port, of the {glue:text}`stored:.2f` J its spring stored
-at the start; the gravity compensation supplied {glue:text}`supplied:.1f` mJ.
+gravity, and the arm moves as if it had no weight. This arm moves in a horizontal plane, so
+here it supplies nothing. The controller gave {glue:text}`work:.2f` J through its port, of the
+{glue:text}`stored:.2f` J its spring stored at the start.
 
 Changing a live parameter while running changes the controller's energy too, by the jump that
 `controller.set` returns ([Parameters](parameters.md)).

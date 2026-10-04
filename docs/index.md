@@ -29,8 +29,8 @@ the tip to a goal and a damper on the tip; `compile` turns them into one fast fu
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.add_dynamics(helyx.arm("145-290-290"))  # the robot
-goal = [0.25, 0.0, 0.55]  # [m]
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))  # the robot
+goal = [0.15, 0.0, 0.35]  # [m]
 
 ctrl = vmc.Mechanism("ctrl")  # the controller
 ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 600.0))  # [N/m]
@@ -49,7 +49,7 @@ mechanism alone:
 plant = vmc.sim.ModelPlant(arm)
 log = vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 330), T=3.0)
 vmc.viz.animate(arm, log, "index-hero.mp4", springs=[(1.0, goal)],
-                trace=1.0, invert=True)
+                trace=1.0)
 ```
 
 ## Install
@@ -67,8 +67,8 @@ pip install virtualmodelcontrol
 [tutorials](tutorials/coordinates-and-components.md) then go through the library step by step,
 up to building your own robot, and the examples apply it to complete tasks on ready-made robots:
 
-- [a soft arm](examples/soft-arm.md) that reaches a point, avoids an obstacle and changes shape, and
-  [one that hangs](examples/hanging-arm.md) from its base;
+- [a soft arm](examples/soft-arm.md) that reaches past an obstacle and limits its force, and
+  [one that hangs](examples/hanging-arm.md) from its base, identified from step responses;
 - [two soft arms](examples/two-arms.md) that squeeze an object between them;
 - [a finger](examples/finger.md) with a stiff fingertip and soft joint limits;
 - [a hand](examples/hand.md) that grasps, alone or mounted on a UR5 arm;

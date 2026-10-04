@@ -45,7 +45,8 @@ def fit_stiffness_damping(
     allocation = ca.Function("allocation", [q_s], [ca.jacobian(allocated, tau_s)])
     rows, rhs = [], []
     for run in runs:
-        t, q, v, u = (np.asarray(run[k], dtype=float) for k in ("t", "q", "v", "u"))
+        t = np.asarray(run["t"], dtype=float).ravel()
+        q, v, u = (np.asarray(run[k], dtype=float) for k in ("q", "v", "u"))
         p = np.asarray(run.get("p", dyn.live_values()), dtype=float)
         dt = float(np.median(np.diff(t)))
         v = savgol_filter(v, min(smoothing, len(t) - (1 - len(t) % 2)), 3, axis=0)

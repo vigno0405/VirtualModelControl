@@ -54,10 +54,10 @@ It acts on any coordinate, and `compile` treats it like the built-in springs:
 ```{code-cell} python
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.arm()
+arm = helyx.arm("145-145-145")
 tip = arm.point(s=1.0)
 ctrl = vmc.Mechanism("ctrl")
-ctrl.add("soft", QuarticSpring(tip - [0.1, 0.0, 0.6], 2.0e4))
+ctrl.add("soft", QuarticSpring(tip - [0.1, 0.0, 0.40], 2.0e4))
 system = vmc.VirtualMechanismSystem(arm, ctrl)
 controller = vmc.VMCController(vmc.compile(system))
 meas = vmc.Signals(0.0, motor_position=np.zeros(9),
@@ -150,9 +150,9 @@ class OneStepLate:
         self.plant.close()
 
 
-arm = helyx.add_dynamics(helyx.arm())
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))
 ctrl = vmc.Mechanism("ctrl")
-goal = [0.1, 0.0, 0.6]  # [m]
+goal = [0.1, 0.0, 0.40]  # [m]
 ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 300.0))
 ctrl.add("gravity", vmc.GravityCompensation(arm))
 system = vmc.VirtualMechanismSystem(arm, ctrl)
@@ -166,8 +166,7 @@ log.arrays()["motor_torque"].shape  # one row per step
 :tags: [remove-output]
 from virtualmodelcontrol import viz
 
-viz.animate(arm, log, "extend.mp4", springs=[(1.0, goal)], trace=1.0,
-            invert=True)
+viz.animate(arm, log, "extend.mp4", springs=[(1.0, goal)], trace=1.0)
 ```
 
 ```{video} extend.mp4

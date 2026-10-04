@@ -16,7 +16,7 @@ import docs_setup
 
 ## The robot
 
-`helyx.arm` builds the soft arm of the [hanging-arm example](../examples/hanging-arm.md): its
+`helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
 kinematics, its nine tendon motors and the masses of its segments. A simulator also needs the
 arm's own stiffness and damping, and gravity; `helyx.add_dynamics` adds them.
 
@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.add_dynamics(helyx.arm("145-290-290"))
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))
 list(arm.components)
 ```
 
@@ -39,7 +39,7 @@ A spring pulls the tip to a goal, a damper slows the tip down, and gravity compe
 the weight of the segments.
 
 ```{code-cell} python
-goal = np.array([0.08, 0.0, 0.68])  # [m]
+goal = np.array([0.08, 0.0, 0.40])  # [m]
 
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 300.0))  # [N/m]
@@ -140,15 +140,15 @@ first pulls, then settle to the small values that hold the arm in place.
 ## Animate
 
 `viz.animate` draws the run frame by frame and saves it as a video. `springs` draws the virtual
-spring from the tip to the goal, `trace` the path of the tip, and `invert` flips the vertical
-axis because this arm hangs.
+spring from the tip to the goal, and `trace` the path of the tip. The arm lies on its side, so
+the drawing shows it from above.
 
 ```{code-cell} python
 :tags: [remove-output]
 from virtualmodelcontrol import viz
 
 viz.animate(arm, log, "first-controller.mp4", springs=[(1.0, goal)],
-            trace=1.0, invert=True)
+            trace=1.0)
 ```
 
 ```{video} first-controller.mp4

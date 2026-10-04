@@ -16,9 +16,9 @@ from virtualmodelcontrol import viz
 from virtualmodelcontrol.robots import helyx
 
 # The README's example: the same robot, controller and run.
-arm = helyx.arm("145-290-290")
+arm = helyx.arm("145-145-145")
 tip = arm.point(s=1.0)
-goal = np.array([0.25, 0.0, 0.55])
+goal = np.array([0.15, 0.0, 0.35])
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("reach", vmc.LinearSpring(tip - goal, 600.0))
 ctrl.add("damp", vmc.LinearDamper(tip, 5.0))
@@ -39,9 +39,8 @@ ax0.plot(path[:, 0], path[:, 2], color=viz.PALETTE[0], lw=1.2, label="tip path")
 viz.draw_robot(ax0, arm, rows["q"][-1], label="controlled")
 viz.draw_spring(ax0, path[-1], goal)
 viz.draw_goal(ax0, goal, label="goal")
-ax0.invert_yaxis()  # the arm hangs: z points down
 viz.label_axes(ax0)
-ax0.legend(loc="upper right", fontsize=13)
+ax0.legend(loc="lower left", fontsize=13)
 
 ax1.plot(rows["t"], distance, color=viz.PALETTE[3])
 ax1.set_xlabel("time [s]")

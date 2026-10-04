@@ -4,12 +4,11 @@ kernelspec:
   name: python3
 ---
 
-# Soft arm: reach, avoid, shape
+# Soft arm: reach past an obstacle, limit the force
 
-In this example we control the Helyx soft arm in simulation, mounted on its side. First its
-tip reaches a point, then its body bends around an obstacle on the way, and finally a few
-springs shape the whole arm. The [hanging soft arm](hanging-arm.md) does the same with an arm
-that hangs from its base.
+In this example we simulate the Helyx soft arm mounted on its side, in two of its experiments:
+the tip reaches for a target while two repulsive fields keep the body off an obstacle, and a
+force-limited spring pulls the tip against a string.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -18,10 +17,10 @@ import docs_setup
 
 ## The robot
 
-The Helyx arm has three continuum segments. Three tendons run along each segment, and each
+The arm has three continuum segments of 145 mm. Three tendons run along each segment, and each
 tendon is wound on its own motor, so the arm has nine motors. The template describes each
-segment by piecewise constant curvature: its configuration is $\Delta = (D_x, D_y, D_l)$
-[m], the tendon-length differences that bend it and its elongation.
+segment by piecewise constant curvature: its configuration is $\Delta = (D_x, D_y, D_l)$ [m],
+the tendon-length differences that bend it and its elongation.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -29,10 +28,9 @@ from schematics import helyx as schematic
 schematic.figure("145-145-145");
 ```
 
-The drawing shows the `145-145-145` arm, mounted on its side: gravity acts along $-y$, out
-of the drawing, so the arm bends in a horizontal plane. The arc parameter $s$ runs from 0 at
-the base to 1 at the tip, uniformly in arc length, and `arm.point(s=...)` gives any point of
-the body.
+The arm is mounted on its side: gravity acts along $-y$, out of the drawing, so the arm bends
+in a horizontal plane. The arc parameter $s$ runs from 0 at the base to 1 at the tip,
+uniformly in arc length, and `arm.point(s=...)` gives any point of the body.
 
 Each segment's section, seen along its $z$ axis, shows where its tendons sit and the index of
 the motor that pulls each one in the motor vector. A positive motor angle pulls its tendon.
@@ -43,43 +41,15 @@ from virtualmodelcontrol.robots import helyx
 schematic.sections(helyx.arm("145-145-145").params);
 ```
 
-There are three geometries. Their segment lengths, their mounting and the sign of their
-encoders against that convention are:
+Every number of the template is a `Param`. These are the arm's, read from the template:
 
 ```{code-cell} python
 :tags: [remove-input]
-from IPython.display import Markdown
-
-rows = ["| Geometry | Segments, base to tip | Gravity in the base frame | Encoder sign |", "|---|---|---|---|"]
-for name, spec in helyx.GEOMETRIES.items():
-    lengths = ", ".join(f"{1000 * L:.0f}" for L in spec["L0"]) + " mm"
-    gravity = "[" + ", ".join(f"{g:g}" for g in spec["gravity"]) + "] m/s²"
-    rows.append(f"| `{name}` | {lengths} | {gravity} | {helyx.ENCODER_SIGN[name]:+.0f} |")
-Markdown("\n".join(rows))
-```
-
-The template takes its geometry as arguments, so the same function builds an arm of any
-segment lengths, radii, tendon angles or masses, with any number of segments:
-
-```{code-cell} python
-import numpy as np
-from virtualmodelcontrol.robots import helyx
-
-short = helyx.arm(
-    lengths=(0.2, 0.2),  # [m], two segments
-    tendon_angles=np.radians([[0, 120, -120], [60, 180, -60]]),
-)
-short.actuation.motor_sizes(short.space)  # motor angles and rates
-```
-
-Every number of the template is a `Param` that you can also change later. These are the ones
-of the arm used below, read from the template itself:
-
-```{code-cell} python
-:tags: [remove-input]
+from myst_nb import glue
 from schematics import params
 
 arm = helyx.add_dynamics(helyx.arm("145-145-145"))
+glue("eta", 100 * helyx.EFFICIENCY, display=False)
 params.table(arm, {
     "seg1.L0": "rest length of segment 1 (also `seg2.L0`, `seg3.L0`)",
     "seg1.d": "distance of the tendons from the backbone",
@@ -94,188 +64,168 @@ params.table(arm, {
 }, degrees=("seg1.delta",))
 ```
 
-The stiffness and damping come from an identification on a real Helyx arm, and both
-single-arm examples use them; only the simulator does. They were fitted to the torques the
-motors were commanded, so the simulated arm takes each torque as the controller sends it: its
-efficiency is 1, the default of every template.
-The efficiency of the tendons measured against a load cell, `helyx.EFFICIENCY`
+The stiffness and damping come from an identification on a real Helyx arm; only the simulator
+uses them. They were fitted to the torques the motors were commanded, so the simulated arm
+takes each torque as the controller sends it: its efficiency is 1, the default of every
+template. The efficiency of the tendons measured against a load cell, `helyx.EFFICIENCY`
 ({glue:text}`eta:.0f` %), matters for the forces the real arm exerts on its surroundings; the
 [efficiency page](../concepts/efficiency.md) explains when to use it.
 
-On the real arm, `helyx.output_stage()` adds a small pretension to every motor command
-(0.010 N·m per radian of motor angle). The simulations below leave it out.
+The nine motors and their bus are in `helyx.hardware("145-145-145")`. On the real arm,
+`helyx.output_stage()` adds a small pretension to every motor command (0.010 N·m per radian of
+motor angle). The simulations below leave it out.
 
-## Reach a point
+## Reach past an obstacle
 
-We pull the tip ($s = 1$) to a goal with a spring, damp the tip's motion and cancel the weight
-of the segments.
+A spring pulls the tip towards a target beyond an obstacle, while two repulsive Gaussian
+fields, attached a third and two thirds of the way along the arm, push the body away from it.
+Dampers on the three points slow them down. Each run lets the fields ramp up over 5 s, then
+walks the target from the tip at rest to its place at 10 cm/s, and holds it for 3 s. We repeat
+the run for four strengths of the fields.
 
 ```{code-cell} python
+import numpy as np
 import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol import viz
 
-arm = helyx.add_dynamics(helyx.arm("145-145-145"))
-goal = np.array([0.15, 0.0, 0.35])  # [m]
+kin = vmc.Kinematics(arm)
 tip = arm.point(s=1.0)
+rest = kin.position(np.zeros(9), 1.0)  # the tip at rest [m]
+target = np.array([-0.50, 0.0, 0.38])  # [m]
+obstacle = np.array([-0.15, 0.0, 0.2175])  # [m]
 
-def reach(arm, goal):
-    ctrl = vmc.Mechanism("ctrl")
-    ctrl.add("reach", vmc.LinearSpring(tip - goal, 600.0))  # [N/m]
-    ctrl.add("damp", vmc.LinearDamper(tip, 5.0))  # [N·s/m]
-    ctrl.add("gravity", vmc.GravityCompensation(arm))
-    return ctrl
-
-def simulate(arm, ctrl, T=3.0):
-    system = vmc.VirtualMechanismSystem(arm, ctrl)
-    controller = vmc.VMCController(vmc.compile(system))
-    plant = vmc.sim.ModelPlant(arm)
-    clock = vmc.sim.SimClock(dt=1 / 330)
-    return vmc.sim.run(plant, controller, clock, T=T)
-
-log_reach = simulate(arm, reach(arm, goal))
+goal = vmc.Ref("goal", value=rest)  # moved while running
+ctrl = vmc.Mechanism("ctrl")
+ctrl.add("reach", vmc.LinearSpring(tip - goal, 30.0))  # [N/m]
+ctrl.add("damp", vmc.LinearDamper(tip, 1.0))  # [N·s/m]
+for name, s in (("near", 1 / 3), ("far", 2 / 3)):
+    point = arm.point(s=s)
+    ctrl.add(name, vmc.GaussianSpring(point - obstacle, 0.0, 0.06))
+    ctrl.add(f"damp_{name}", vmc.LinearDamper(point, 1.0))
+ctrl.add("gravity", vmc.GravityCompensation(arm))
+law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
 ```
 
-The log holds the arm's configuration at every control step, so we can follow the tip:
+The loop is the one `vmc.sim.run` runs, with one `set` before each step for the fields'
+strength and the target:
 
 ```{code-cell} python
-kin = vmc.Kinematics(arm)
-rows = log_reach.arrays()
-path = np.array([kin.position(q, 1.0) for q in rows["q"]])
-distance = 100 * np.linalg.norm(path - goal, axis=1)  # [cm]
+def reach_past(strength, dt=1 / 330):
+    controller = vmc.VMCController(law)
+    plant = vmc.sim.ModelPlant(arm)
+    controller.reset(plant.t, plant.read())
+    walk = np.linalg.norm(target - rest) / 0.10  # [s], at 10 cm/s
+    for _ in range(round((5.0 + walk + 3.0) / dt)):
+        ramp = min(plant.t / 5.0, 1.0)
+        along = min(max(plant.t - 5.0, 0.0) / walk, 1.0)
+        controller.set({
+            "ctrl.near.strength": ramp * strength,
+            "ctrl.far.strength": ramp * strength,
+            "ctrl.reach.goal": rest + along * (target - rest),
+        })
+        meas = plant.read()
+        plant.write(controller.step(plant.t, meas))
+        plant.advance(dt)
+    return plant.read()["q"]
+
+strengths = (0.0, 200.0, 600.0, 1000.0)  # [N/m]
+final = {k: reach_past(k) for k in strengths}
+```
+
+```{code-cell} python
+fig, ax = plt.subplots(figsize=(5.6, 5.6))
+viz.draw_robot(ax, arm, np.zeros(9), color="0.85")
+for (k, q), color in zip(final.items(), viz.PALETTE):
+    viz.draw_robot(ax, arm, q, color=color, label=f"{k:.0f} N/m")
+ax.plot(obstacle[0], obstacle[2], "o", color="0.3", ms=10, label="obstacle")
+viz.draw_goal(ax, target, label="target")
+viz.label_axes(ax)
+ax.legend(loc="lower left", fontsize=14);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+def clearance(q):  # the body's closest point to the obstacle [cm]
+    body = [kin.position(q, s) for s in np.linspace(0.0, 1.0, 61)]
+    return 100 * min(np.linalg.norm(p - obstacle) for p in body)
+
+def miss(q):  # the tip's distance to the target [cm]
+    return 100 * np.linalg.norm(kin.position(q, 1.0) - target)
+
+gaps = [clearance(q) for q in final.values()]
+misses = [miss(q) for q in final.values()]
+assert np.all(np.diff(gaps) > 0) and np.all(np.diff(misses) > 0)
+for k, (gap, m) in enumerate(zip(gaps, misses)):
+    glue(f"gap{k}", float(gap), display=False)
+    glue(f"miss{k}", float(m), display=False)
+```
+
+Turning the fields up buys clearance and costs reach. The body's closest point to the obstacle
+is {glue:text}`gap0:.1f` cm from it without the fields, then {glue:text}`gap1:.1f`,
+{glue:text}`gap2:.1f` and {glue:text}`gap3:.1f` cm as the strength grows to 1000 N/m, while the
+tip ends {glue:text}`miss0:.1f`, {glue:text}`miss1:.1f`, {glue:text}`miss2:.1f` and
+{glue:text}`miss3:.1f` cm from the target. The target lies beyond the arm's reach, so even
+without the fields the tip stops short of it.
+
+## Limit the force
+
+A string ties the tip back to where it rests, through a load cell that measures its pull; in
+the simulation the string is a stiff spring on the tip's position along $x$, added to the robot
+mechanism. A spring at the tip pulls towards a goal that moves 5 cm further along $-x$ every
+3 s, up to 50 cm. A linear spring pulls ten times its stretch, ever harder; a tanh spring with
+the same stiffness, 10 N/m, pulls the same at first but never more than its maximum force,
+1.33 N.
+
+```{code-cell} python
+tied = helyx.add_dynamics(helyx.arm("145-145-145"))
+k_string = 2000.0  # [N/m]
+along_x = vmc.Projection(tied.point(s=1.0) - rest, [1.0, 0.0, 0.0])
+tied.add("string", vmc.LinearSpring(along_x, k_string))
+steps = -np.arange(0.05, 0.51, 0.05)  # [m], the goal's moves along x
+
+def pull(spring, dt=1 / 330):
+    goal = vmc.Ref("goal", value=rest)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("pull", spring(tied.point(s=1.0) - goal))
+    ctrl.add("damp", vmc.LinearDamper(tied.point(s=1.0), 1.5))
+    ctrl.add("gravity", vmc.GravityCompensation(tied))
+    system = vmc.VirtualMechanismSystem(tied, ctrl)
+    controller = vmc.VMCController(vmc.compile(system))
+    plant = vmc.sim.ModelPlant(tied)
+    controller.reset(plant.t, plant.read())
+    force = []  # the string's pull at the end of each step [N]
+    for x in steps:
+        controller.set({"ctrl.pull.goal": rest + [x, 0.0, 0.0]})
+        for _ in range(round(3.0 / dt)):
+            meas = plant.read()
+            plant.write(controller.step(plant.t, meas))
+            plant.advance(dt)
+        tip_x = vmc.Kinematics(tied).position(plant.read()["q"], 1.0)[0]
+        force.append(k_string * abs(tip_x - rest[0]))
+    return np.array(force)
+
+linear = pull(lambda y: vmc.LinearSpring(y, 10.0))
+tanh = pull(lambda y: vmc.TanhSpring(y, 10.0, 1.33))
 
 fig, ax = plt.subplots()
-ax.plot(rows["t"], distance)
-ax.set_xlabel("time [s]")
-ax.set_ylabel("tip to goal [cm]");
+ax.plot(-100 * steps, linear, "o-", label="linear")
+ax.plot(-100 * steps, tanh, "s-", label="tanh")
+ax.axhline(1.33, color="0.6", ls=":", label="maximum force")
+ax.set_xlabel("goal moved [cm]")
+ax.set_ylabel("pull on the string [N]")
+ax.legend();
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-from myst_nb import glue
-
-travel = distance[0] - distance
-t = rows["t"].ravel()
-outside = np.abs(travel - travel[-1]) > 0.01 * travel[-1]  # more than 1 % off the end
-assert distance.min() >= distance[-1] - 1e-6, "the tip overshoots"
-glue("reach_start", float(distance[0]), display=False)
-glue("reach_end", float(distance[-1]), display=False)
-glue("reach_99", float(t[np.nonzero(outside)[0][-1] + 1]), display=False)
-assert np.abs(path[:, 1]).max() < 1e-4, "the tip leaves the plane"
-glue("eta", 100 * helyx.EFFICIENCY, display=False)
+assert tanh[-1] < 1.33 < linear[-1] and np.all(np.diff(tanh) >= 0)
+glue("linear_end", float(linear[-1]), display=False)
+glue("tanh_end", float(tanh[-1]), display=False)
 ```
 
-The tip starts {glue:text}`reach_start:.0f` cm from the goal, comes in without overshooting
-and is within 1 % of its final distance after {glue:text}`reach_99:.1f` s. It stops
-{glue:text}`reach_end:.1f` cm short of the goal, where the virtual spring balances the arm's own
-stiffness; a stiffer spring brings it closer. Gravity compensation cancels the arm's weight,
-so the arm stays in its horizontal plane.
-
-## Avoid an obstacle
-
-An obstacle sits between the arm and a goal. Six repulsive springs along the body push it
-away: each acts on the vector from the obstacle to a point of the arm, and its force fades
-with distance.
-
-```{code-cell} python
-:tags: [remove-output]
-target = np.array([0.2, 0.0, 0.3])  # [m]
-obstacle = np.array([0.06, 0.0, 0.2])  # [m]
-radius = 0.035  # [m], for the drawing
-
-log_free = simulate(arm, reach(arm, target))
-ctrl = reach(arm, target)
-for i, s in enumerate(np.linspace(0.4, 0.9, 6)):
-    away = arm.point(s=s) - obstacle
-    ctrl.add(f"avoid{i}", vmc.GaussianSpring(away, 4000.0, 0.05))
-log_avoid = simulate(arm, ctrl)
-
-def draw_obstacle(ax, row=None):
-    disc = plt.Circle((obstacle[0], obstacle[2]), radius,
-                      color=viz.PALETTE[1], alpha=0.3)
-    ax.add_patch(disc)
-
-viz.animate(arm, log_avoid, "soft-arm-avoid.mp4", springs=[(1.0, target)],
-            trace=1.0, draw=draw_obstacle)
-```
-
-```{video} soft-arm-avoid.mp4
-:caption: The tip reaches for the goal while six repulsive springs keep the body off the obstacle (red).
-```
-
-The two runs end in different shapes:
-
-```{code-cell} python
-fig, ax = plt.subplots(figsize=(4.6, 5.6))
-viz.draw_robot(ax, arm, np.zeros(9), color="0.85")
-viz.draw_robot(ax, arm, log_free.arrays()["q"][-1],
-               color=viz.PALETTE[5], label="reach")
-viz.draw_robot(ax, arm, log_avoid.arrays()["q"][-1],
-               label="reach and avoid")
-viz.draw_goal(ax, target)
-draw_obstacle(ax)
-viz.label_axes(ax)
-ax.legend(loc="upper left");
-```
-
-```{code-cell} python
-:tags: [remove-cell]
-def closest(log):  # the body's closest approach to the obstacle's centre [cm]
-    points = [kin.position(q, s) for q in log.arrays()["q"][::10]
-              for s in np.linspace(0.0, 1.0, 41)]
-    return 100 * min(np.linalg.norm(p - obstacle) for p in points)
-
-def miss(log):  # the tip's final distance to the goal [cm]
-    return 100 * np.linalg.norm(kin.position(log.arrays()["q"][-1], 1.0) - target)
-
-assert closest(log_free) < 100 * radius < closest(log_avoid)
-glue("free_miss", float(miss(log_free)), display=False)
-glue("avoid_miss", float(miss(log_avoid)), display=False)
-glue("clearance", float(closest(log_avoid) - 100 * radius), display=False)
-```
-
-Without the repulsive springs the body passes through the obstacle. With them it bends around
-it, at least {glue:text}`clearance:.1f` cm from its surface, and the tip stops
-{glue:text}`avoid_miss:.1f` cm from the goal instead of {glue:text}`free_miss:.1f` cm, where the
-pull of the goal and the push of the obstacle balance.
-
-## Shape the whole body
-
-Springs can pull on any point of the arm, not only on its tip, so together they set the shape
-of the whole body. Here one spring pulls the middle of the arm ($s = 0.5$) to a point, the
-cross, and a second one pulls the tip towards the dashed line $z = 0.38$ m. The second spring
-acts along $z$ only: it stretches with the tip's distance from the line, so it does not mind
-where along the line the tip ends.
-
-```{code-cell} python
-middle = np.array([-0.05, 0.0, 0.2])  # [m]
-reach_z = 0.38  # [m]
-
-along_z = vmc.Projection(tip - [0, 0, reach_z], [0, 0, 1])  # distance
-
-ctrl = vmc.Mechanism("ctrl")
-ctrl.add("middle", vmc.LinearSpring(arm.point(s=0.5) - middle, 600.0))
-ctrl.add("reach_z", vmc.LinearSpring(along_z, 600.0))
-ctrl.add("damp", vmc.LinearDamper(tip, 5.0))
-ctrl.add("gravity", vmc.GravityCompensation(arm))
-q = simulate(arm, ctrl).arrays()["q"][-1]
-
-fig, ax = plt.subplots(figsize=(4.4, 5.2))
-viz.draw_robot(ax, arm, np.zeros(9), color="0.85")
-viz.draw_robot(ax, arm, q)
-viz.draw_goal(ax, middle, label="goal of the middle")
-ax.axhline(reach_z, color=viz.PALETTE[2], ls="--", label="line for the tip")
-viz.label_axes(ax)
-ax.legend(loc="lower left");
-```
-
-```{code-cell} python
-:tags: [remove-cell]
-glue("middle_off", 100 * float(np.linalg.norm(kin.position(q, 0.5) - middle)), display=False)
-glue("z_off", 100 * float(kin.position(q, 1.0)[2] - reach_z), display=False)
-```
-
-The middle of the arm stops {glue:text}`middle_off:.1f` cm from the cross and the tip
-{glue:text}`z_off:.1f` cm above the line: as in the first run, the arm's own stiffness holds
-both a little short of their goals. Nothing pulls the tip along the line, so where it ends there
-follows from the shape the two springs give the body.
+The linear spring's pull grows with the stretch, to {glue:text}`linear_end:.2f` N when the goal
+is 50 cm away; the tanh spring's levels off at {glue:text}`tanh_end:.2f` N, just under its
+maximum, however far the goal moves. A real transmission passes on only part of each motor
+torque, so on the real arm the string feels less than either: see the
+[efficiency page](../concepts/efficiency.md).

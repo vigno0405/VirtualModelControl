@@ -67,3 +67,38 @@ motor angles give $\Delta$ exactly, and the motor torques that realize a general
 $\tau$ solve $B u = \tau$ with $B = (\partial\theta_m/\partial\Delta)^\top$. The
 transmission's [efficiency](efficiency.md), 1 by default, maps the commanded motor torques to
 the delivered ones.
+
+## The templates
+
+`robots.helyx` builds Helyx arms from these equations. Three geometries are ready, the soft
+arm of the [soft-arm example](../examples/soft-arm.md) (on its side), the
+[hanging soft arm](../examples/hanging-arm.md) and the arms of the
+[two-arm example](../examples/two-arms.md); their segment lengths, their mounting and the sign
+of their encoders against the convention above are:
+
+```{code-cell} python
+:tags: [remove-input]
+from IPython.display import Markdown
+from virtualmodelcontrol.robots import helyx
+
+rows = ["| Geometry | Segments, base to tip | Gravity in the base frame | Encoder sign |",
+        "|---|---|---|---|"]
+for name, spec in helyx.GEOMETRIES.items():
+    lengths = ", ".join(f"{1000 * L:.0f}" for L in spec["L0"]) + " mm"
+    gravity = "[" + ", ".join(f"{g:g}" for g in spec["gravity"]) + "] m/s²"
+    rows.append(f"| `{name}` | {lengths} | {gravity} | {helyx.ENCODER_SIGN[name]:+.0f} |")
+Markdown("\n".join(rows))
+```
+
+The template takes its geometry as arguments, so the same function builds an arm of any
+segment lengths, radii, tendon angles or masses, with any number of segments:
+
+```{code-cell} python
+import numpy as np
+
+short = helyx.arm(
+    lengths=(0.2, 0.2),  # [m], two segments
+    tendon_angles=np.radians([[0, 120, -120], [60, 180, -60]]),
+)
+short.actuation.motor_sizes(short.space)  # motor angles and rates
+```

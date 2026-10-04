@@ -171,14 +171,14 @@ or removes.
 
 `SphereDistance` gives the distance to a ball, for grasps and obstacles; a body that can touch
 along its length, such as a soft arm, takes a contact on several of its points; and any signed
-distance written with CasADi operations works through a `Custom` coordinate. Here a vertical
-pole of radius 2 cm near the soft arm's tip:
+distance written with CasADi operations works through a `Custom` coordinate. Here a pole of
+radius 2 cm along $z$, beside the soft arm's tip:
 
 ```{code-cell} python
 import casadi as ca
 from virtualmodelcontrol.robots import helyx
 
-arm = helyx.add_dynamics(helyx.arm("145-290-290"))
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))
 pole = vmc.Custom(lambda p: ca.norm_2(p[0:2] - [0.1, 0.0]) - 0.02,
                   [arm.point(s=1.0)], dim=1, unit="m")
 arm.add("pole", vmc.ContactSpring(pole, 2e4))
