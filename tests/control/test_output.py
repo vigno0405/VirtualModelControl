@@ -56,8 +56,8 @@ def test_controller_applies_stages_after_the_law():
     ctrl.add("hold", vmc.LinearSpring(robot.joint(slice(0, 2)), 1.0))
     c = vmc.VMCController(
         vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl)),
-        output=[output.TorqueLimit(0.1), output.EfficiencyCorrection(0.5)],
+        output=[output.TorqueLimit(0.1), output.TorqueOffset(0.05)],
     )
     out = c.step(0.0, meas(np.array([1.0, -0.05])))
     np.testing.assert_allclose(out["law_torque"], [-1.0, 0.05])
-    np.testing.assert_allclose(out["motor_torque"], [-0.2, 0.1])
+    np.testing.assert_allclose(out["motor_torque"], [-0.05, 0.1])  # clipped, then offset

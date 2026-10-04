@@ -50,20 +50,18 @@ def test_finger_controller_pushes_back_from_the_limits():
 
 
 def test_add_dynamics_gives_the_simulator_the_gravity_the_controller_compensates():
-    finger = adapt.add_dynamics(adapt.finger(), damping=0.01)
-    assert {"gravity", "damping"} <= set(finger.components)
-    ctrl = vmc.Mechanism("ctrl")
-    ctrl.add("gravity", vmc.GravityCompensation(finger))
-    compiled = vmc.compile(vmc.VirtualMechanismSystem(finger, ctrl))
-    # The motors deliver η of the command, so only the corrected command holds the finger.
-    correction = vmc.control.EfficiencyCorrection(adapt.MOTOR_EFFICIENCY)
-    q0 = np.array([0.6, 0.4])
-    plant = vmc.sim.ModelPlant(finger, q0=q0)
-    vmc.sim.run(plant, vmc.VMCController(compiled, [correction]), vmc.sim.SimClock(1 / 500), T=0.5)
-    np.testing.assert_allclose(plant.q, q0, atol=1e-9)  # compensated gravity: the finger stays
-    plant = vmc.sim.ModelPlant(finger, q0=q0)
-    vmc.sim.run(plant, vmc.VMCController(compiled), vmc.sim.SimClock(1 / 500), T=0.5)
-    assert np.abs(plant.q - q0).max() > 1e-3  # uncorrected: η of the compensation, it sags
+    q0, drift = np.array([0.6, 0.4]), []
+    for efficiency in (None, adapt.MOTOR_EFFICIENCY):
+        finger = adapt.add_dynamics(adapt.finger(efficiency=efficiency), damping=0.01)
+        assert {"gravity", "damping"} <= set(finger.components)
+        ctrl = vmc.Mechanism("ctrl")
+        ctrl.add("gravity", vmc.GravityCompensation(finger))
+        controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(finger, ctrl)))
+        plant = vmc.sim.ModelPlant(finger, q0=q0)
+        vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 500), T=0.5)
+        drift.append(np.abs(plant.q - q0).max())
+    assert drift[0] < 1e-9  # an ideal transmission: the compensated finger stays
+    assert drift[1] > 1e-3  # the motors deliver η of the compensation: the finger sags
 
 
 def test_the_finger_and_the_hand_receive_efficiency_times_the_command():

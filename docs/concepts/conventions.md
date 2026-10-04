@@ -61,7 +61,7 @@ plant
 
 output stage
   An optional correction of the motor commands for real hardware: friction compensation,
-  pretension, an offset, an efficiency correction or a torque limit.
+  pretension, an offset or a torque limit.
 
 template
   A function that builds a ready-made robot, such as `helyx.arm`, with every geometric number

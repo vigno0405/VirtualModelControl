@@ -29,11 +29,11 @@ versions, with one minor version of deprecation before a removal).
   from configuration or from motor angles.
 - `models.JointSpace` for robots described by their joints only; `SerialChain.from_dh` and site
   rotations; `Assembly` parts mounted on another part's frame.
-- `TendonTransmission(efficiency=...)`: the delivered torque is the commanded torque times the
-  efficiency.
+- `TendonTransmission(efficiency=...)` and `Direct(efficiency=...)` (one value or one per
+  motor): the robot receives the commanded torque times the efficiency.
 - `SpeedRegulator`: drives a virtual state at a commanded speed, with a ramp.
 - `control.output`, opt-in output stages for real hardware: `FrictionCompensation`,
-  `Pretension`, `TorqueOffset`, `EfficiencyCorrection`, `TorqueLimit`; each template's own stage
+  `Pretension`, `TorqueOffset`, `TorqueLimit`; each template's own stage
   (`helyx.output_stage()`, `bimanual.output_stage()`, `adapt.output_stage()`,
   `adapt.hand_output_stage()`).
 - `vmc.viz`: the lab figure style (`use_style`, `save` as PDF and SVG) and drawing helpers
@@ -59,6 +59,16 @@ versions, with one minor version of deprecation before a removal).
 
 ### Changed
 
+- The templates model the transmission efficiency η: the robot receives η times the commanded
+  torque, and its own stiffness and damping are the identified, physical values. The soft arm
+  has η = 0.12 in its tendon transmission, and `helyx.SIM_STIFFNESS` and `helyx.SIM_DAMPING` are
+  the identified values (0.1.0 divided them by 0.12 and delivered the full torque: the same
+  equilibria without gravity, but natural frequencies about 2.9 times too high and a sag under
+  gravity about 8 times too small). The finger and the hand have one efficiency per motor
+  (`adapt.MOTOR_EFFICIENCY`, `adapt.HAND_MOTOR_EFFICIENCY`; `efficiency=None` makes the
+  transmission lossless). Controllers are unchanged and never divide their torques by η, so a
+  simulated robot, like the real one, receives η of every command, gravity compensation
+  included.
 - The figure style without LaTeX uses matplotlib's own Computer Modern font (`cmr10`) instead
   of DejaVu Serif, with tick labels set as math. Figures made with LaTeX are unchanged.
 

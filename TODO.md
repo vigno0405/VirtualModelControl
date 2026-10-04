@@ -44,7 +44,7 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   controller, robot dynamics from components, model-based simulator, Helyx arm and ADAPT finger.
 - **On `main`, not yet released:** bimanual, hand, turtle and UR5 templates; Jacobians and
   Hessians of every site; transmission efficiency; mounting parts on frames; opt-in output stages
-  (friction compensation, pretension, torque offset, efficiency correction, torque limit); speed
+  (friction compensation, pretension, torque offset, torque limit); speed
   regulator for virtual states; figures in the lab style; contact; all dependencies installed with
   the package; CI on Ubuntu 22.04 and 24.04.
 - **To update an installed copy,** see "Update" on the documentation's Installation page. Until
@@ -70,8 +70,7 @@ Virtual Model Control must be able to control a robot from the documentation alo
 - [x] Jacobians and Hessians of every site (`vmc.Kinematics`)
 - [x] Mount a part on another part's frame; orientations of serial-chain sites
 - [x] Speed regulator for virtual states
-- [x] Opt-in output stages: friction compensation, pretension, torque offset, efficiency
-  correction, torque limit
+- [x] Opt-in output stages: friction compensation, pretension, torque offset, torque limit
 - [x] Figures in the lab style, saved as PDF and SVG (`vmc.viz`)
 - [x] Contact as stiff one-sided springs: `PlaneDistance`, `SphereDistance`, `ContactSpring`,
   `ContactDamper`, `adapt.add_dynamics`; guide page "Contact"
@@ -159,7 +158,7 @@ example opens with its robot's schematic, and the build and the screenshots are 
   identified values (the soft arm today keeps η = 1 and divides its stiffness and damping by
   0.12: the same steady state, but natural frequencies about 2.8 times too high). Soft arm and
   two arms 0.12 in the tendon transmission; finger and hand per motor (`Direct(efficiency=...)`);
-  the controller is unchanged (`EfficiencyCorrection` stays opt-in). The code is on the branch
+  the controller is unchanged (commands are never divided by η). The code is on the branch
   `efficiency-transmission`. Done when its two failing tests are updated, every page that
   simulates these robots is re-run and its text checked against the new numbers, and the
   CHANGELOG says what changed.

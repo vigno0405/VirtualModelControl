@@ -63,17 +63,6 @@ class TorqueOffset:
 
 
 @dataclass
-class EfficiencyCorrection:
-    """Divides by the transmission efficiency η, so the robot receives the computed torque."""
-
-    efficiency: ArrayLike
-
-    def __call__(self, u: np.ndarray, meas: Signals) -> np.ndarray:
-        """u / η."""
-        return u / np.asarray(self.efficiency)
-
-
-@dataclass
 class TorqueLimit:
     """Clips every command to ±limit [N·m] (scalar or per motor)."""
 
