@@ -76,6 +76,11 @@ versions, with one minor version of deprecation before a removal).
   position. `hardware.home` drives the motors slowly to recorded home positions and refuses a
   motor that lost a turn; `hardware.scan` finds the motors and their baud rate;
   `hardware.FakeBus` stands in for the bus in tests and dry runs.
+- `vmc.sim.WallClock`: `vmc.sim.run` on real time, the loop of simulation unchanged. Each step
+  runs on the computer's clock with its measured time; a reading older than `stale` sends
+  zero torque; a late step starts the next one from now instead of catching up; the log
+  records each step's `dt`, and `log.info` the rate, the slowest step, the overruns and the
+  stale readings, with a warning when steps overran.
 
 ### Changed
 

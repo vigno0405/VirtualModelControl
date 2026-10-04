@@ -2,6 +2,6 @@
 
 from .model_plant import ModelPlant
 from .plant import Plant, SimPlant
-from .run import Guard, RunLog, SimClock, run
+from .run import Guard, RunLog, SimClock, WallClock, run
 
-__all__ = ["Guard", "ModelPlant", "Plant", "RunLog", "SimClock", "SimPlant", "run"]
+__all__ = ["Guard", "ModelPlant", "Plant", "RunLog", "SimClock", "SimPlant", "WallClock", "run"]
