@@ -128,7 +128,8 @@ from myst_nb import glue
 
 glue("k_err", 100 * float(np.abs(K / helyx.SIM_STIFFNESS - 1).max()), display=False)
 glue("d_err", 100 * float(np.abs(D / helyx.SIM_DAMPING - 1).max()), display=False)
-glue("duration", float(log.arrays()["t"][-1] - log.arrays()["t"][0]), display=False)
+t = log.arrays()["t"].ravel()
+glue("duration", float(t[-1] - t[0]), display=False)
 ```
 
 From {glue:text}`duration:.0f` s of steps, the fit recovers every stiffness within
