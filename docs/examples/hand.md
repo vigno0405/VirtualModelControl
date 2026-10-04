@@ -67,6 +67,11 @@ On the real hand, `adapt.hand_output_stage()` adds a friction feed-forward of
 {glue:text}`friction:.1f` N·m that fades out above about {glue:text}`fade:.2f` rad/s, then
 clips each command to ±{glue:text}`limit:.1f` N·m. The simulation below leaves it out.
 
+The measured motor efficiencies, `adapt.HAND_MOTOR_EFFICIENCY` (the finger's two values on the
+MCP and PIP motors of each finger and on the thumb's MCP and IP motors, 1 elsewhere), are left
+out of the simulation for the reason given in the [finger example](finger.md);
+`adapt.hand(efficiency=adapt.HAND_MOTOR_EFFICIENCY)` includes them.
+
 ## Grasp a ball
 
 A ball sits in front of the palm, in the robot mechanism: the simulator feels it, while the

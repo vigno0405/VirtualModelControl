@@ -56,8 +56,7 @@ params.table(bimanual.add_dynamics(bimanual.arms()), {
 
 The stiffness and damping, which only the simulator uses, were identified on the real arms and
 refer to the delivered torque, so each arm's transmission keeps the measured efficiency: the
-simulated arms, like the real ones, receive {glue:text}`EFFICIENCY:.2f` times the commanded
-torque.
+simulated arms receive {glue:text}`EFFICIENCY:.2f` times the commanded torque.
 
 The arms' encoders follow the library's sign convention (`bimanual.ENCODER_SIGN` is
 {glue:text}`ENCODER_SIGN:+.0f`), and their controller runs at {glue:text}`CONTROL_RATE:.0f` Hz.
@@ -98,26 +97,25 @@ arms.add("object", vmc.ContactSpring(distance - width, k_object))
 ```
 
 The controller pulls the tips together with a spring of zero rest length between them, slows
-their closing with a damper in parallel, and cancels the weight of the segments. The arms
-receive only part of each command, so the `EfficiencyCorrection` output stage divides the
-commands by the efficiency: the arms then feel the virtual elements at their full values.
+their closing with a damper in parallel, and cancels the weight of the segments. Like every
+command, these reach the arms at {glue:text}`EFFICIENCY:.2f` of their value.
 
 ```{code-cell} python
-K = 2.0  # [N/m]
+K = 20.0  # [N/m]
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("squeeze", vmc.LinearSpring(distance, K))
 ctrl.add("damp", vmc.LinearDamper(distance, 1.0))  # [N·s/m]
 ctrl.add("gravity", vmc.GravityCompensation(arms))
 
 system = vmc.VirtualMechanismSystem(arms, ctrl)
-correction = vmc.control.EfficiencyCorrection(bimanual.EFFICIENCY)
-controller = vmc.VMCController(vmc.compile(system), output=[correction])
+controller = vmc.VMCController(vmc.compile(system))
 plant = vmc.sim.ModelPlant(arms)
 clock = vmc.sim.SimClock(dt=1 / bimanual.CONTROL_RATE)
 log = vmc.sim.run(plant, controller, clock, T=2.0)
 ```
 
-We follow the distance between the tips, the force of the spring and the force on the object:
+We follow the distance between the tips, the force of the spring that reaches the arms and the
+force on the object:
 
 ```{code-cell} python
 import matplotlib.pyplot as plt
@@ -137,7 +135,7 @@ top.plot(rows["t"], 100 * d)
 top.axhline(100 * width, color=viz.PALETTE[1], ls="--", label="object")
 top.set_ylabel("tip distance [cm]")
 top.legend()
-bottom.plot(rows["t"], K * d, label="spring")
+bottom.plot(rows["t"], bimanual.EFFICIENCY * K * d, label="spring")
 bottom.plot(rows["t"], on_object, label="on the object")
 bottom.set_xlabel("time [s]")
 bottom.set_ylabel("force [N]")
@@ -147,14 +145,17 @@ bottom.legend();
 ```{code-cell} python
 :tags: [remove-cell]
 t = rows["t"].ravel()
+assert (d <= width).any(), "the tips never reach the object"
 glue("touch", float(t[np.argmax(d <= width)]), display=False)
 glue("spring", float(K * d[-1]), display=False)
+glue("delivered", float(bimanual.EFFICIENCY * K * d[-1]), display=False)
 glue("squeeze", float(on_object[-1]), display=False)
 ```
 
-The tips meet the object after {glue:text}`touch:.1f` s and stop on it. The spring then pulls
-with {glue:text}`spring:.2f` N, but the object feels only {glue:text}`squeeze:.2f` N: the rest
-holds the soft arms bent. A stiffer spring squeezes harder.
+The tips meet the object after {glue:text}`touch:.2f` s and stop on it. The spring's torques
+then ask for {glue:text}`spring:.2f` N, of which the arms receive {glue:text}`delivered:.2f` N,
+and the object feels {glue:text}`squeeze:.2f` N: the rest holds the soft arms bent. A stiffer
+spring squeezes harder.
 
 ## Animate
 

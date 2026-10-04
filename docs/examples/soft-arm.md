@@ -94,9 +94,9 @@ params.table(arm, {
 
 The stiffness and damping come from an identification on a real arm; only the simulator uses
 them. The efficiency, measured against a load cell, is the share of each motor torque that the
-tendons pass on to the arm. Controllers send their torques as computed, so in simulation, as
-on the real arm, the arm feels {glue:text}`eta:.0f` % of every virtual element, gravity
-compensation included.
+tendons pass on to the arm. Controllers send their torques as computed, as on the real arm,
+and the simulated arm receives {glue:text}`eta:.0f` % of each, so it feels that share of every
+virtual element, gravity compensation included.
 
 On the real arm, `helyx.output_stage()` adds a small pretension to every motor command
 (0.010 N·m per radian of motor angle). The simulations below leave it out.

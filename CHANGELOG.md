@@ -68,8 +68,8 @@ versions, with one minor version of deprecation before a removal).
   identified, physical values. 0.1.0 divided them by 0.12 and delivered the full torque: the
   same equilibria without gravity, but natural frequencies about 2.9 times too high and a sag
   under gravity about 8 times too small. Controllers are unchanged and never divide their
-  torques by η, so the simulated arm, like the real one, receives η of every command, gravity
-  compensation included.
+  torques by η, so the simulated arm receives η of every command, gravity compensation
+  included.
 - The figure style without LaTeX uses matplotlib's own Computer Modern font (`cmr10`) instead
   of DejaVu Serif, with tick labels set as math. Figures made with LaTeX are unchanged.
 

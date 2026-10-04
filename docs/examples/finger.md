@@ -39,6 +39,8 @@ from virtualmodelcontrol.robots import adapt
 glue("friction", adapt.FRICTION[0], display=False)
 glue("speed", adapt.FRICTION[1], display=False)
 glue("limit", adapt.TORQUE_LIMIT, display=False)
+glue("eta_mcp", 100 * adapt.MOTOR_EFFICIENCY[0], display=False)
+glue("eta_pip", 100 * adapt.MOTOR_EFFICIENCY[1], display=False)
 params.table(adapt.finger(), {
     "j1.axis": "axis of the MCP joint (also `j2.axis`, `j3.axis` for PIP, DIP)",
     "j2.point": "PIP joint, at the end of the proximal phalanx",
@@ -57,6 +59,13 @@ On the real finger, `adapt.output_stage()` adds a friction feed-forward of
 {glue:text}`friction:.2f` N·m in the direction of each command, which fades out once the motor
 turns faster than about {glue:text}`speed:.2f` rad/s, then clips the commands to
 ±{glue:text}`limit:.1f` N·m. The simulations below leave it out.
+
+The motors pass on only part of their torque: {glue:text}`eta_mcp:.0f` % at the MCP and
+{glue:text}`eta_pip:.0f` % at the PIP (`adapt.MOTOR_EFFICIENCY`), fitted to measured fingertip
+forces. The template is lossless by default, and the simulations below deliver the full
+torque: with a different efficiency on each of two motors that one virtual spring couples, the
+force the finger receives no longer derives from the spring's energy, and a simulated finger can
+start to vibrate. `adapt.finger(efficiency=adapt.MOTOR_EFFICIENCY)` includes them.
 
 The template takes its geometry and transmission as arguments. A longer finger with a larger
 pulley on the MCP joint, for example, has a new first coupling ratio:

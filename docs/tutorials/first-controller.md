@@ -17,9 +17,9 @@ import docs_setup
 ## The robot
 
 `helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
-kinematics, its nine tendon motors and the masses of its segments. Like the real arm, it
-receives only {glue:text}`eta:.0f` % of each motor torque: the efficiency of its tendons,
-`helyx.EFFICIENCY`. A simulator also needs the arm's own stiffness and damping, and gravity;
+kinematics, its nine tendon motors and the masses of its segments. It receives only
+{glue:text}`eta:.0f` % of each motor torque, the efficiency of its tendons measured on the real
+arm (`helyx.EFFICIENCY`). A simulator also needs the arm's own stiffness and damping, and gravity;
 `helyx.add_dynamics` adds them.
 
 ```{code-cell} python

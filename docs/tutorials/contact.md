@@ -99,12 +99,20 @@ from myst_nb import glue
 glue("press_end", float(log["force"][-1]), display=False)
 glue("press_goal", float(K * k / (K + k) * log["depth"][-1]), display=False)
 glue("press_peak", float(log["force"][:500].max()), display=False)
+from virtualmodelcontrol.robots import helyx
+glue("eta_arm", helyx.EFFICIENCY, display=False)
 ```
 
 The first touch is an impact: the force peaks at {glue:text}`press_peak:.2f` N while the tip
 stops, then settles. Each deeper goal raises the force by one step; the last one settles at
 {glue:text}`press_end:.3f` N against {glue:text}`press_goal:.3f` N expected. To press more
 gently, lower $K$ or damp the tip more.
+
+This finger delivers the full torque of its motors. On a robot whose transmission passes on
+only a share $\eta$ of each torque, such as the soft arm ($\eta$ = {glue:text}`eta_arm:.2f`),
+the controller's torques stay the same and the spring presses with $\eta K$ times its stretch:
+a chosen force needs $1/\eta$ times the stretch, corrected for the robot's own stiffness and
+weight.
 
 ```{code-cell} python
 :tags: [remove-output]
