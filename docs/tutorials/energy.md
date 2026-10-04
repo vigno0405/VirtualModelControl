@@ -72,6 +72,18 @@ clock = vmc.sim.SimClock(dt=1 / 5000)  # [s]
 rows = vmc.sim.run(plant, controller, clock, T=0.2).arrays()
 ```
 
+```{code-cell} python
+:tags: [remove-output]
+from virtualmodelcontrol import viz
+
+viz.animate(arm, rows, "energy.mp4", springs=[(1.0, goal)], trace=1.0,
+            invert=True, speed=0.1)
+```
+
+```{video} energy.mp4
+:caption: The run whose energies follow, ten times slower than real time.
+```
+
 We evaluate the four functions at every logged step: `map(n)` evaluates a CasADi function on
 `n` columns at once.
 

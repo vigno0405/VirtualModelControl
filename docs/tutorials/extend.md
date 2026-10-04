@@ -162,6 +162,18 @@ log = vmc.sim.run(late, controller, vmc.sim.SimClock(dt=1 / 330), T=0.5)
 log.arrays()["motor_torque"].shape  # one row per step
 ```
 
+```{code-cell} python
+:tags: [remove-output]
+from virtualmodelcontrol import viz
+
+viz.animate(arm, log, "extend.mp4", springs=[(1.0, goal)], trace=1.0,
+            invert=True)
+```
+
+```{video} extend.mp4
+:caption: The arm driven through the late plant: each torque arrives one control period late.
+```
+
 [Tuning](tuning.md) uses the same idea to show how the delay limits damping.
 
 ## From another project

@@ -1,13 +1,12 @@
 # VirtualModelControl
 
-[![PyPI](https://img.shields.io/pypi/v/virtualmodelcontrol?color=3c5488)](https://pypi.org/project/virtualmodelcontrol/)
-[![Python](https://img.shields.io/pypi/pyversions/virtualmodelcontrol?color=3c5488)](https://pypi.org/project/virtualmodelcontrol/)
-[![Docs](https://img.shields.io/badge/docs-online-3c5488)](https://vigno0405.github.io/VirtualModelControl/)
-[![License](https://img.shields.io/badge/license-MIT-3c5488)](https://github.com/vigno0405/VirtualModelControl/blob/main/LICENSE)
-
 `virtualmodelcontrol` is a Python library for Virtual Model Control. You build a controller by
 attaching virtual springs, dampers and masses to your robot, and the library turns them into
 motor torques at the control rate, in simulation and on the real robot.
+
+<p align="center">
+  <a href="https://vigno0405.github.io/VirtualModelControl/"><img src="https://img.shields.io/badge/Documentation-tutorials%20%C2%B7%20examples%20%C2%B7%20API-3c5488?style=for-the-badge&labelColor=13294b" alt="Documentation: tutorials, examples, API"></a>
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/vigno0405/VirtualModelControl/main/docs/_static/readme-hero.svg" width="820" alt="A soft arm whose tip a virtual spring pulls towards a goal, and the distance from the tip to the goal over time">
@@ -29,10 +28,23 @@ Virtual environments, conda, ROS 2 and pinned versions are covered in [Installat
 
 ## Requirements
 
-- Python 3.10 or newer, tested with 3.10 to 3.14 on Ubuntu 22.04 and 24.04.
-- pip installs everything else: numpy (1.26 or 2.x), SciPy, CasADi, matplotlib, PyYAML and
-  imageio-ffmpeg, and the Dynamixel SDK and pyserial for the hardware.
-- Nothing to compile; ROS and LaTeX are not needed.
+Python 3.10 or newer, tested with 3.10 to 3.14 on Ubuntu 22.04 and 24.04. Nothing to compile;
+ROS and LaTeX are not needed.
+
+## Dependencies
+
+pip installs them with the library:
+
+| Package | Version | Used for |
+| --- | --- | --- |
+| [numpy](https://numpy.org) | 1.26 or newer, 2.x included | arrays |
+| [CasADi](https://web.casadi.org) | 3.6 or newer | the symbolic models, their derivatives and the compiled controllers |
+| [SciPy](https://scipy.org) | 1.11 or newer | rotations of chains built from DH tables |
+| [matplotlib](https://matplotlib.org) | 3.8 or newer | figures and animations |
+| [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | 0.5 or newer | MP4 videos of the animations |
+| [PyYAML](https://pyyaml.org) | 6 or newer | robot and hardware files |
+| [Dynamixel SDK](https://github.com/ROBOTIS-GIT/DynamixelSDK) | 3.7 or newer | Dynamixel motors |
+| [pyserial](https://github.com/pyserial/pyserial) | 3.5 or newer | serial sensors |
 
 ## The example in the figure
 

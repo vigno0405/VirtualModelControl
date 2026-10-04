@@ -89,16 +89,16 @@ with its robot.
 **Schematics.** Every concept gets a picture before any code, drawn by code (`docs/schematics/`)
 in the lab style, readable on a phone:
 
-- [ ] Library map: the layers (core, mechanisms, models, compiler and dynamics, control, sim,
+- [x] Library map: the layers (core, mechanisms, models, compiler and dynamics, control, sim,
   then estimation, optimization and learning) with the edges (hardware, ROS, robots, viz), and
   which ones a controller-only user needs.
-- [ ] "What a mechanism is": a robot drawing with its coordinates (points, joints, distances)
+- [x] "What a mechanism is": a robot drawing with its coordinates (points, joints, distances)
   and components (springs, dampers, masses, sources) attached; the same drawing for a controller.
-- [ ] The control loop: plant (simulated or real) and controller exchanging measurements and
+- [x] The control loop: plant (simulated or real) and controller exchanging measurements and
   torques (read, step, write, advance), with the guard, output stage, logger and ROS bridge in
   place.
-- [ ] Energy flow: storage, dissipation, sources, and the power balance the library checks.
-- [ ] One schematic per robot: frames and sites, joints, motors in their order, tendons and their
+- [x] Energy flow: storage, dissipation, sources, and the power balance the library checks.
+- [x] One schematic per robot: frames and sites, joints, motors in their order, tendons and their
   angles, sign conventions, units.
 
 **Figures.** Every guide shows results as plots (trajectories, forces, energies), made when the
@@ -108,28 +108,28 @@ docs build. Nothing is pasted as an image if it can be computed.
 
 - [x] `vmc.viz.animate(robot, log, ...)`: animation of a run (2D projections now, 3D with
   meshes after 0.4.0), saved as MP4 (H.264) or animated WebP/GIF under 2 MB.
-- [ ] Every page that simulates embeds the animation of its own run, made by the docs build.
+- [x] Every page that simulates embeds the animation of its own run, made by the docs build.
 
 **Pages to write or rewrite.**
 
-- [ ] Getting started: install (pip, venv, conda; Ubuntu 22.04 and 24.04; with ROS sourced),
+- [x] Getting started: install (pip, venv, conda; Ubuntu 22.04 and 24.04; with ROS sourced),
   update and uninstall; first controller with a figure, simulated, with plots and an animation
   (one tutorial).
-- [ ] Tutorials: how it works; coordinates and components; parameters and live changes; energy
+- [x] Tutorials: how it works; coordinates and components; parameters and live changes; energy
   and passivity; kinematics (frames, sites, Jacobians, Hessians, task-space stiffness); tuning
   (choosing stiffness and damping, the loop-delay limit on damping, reading energies); contact;
   build a robot (from DH or product-of-exponentials data, a continuum model, joint space only,
   actuation and couplings, masses, a template function, the tests); extend the library (new
   component, coordinate, model, plant; plugins through entry points). From simulation to the
   real robot comes with 0.3.0, using a model outside CasADi with 0.4.0, a new solver with 0.8.0.
-- [ ] Examples: soft arm, two arms, finger, hand (and on the UR5), turtle; each opens with its
+- [x] Examples: soft arm, two arms, finger, hand (and on the UR5), turtle; each opens with its
   robot: a schematic, a parameter table (name, value, unit, meaning), calibration constants, the
   output stage, the signs, and how to build it with other numbers.
-- [ ] Concepts: the library's structure (layers and contracts), soft-arm kinematics,
+- [x] Concepts: the library's structure (layers and contracts), soft-arm kinematics,
   conventions and glossary.
-- [ ] Reference: API with short names and no cut text; changelog; this list.
-- [ ] Developer notes: contributing, with tests, documentation rules and releases.
-- [ ] Troubleshooting: ROS on the `PYTHONPATH`, missing `python3-venv`, CasADi import errors,
+- [x] Reference: API with short names and no cut text; changelog; this list.
+- [x] Developer notes: contributing, with tests, documentation rules and releases.
+- [x] Troubleshooting: ROS on the `PYTHONPATH`, missing `python3-venv`, CasADi import errors,
   first compile time, matplotlib and LaTeX.
 - [ ] Create a logo for the library: in the site header, as the favicon and at the top of the
   README.
@@ -140,11 +140,11 @@ docs build. Nothing is pasted as an image if it can be computed.
 
 **Quality bar.**
 
-- [ ] The build passes with `-W` (warnings fail) and every code block executes.
-- [ ] Every page checked at desktop and phone width (screenshots) for cut letters, overlaps and
+- [x] The build passes with `-W` (warnings fail) and every code block executes.
+- [x] Every page checked at desktop and phone width (screenshots) for cut letters, overlaps and
   unreadable figures.
-- [ ] No paper references and no project repository names anywhere.
-- [ ] Plain-list references are named `ref` (`point - [x, y, z]` becomes `ctrl.<name>.ref`): say
+- [x] No paper references and no project repository names anywhere.
+- [x] Plain-list references are named `ref` (`point - [x, y, z]` becomes `ctrl.<name>.ref`): say
   so where `controller.set` is explained, and use `vmc.Ref("goal", ...)` in examples that change
   goals live.
 
@@ -163,7 +163,7 @@ example opens with its robot's schematic, and the build and the screenshots are 
   divide by η. Done when its two failing tests are updated, every page that simulates these
   robots is re-run and its text checked against the new numbers, and the CHANGELOG says what
   changed.
-- [ ] README: show
+- [x] README: show
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"` in the
   "Install" section too, right under `pip install virtualmodelcontrol`, as the way to get the
   current `main` before a release (today it appears only under "Update"). Run it end to end in a
