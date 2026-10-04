@@ -1,6 +1,13 @@
 """Components: storage (springs), dissipation (dampers), inertance (masses) and sources."""
 
 from .base import KINDS, Component
+from .constrained import (
+    ConstrainedGaussianSpring,
+    ConstrainedLinearDamper,
+    ConstrainedLinearSpring,
+    ConstrainedTanhDamper,
+    ConstrainedTanhSpring,
+)
 from .dissipation import ContactDamper, LinearDamper, TanhDamper
 from .inertance import Inertance, PointMass
 from .sources import ForceSource, GravityCompensation, SpeedRegulator
@@ -18,6 +25,11 @@ from .storage import (
 __all__ = [
     "KINDS",
     "Component",
+    "ConstrainedGaussianSpring",
+    "ConstrainedLinearDamper",
+    "ConstrainedLinearSpring",
+    "ConstrainedTanhDamper",
+    "ConstrainedTanhSpring",
     "ContactDamper",
     "ContactSpring",
     "ForceSource",

@@ -52,7 +52,8 @@ for c in (reach, height, distance, wall, reach[0], vmc.Stack(tip, middle)):
 ```
 
 A projection, a norm and a distance are one number each: a spring on `height` pulls along $z$
-only. `PlaneDistance` and `SphereDistance` are signed distances to a surface, for
+only. The constrained elements, such as `vmc.ConstrainedLinearSpring(reach, k, normal=n)`, are
+springs and dampers on such a projection, ready-made. `PlaneDistance` and `SphereDistance` are signed distances to a surface, for
 [contacts](contact.md). A plain list works as a goal too (`tip - [0.1, 0.0, 0.40]`); it becomes
 a live parameter named `ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom`
 wraps a function written with CasADi operations ([Extend the library](extend.md)).

@@ -9,6 +9,11 @@ from .control import VMCController
 from .core import SO2, Euclidean, Param, ParamSet, Product, Signals, register
 from .dynamics import Dynamics, compile_dynamics
 from .mechanisms import (
+    ConstrainedGaussianSpring,
+    ConstrainedLinearDamper,
+    ConstrainedLinearSpring,
+    ConstrainedTanhDamper,
+    ConstrainedTanhSpring,
     ContactDamper,
     ContactSpring,
     Custom,
@@ -58,6 +63,11 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "SO2",
     "Compiled",
+    "ConstrainedGaussianSpring",
+    "ConstrainedLinearDamper",
+    "ConstrainedLinearSpring",
+    "ConstrainedTanhDamper",
+    "ConstrainedTanhSpring",
     "ContactDamper",
     "ContactSpring",
     "Custom",

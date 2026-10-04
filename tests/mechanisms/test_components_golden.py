@@ -7,13 +7,17 @@ import pytest
 
 from helpers import component_function, evaluate
 from virtualmodelcontrol.mechanisms import (
+    ConstrainedGaussianSpring,
+    ConstrainedLinearDamper,
+    ConstrainedLinearSpring,
+    ConstrainedTanhDamper,
+    ConstrainedTanhSpring,
     GaussianSpring,
     Joint,
     LimitSpring,
     LinearDamper,
     LinearSpring,
     PolynomialSpring,
-    Projection,
     SigmoidSpring,
     TanhDamper,
     TanhSpring,
@@ -29,8 +33,8 @@ def args(case):
     return {k.split(":")[1]: DATA[k] for k in DATA.files if k.startswith(f"{case}:")}
 
 
-def cart(coord, a):
-    return Projection(coord, a["n"].ravel())
+def normal(a):
+    return a["n"].ravel()
 
 
 SPRINGS = {
@@ -39,11 +43,13 @@ SPRINGS = {
     "linear_matrix": lambda a: LinearSpring(Y, a["stiffness"]),
     "tanh_scalar": lambda a: TanhSpring(Y, a["stiffness"], a["max_force"]),
     "tanh_axes": lambda a: TanhSpring(Y, a["stiffness"], a["max_force"]),
-    "cart_linear_x": lambda a: LinearSpring(cart(Y, a), a["stiffness"]),
-    "cart_linear_oblique": lambda a: LinearSpring(cart(Y, a), a["stiffness"]),
-    "cart_tanh_z": lambda a: TanhSpring(cart(Y, a), a["stiffness"], a["max_force"]),
+    "cart_linear_x": lambda a: ConstrainedLinearSpring(Y, a["stiffness"], normal(a)),
+    "cart_linear_oblique": lambda a: ConstrainedLinearSpring(Y, a["stiffness"], normal(a)),
+    "cart_tanh_z": lambda a: ConstrainedTanhSpring(Y, a["stiffness"], a["max_force"], normal(a)),
     "gaussian": lambda a: GaussianSpring(Y, a["strength"], a["sigma"]),
-    "cart_gaussian_oblique": lambda a: GaussianSpring(cart(Y, a), a["strength"], a["sigma"]),
+    "cart_gaussian_oblique": lambda a: ConstrainedGaussianSpring(
+        Y, a["strength"], a["sigma"], normal(a)
+    ),
     "sigmoid_axes": lambda a: SigmoidSpring(Y, a["kmin"], a["kmax"], a["threshold"], a["alpha"]),
     "sigmoid_norm": lambda a: SigmoidSpring(
         Y, a["kmin"], a["kmax"], a["threshold"], a["alpha"], element_wise=False
@@ -58,8 +64,10 @@ DAMPERS = {
     "damper_scalar": lambda a: LinearDamper(X, a["damping"]),
     "damper_axes": lambda a: LinearDamper(X, a["damping"]),
     "tanh_damper": lambda a: TanhDamper(X, a["damping"], a["max_force"]),
-    "cart_damper_oblique": lambda a: LinearDamper(cart(X, a), a["damping"]),
-    "cart_tanh_damper_y": lambda a: TanhDamper(cart(X, a), a["damping"], a["max_force"]),
+    "cart_damper_oblique": lambda a: ConstrainedLinearDamper(X, a["damping"], normal(a)),
+    "cart_tanh_damper_y": lambda a: ConstrainedTanhDamper(
+        X, a["damping"], a["max_force"], normal(a)
+    ),
 }
 
 
@@ -83,3 +91,20 @@ def test_limit_spring_matches_recorded_torques():
     spring = LimitSpring(Joint(0, unit="rad"), a["stiffness"], a["angle_lower"], a["angle_upper"])
     torque = evaluate(component_function(spring, 1), DATA["angle"][:, None])
     np.testing.assert_allclose(torque, DATA["limit"], rtol=1e-12, atol=1e-14)
+
+
+def test_constrained_springs_act_along_the_normal_only():
+    """The library saturates the constrained tanh spring along the normal; the original applies
+    tanh to each axis of the projected force, which bends the force off the normal."""
+    n = np.array([1.0, 2.0, 2.0]) / 3.0
+    y = np.array([0.3, -0.1, 0.2])
+    q = np.hstack([y, np.zeros(3)])[None, :]
+    for spring in (
+        ConstrainedLinearSpring(Y, 40.0, n),
+        ConstrainedTanhSpring(Y, 40.0, 1.5, n),
+        ConstrainedGaussianSpring(Y, 50.0, 0.06, n),
+    ):
+        f = evaluate(component_function(spring, 6), q)[0, :3]
+        np.testing.assert_allclose(np.cross(f, n), 0.0, atol=1e-12)  # parallel to n
+    f = evaluate(component_function(ConstrainedTanhSpring(Y, 40.0, 1.5, n), 6), q)[0, :3]
+    np.testing.assert_allclose(f, -n * 1.5 * np.tanh(40.0 * (n @ y) / 1.5), rtol=1e-12)

@@ -4,11 +4,12 @@ kernelspec:
   name: python3
 ---
 
-# Soft arm: reach past an obstacle, limit the force
+# Soft arm: reach past an obstacle, limit the force, shape the body
 
-In this example we simulate the Helyx soft arm mounted on its side, in two of its experiments:
-the tip reaches for a target while two repulsive fields keep the body off an obstacle, and a
-force-limited spring pulls the tip against a string.
+In this example we simulate the Helyx soft arm mounted on its side, in three of its
+experiments: the tip reaches for a target while two repulsive fields keep the body off an
+obstacle, a force-limited spring pulls the tip against a string, and a constrained spring holds
+the tip on a line while another spring shapes the body.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -171,8 +172,8 @@ without the fields the tip stops short of it.
 ## Limit the force
 
 A string ties the tip back to where it rests, through a load cell that measures its pull; in
-the simulation the string is a stiff spring on the tip's position along $x$, added to the robot
-mechanism. A spring at the tip pulls towards a goal that moves 5 cm further along $-x$ every
+the simulation the string is a stiff constrained spring that acts along $x$ only, added to the
+robot mechanism. A spring at the tip pulls towards a goal that moves 5 cm further along $-x$ every
 3 s, up to 50 cm. A linear spring pulls ten times its stretch, ever harder; a tanh spring with
 the same stiffness, 10 N/m, pulls the same at first but never more than its maximum force,
 1.33 N.
@@ -180,8 +181,9 @@ the same stiffness, 10 N/m, pulls the same at first but never more than its maxi
 ```{code-cell} python
 tied = helyx.add_dynamics(helyx.arm("145-145-145"))
 k_string = 2000.0  # [N/m]
-along_x = vmc.Projection(tied.point(s=1.0) - rest, [1.0, 0.0, 0.0])
-tied.add("string", vmc.LinearSpring(along_x, k_string))
+string = vmc.ConstrainedLinearSpring(tied.point(s=1.0) - rest, k_string,
+                                     normal=[1.0, 0.0, 0.0])  # along x
+tied.add("string", string)
 steps = -np.arange(0.05, 0.51, 0.05)  # [m], the goal's moves along x
 
 def pull(spring, dt=1 / 330):
@@ -229,3 +231,48 @@ is 50 cm away; the tanh spring's levels off at {glue:text}`tanh_end:.2f` N, just
 maximum, however far the goal moves. A real transmission passes on only part of each motor
 torque, so on the real arm the string feels less than either: see the
 [efficiency page](../concepts/efficiency.md).
+
+## Shape the body with a constrained spring
+
+Springs can pull on any point of the arm, not only on its tip, so together they set the shape
+of the whole body. Here a linear spring pulls the middle of the arm ($s = 0.5$) to a point, the
+cross, and a constrained spring pulls the tip towards the dashed line $z = 0.38$ m. A
+constrained spring acts along one direction only, here the line's normal $z$: it stretches with
+the tip's distance from the line, so it does not mind where along the line the tip ends.
+
+```{code-cell} python
+middle = np.array([-0.05, 0.0, 0.2])  # [m]
+on_line = np.array([0.0, 0.0, 0.38])  # [m], a point of the line
+
+ctrl = vmc.Mechanism("ctrl")
+ctrl.add("middle", vmc.LinearSpring(arm.point(s=0.5) - middle, 600.0))
+ctrl.add("line", vmc.ConstrainedLinearSpring(tip - on_line, 600.0,
+                                             normal=[0.0, 0.0, 1.0]))
+ctrl.add("damp", vmc.LinearDamper(tip, 5.0))
+ctrl.add("gravity", vmc.GravityCompensation(arm))
+system = vmc.VirtualMechanismSystem(arm, ctrl)
+controller = vmc.VMCController(vmc.compile(system))
+clock = vmc.sim.SimClock(dt=1 / 330)
+log = vmc.sim.run(vmc.sim.ModelPlant(arm), controller, clock, T=3.0)
+q = log.arrays()["q"][-1]
+
+fig, ax = plt.subplots(figsize=(4.4, 5.2))
+viz.draw_robot(ax, arm, np.zeros(9), color="0.85")
+viz.draw_robot(ax, arm, q)
+viz.draw_goal(ax, middle, label="goal of the middle")
+ax.axhline(on_line[2], color=viz.PALETTE[2], ls="--",
+           label="line for the tip")
+viz.label_axes(ax)
+ax.legend(loc="lower left");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("middle_off", 100 * float(np.linalg.norm(kin.position(q, 0.5) - middle)), display=False)
+glue("z_off", 100 * float(kin.position(q, 1.0)[2] - on_line[2]), display=False)
+```
+
+The middle of the arm stops {glue:text}`middle_off:.1f` cm from the cross and the tip
+{glue:text}`z_off:.1f` cm above the line: the arm's own stiffness holds both a little short of
+their goals. Nothing pulls the tip along the line, so where it ends there follows from the
+shape the two springs give the body.

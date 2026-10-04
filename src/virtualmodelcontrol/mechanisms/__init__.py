@@ -3,6 +3,11 @@
 from .components import (
     KINDS,
     Component,
+    ConstrainedGaussianSpring,
+    ConstrainedLinearDamper,
+    ConstrainedLinearSpring,
+    ConstrainedTanhDamper,
+    ConstrainedTanhSpring,
     ContactDamper,
     ContactSpring,
     ForceSource,
@@ -42,6 +47,11 @@ from .mechanism import Mechanism
 __all__ = [
     "KINDS",
     "Component",
+    "ConstrainedGaussianSpring",
+    "ConstrainedLinearDamper",
+    "ConstrainedLinearSpring",
+    "ConstrainedTanhDamper",
+    "ConstrainedTanhSpring",
     "ContactDamper",
     "ContactSpring",
     "Context",

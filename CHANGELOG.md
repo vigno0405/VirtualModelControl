@@ -29,6 +29,11 @@ versions, with one minor version of deprecation before a removal).
   say). Both agree with the lab's calibration code, and the fit gives the finger's
   `adapt.MOTOR_EFFICIENCY` back from its recorded data.
 - Docs: a "Transmission efficiency" page in the concepts.
+- The constrained elements as components of their own: `ConstrainedLinearSpring`,
+  `ConstrainedTanhSpring`, `ConstrainedGaussianSpring`, `ConstrainedLinearDamper` and
+  `ConstrainedTanhDamper` act along one direction (`normal`) only, leaving the plane normal to
+  it free. They give the forces of the lab's constrained elements, checked against them; the
+  tanh ones saturate along the normal rather than axis by axis.
 - `vmc.identification.fit_stiffness_damping`: a robot's diagonal stiffness and damping from
   logged runs under known motor torques, by least squares with K, D ≥ 0 in motor torques,
   relative to a resting baseline, with the robot's masses and gravity known; each run can carry
