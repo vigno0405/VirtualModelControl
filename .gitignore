@@ -26,3 +26,6 @@ docs/api/generated/
 docs/**/*.mp4
 docs/**/*.gif
 docs/**/*.webp
+
+# Lock file written by editor tooling; the project pins nothing
+uv.lock
