@@ -1,7 +1,10 @@
-"""Figures: the lab style, drawing robots, springs, goals and forces, saving as PDF and SVG."""
+"""Figures and animations: the lab style, drawing robots and virtual elements, saving."""
 
+from .animation import animate
 from .draw import (
+    draw_damper,
     draw_force,
+    draw_frame,
     draw_goal,
     draw_point,
     draw_robot,
@@ -14,7 +17,10 @@ from .style import PALETTE, rc, save, style, use_style
 
 __all__ = [
     "PALETTE",
+    "animate",
+    "draw_damper",
     "draw_force",
+    "draw_frame",
     "draw_goal",
     "draw_point",
     "draw_robot",

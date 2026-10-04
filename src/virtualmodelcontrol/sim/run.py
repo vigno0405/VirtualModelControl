@@ -42,7 +42,8 @@ class RunLog:
     def append(self, **values: Any) -> None:
         """Add one row of named values."""
         for name, value in values.items():
-            self.rows.setdefault(name, []).append(np.atleast_1d(np.asarray(value, dtype=float)))
+            # A copy: plants and controllers may update their arrays in place.
+            self.rows.setdefault(name, []).append(np.array(value, dtype=float, ndmin=1))
 
     def arrays(self) -> dict[str, np.ndarray]:
         """Each signal as an (n_steps, ...) array."""
@@ -50,17 +51,26 @@ class RunLog:
 
 
 def run(
-    plant: Any, controller: Any, clock: SimClock, T: float, guard: Guard | None = None
+    plant: Any,
+    controller: Any,
+    clock: SimClock,
+    T: float,
+    guard: Guard | None = None,
+    z0: Any = None,
 ) -> RunLog:
     """Run ``controller`` on a simulated ``plant`` for ``T`` [s]; returns the recorded run.
 
     Each step reads the plant, asks the controller for a command (zero torque if the guard
-    trips), writes it and advances the plant by ``clock.dt``.
+    trips), writes it and advances the plant by ``clock.dt``. ``z0`` sets the controller's
+    initial virtual state; the log also records that state, ``z``, when the controller has one.
     """
     guard = Guard() if guard is None else guard
     log = RunLog()
     meas = plant.read()
-    controller.reset(plant.t, meas)
+    if z0 is None:
+        controller.reset(plant.t, meas)
+    else:
+        controller.reset(plant.t, meas, z0=z0)
     for _ in range(round(T / clock.dt)):
         meas = plant.read()
         if guard.ok(meas):
@@ -69,5 +79,7 @@ def run(
             cmd = Signals(plant.t, motor_torque=np.zeros_like(plant.u))
         plant.write(cmd)
         log.append(t=plant.t, motor_torque=cmd["motor_torque"], **{n: meas[n] for n in meas.names})
+        if getattr(controller, "z", None) is not None and np.size(controller.z):
+            log.append(z=controller.z)
         plant.advance(clock.dt)
     return log

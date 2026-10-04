@@ -6,175 +6,133 @@ kernelspec:
 
 # virtualmodelcontrol
 
-**Control robots by attaching virtual springs, dampers and masses to them.**
-`virtualmodelcontrol` is a Python library for Virtual Model Control (VMC): you describe your
-robot once, place virtual elements where they should act (a spring pulling a fingertip to a
-goal, a repulsive field around an obstacle, a damper along an arm), and the library turns them
-into motor torques at control rate, in simulation and on the real robot.
+`virtualmodelcontrol` is a Python library for Virtual Model Control. You build a controller by
+attaching virtual springs, dampers and masses to your robot, and the library turns them into
+motor torques at the control rate, in simulation and on the real robot.
+
+```{video} index-hero.mp4
+:caption: A soft arm pulled to a point by one virtual spring, simulated with the code below.
+```
 
 ```{code-cell} python
-:tags: [remove-input]
-import numpy as np
-import matplotlib.pyplot as plt
-import virtualmodelcontrol as vmc
-from virtualmodelcontrol import viz
-from virtualmodelcontrol.robots import helyx
-%config InlineBackend.figure_formats = ['svg']
-viz.use_style(usetex=False, font_size=14)
+:tags: [remove-cell]
+import docs_setup
+```
 
-arm = helyx.add_dynamics(helyx.arm("145-290-290"))
-goal = np.array([0.25, 0.0, 0.55])
-ctrl = vmc.Mechanism("ctrl")
-ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 600.0))
-ctrl.add("damp", vmc.LinearDamper(arm.point(s=1.0), 5.0))
+The robot and its controller are two separate mechanisms. The robot mechanism describes the
+hardware: its kinematics, its motors, its masses and, for simulation, its own stiffness and
+damping. The controller, a virtual mechanism, holds only the virtual elements we place on the
+robot. Here they are a spring from
+the tip to a goal and a damper on the tip; `compile` turns them into one fast function:
+
+```{code-cell} python
+import virtualmodelcontrol as vmc
+from virtualmodelcontrol.robots import helyx
+
+arm = helyx.add_dynamics(helyx.arm("145-290-290"))  # the robot
+goal = [0.25, 0.0, 0.55]  # [m]
+
+ctrl = vmc.Mechanism("ctrl")  # the controller
+ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 600.0))  # [N/m]
+ctrl.add("damp", vmc.LinearDamper(arm.point(s=1.0), 5.0))  # [N·s/m]
 ctrl.add("gravity", vmc.GravityCompensation(arm))
-controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl)))
+
+system = vmc.VirtualMechanismSystem(arm, ctrl)
+controller = vmc.VMCController(vmc.compile(system))
+```
+
+The same `controller` runs on the hardware. Here it runs on a simulation built from the robot's
+mechanism alone:
+
+```{code-cell} python
+:tags: [remove-output]
 plant = vmc.sim.ModelPlant(arm)
-vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 330), T=3.0)
-tip = vmc.Kinematics(arm).position(plant.q, 1.0)
-
-fig, ax = plt.subplots(figsize=(5.5, 5.5))
-viz.draw_robot(ax, arm, np.zeros(9), color="0.8", label="at rest")
-viz.draw_robot(ax, arm, plant.q, label="controlled")
-viz.draw_spring(ax, tip, goal)
-viz.draw_goal(ax, goal, label="goal")
-ax.invert_yaxis()
-viz.label_axes(ax)
-ax.set_title("A hanging soft arm pulled by a virtual spring")
-ax.legend(loc="lower left");
+log = vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 330), T=3.0)
+vmc.viz.animate(arm, log, "index-hero.mp4", springs=[(1.0, goal)],
+                trace=1.0, invert=True)
 ```
 
-## What you can do
+## Install
 
-::::{grid} 1 2 2 3
-:gutter: 3
-
-:::{grid-item-card} Get started
-:link: getting-started/install
-:link-type: doc
-Install with `pip install virtualmodelcontrol`, then build your first controller in ten lines.
-:::
-
-:::{grid-item-card} Control a soft arm
-:link: guides/soft-arm
-:link-type: doc
-Reach a point, avoid an obstacle, shape the whole body.
-:::
-
-:::{grid-item-card} Control a hand
-:link: guides/hand
-:link-type: doc
-Fingertip stiffness, grasps, joint limits, the hand on a UR5.
-:::
-
-:::{grid-item-card} Simulate
-:link: getting-started/simulate
-:link-type: doc
-The robot's own masses and springs give its dynamics: test controllers before the hardware.
-:::
-
-:::{grid-item-card} Use your robot
-:link: how-to/build-a-robot
-:link-type: doc
-Describe any robot (rigid, continuum, tendon-driven) in a few lines.
-:::
-
-:::{grid-item-card} Understand it
-:link: concepts/overview
-:link-type: doc
-How the library works, and how it is organized.
-:::
-::::
-
-## Ten lines
-
-```python
-import virtualmodelcontrol as vmc
-from virtualmodelcontrol.robots import helyx
-
-arm = helyx.arm("145-290-290")  # a ready-made robot
-ctrl = vmc.Mechanism("ctrl")  # the controller: a virtual mechanism
-ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - [0.1, 0.0, 0.6], 30.0))
-ctrl.add("damp", vmc.LinearDamper(arm.point(s=1.0), 1.5))
-controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl)))
-
-meas = vmc.Signals(0.0, motor_position=[0.0] * 9, motor_velocity=[0.0] * 9)
-torques = controller.step(0.0, meas)["motor_torque"]  # 9 motor torques [N·m]
+```bash
+pip install virtualmodelcontrol
 ```
 
-## Robots included
+[Installation](installation.md) covers virtual environments, conda, ROS 2 and updates.
 
-| Robot | Template | What it is |
-|---|---|---|
-| Helyx soft arm | `robots.helyx.arm(geometry)` | three tendon-driven continuum segments, three geometries |
-| Bimanual Helyx | `robots.bimanual.arms()` | two soft arms on one frame |
-| ADAPT finger | `robots.adapt.finger()` | three phalanges, two motors, coupled distal joints |
-| ADAPT hand | `robots.adapt.hand()` | five digits, 13 motors, spread coupling |
-| Crawling turtle | `robots.turtle.robot()`, `turtle.controller()` | two cranks coordinated by a virtual flywheel |
-| UR5 | `robots.ur5.arm()`, `ur5.with_hand()` | six-joint arm, alone or carrying the hand |
+## Where to start
+
+The [tutorials](tutorials/introduction.md) introduce the library step by step, from the idea of
+a virtual mechanism to building your own robot. The examples apply it to complete tasks on
+ready-made robots:
+
+- [a soft arm](examples/soft-arm.md) that reaches a point, avoids an obstacle and changes shape;
+- [two soft arms](examples/two-arms.md) that squeeze an object between them;
+- [a finger](examples/finger.md) with a stiff fingertip and soft joint limits;
+- [a hand](examples/hand.md) that grasps, alone or mounted on a UR5 arm.
+
+## Authors
+
+`virtualmodelcontrol` is developed by Lorenzo Vignoli at EPFL, in a collaboration between EPFL
+(Prof. Josie Hughes) and the University of Cambridge (Prof. Fulvio Forni). To cite it, use the
+`CITATION.cff` file of the [repository](https://github.com/vigno0405/VirtualModelControl).
 
 ```{toctree}
 :hidden:
 :caption: Getting started
 
-getting-started/install
-getting-started/first-controller
-getting-started/simulate
+installation
+troubleshooting
+```
+
+```{toctree}
+:hidden:
+:caption: Tutorials
+
+tutorials/introduction
+tutorials/first-controller
+tutorials/coordinates-and-components
+tutorials/parameters
+tutorials/energy
+tutorials/kinematics
+tutorials/tuning
+tutorials/contact
+tutorials/build-a-robot
+tutorials/extend
+```
+
+```{toctree}
+:hidden:
+:caption: Examples
+
+examples/soft-arm
+examples/two-arms
+examples/finger
+examples/hand
 ```
 
 ```{toctree}
 :hidden:
 :caption: Concepts
 
-concepts/overview
-concepts/structure
-concepts/coordinates
-concepts/components
-concepts/parameters
-concepts/energy
+concepts/library
 concepts/pcc
-```
-
-```{toctree}
-:hidden:
-:caption: Guides
-
-guides/soft-arm
-guides/two-arms
-guides/finger
-guides/hand
-guides/contact
-```
-
-```{toctree}
-:hidden:
-:caption: Robots
-
-robots/helyx
-```
-
-```{toctree}
-:hidden:
-:caption: How-to
-
-how-to/build-a-robot
-how-to/extend
+concepts/components
+concepts/conventions
 ```
 
 ```{toctree}
 :hidden:
 :caption: Reference
 
-reference/api
-reference/conventions
-reference/changelog
-reference/todo
+api/index
+development/changelog
+Roadmap <development/roadmap>
 ```
 
 ```{toctree}
 :hidden:
-:caption: Development
+:caption: Developer notes
 
-development/architecture
 development/contributing
 ```

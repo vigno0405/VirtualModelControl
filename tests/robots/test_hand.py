@@ -68,3 +68,17 @@ def test_joint_frame_rotations_match_the_recorded_hand():
             for link, joint in links.items():
                 R = evaluate_frame(model, q, f"{digit}/{link}_cog")[0]
                 np.testing.assert_allclose(R, DATA[f"{digit}_{joint}_R"][i], atol=1e-14)
+
+
+def test_hand_simulates_closing_under_joint_springs():
+    hand = adapt.add_dynamics(adapt.hand(), damping=0.01)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("close", vmc.LinearSpring(hand.joint(slice(0, 13)) - np.full(13, 0.4), 0.05))
+    ctrl.add("limits", adapt.hand_joint_limit_spring(hand))
+    ctrl.add("gravity", vmc.GravityCompensation(hand))
+    controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(hand, ctrl)))
+    plant = vmc.sim.ModelPlant(hand)
+    log = vmc.sim.run(plant, controller, vmc.sim.SimClock(dt=1 / 330), T=0.5)
+    q = log.arrays()["q"]
+    assert np.all(np.isfinite(q)) and np.all(np.isfinite(plant.q))
+    assert np.linalg.norm(plant.q - 0.4) < np.linalg.norm(q[0] - 0.4)  # moved towards the goal

@@ -95,4 +95,4 @@ ctrl.add("cart", vmc.TanhSpring(cart, 50.0, 0.5))
 ## Your own components
 
 A new spring only needs its energy; the force follows automatically. See
-[Extend the library](../how-to/extend.md).
+[Extend the library](../tutorials/extend.md).

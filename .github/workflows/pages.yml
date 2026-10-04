@@ -4,7 +4,7 @@ name: pages
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "src/**", "README.md", "CHANGELOG.md", "pyproject.toml"]
+    paths: ["docs/**", "src/**", "README.md", "CHANGELOG.md", "TODO.md", "pyproject.toml"]
   workflow_dispatch:
 
 permissions:

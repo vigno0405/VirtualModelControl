@@ -67,42 +67,79 @@ PRETENSION_THRESHOLD = np.radians(30.0)  # [rad]
 TORQUE_LIMIT = 0.5  # [N·m]
 
 
-def output_stage() -> list[Any]:
+def output_stage(motors: int = 18) -> list[Any]:
     """The arms' output stage: a torque offset, a soft stop on slack tendons, a torque clip."""
     return [
         TorqueOffset(TORQUE_OFFSET),
-        Pretension(np.full(18, PRETENSION_WEIGHTS), PRETENSION_THRESHOLD),
+        Pretension(np.full(motors, PRETENSION_WEIGHTS), PRETENSION_THRESHOLD),
         TorqueLimit(TORQUE_LIMIT),
     ]
 
 
-def arms(name: str = "arms", gravity: Any = None) -> Mechanism:
+def _by_arm(value: Any, default: Any) -> dict[str, Any]:
+    """One value for both arms, or a dict by arm; arms left out keep the default."""
+    if isinstance(value, dict):
+        return {arm: value.get(arm, default) for arm in ARMS}
+    return {arm: default if value is None else value for arm in ARMS}
+
+
+def arms(
+    name: str = "arms",
+    gravity: Any = None,
+    *,
+    lengths: Any = None,
+    base_positions: Any = None,
+    efficiency: Any = EFFICIENCY,
+    segment_mass: float = SEGMENT_MASS,
+    section_radius: Any = helyx.SECTION_RADIUS,
+    spool_radius: Any = helyx.SPOOL_RADIUS,
+    tendon_angles: Any = None,
+) -> Mechanism:
     """Both arms as one robot: q = [Δ_right, Δ_left] (18), motors right then left.
 
-    Points: ``robot.point("right", s=1.0)`` is the right tip. The tendons carry ``EFFICIENCY``.
+    Points: ``robot.point("right", s=1.0)`` is the right tip. ``lengths`` [m] (one tuple for
+    both arms, or a dict by arm), ``base_positions`` [m] (a dict by arm; arms left out keep
+    their defaults), ``efficiency``,
+    ``segment_mass`` [kg per 145 mm], the radii [m] and ``tendon_angles`` [rad] (one array for
+    both arms, or a dict by arm) override the defaults.
     """
-    body = Assembly(
-        {arm: (helyx.model(GEOMETRY), BASE_POSITIONS[arm], (0.0, 0.0, 0.0)) for arm in ARMS}
-    )
-    actuation = body.stacked_actuation({arm: helyx.tendons(EFFICIENCY) for arm in ARMS})
-    robot = Mechanism(name, model=body, actuation=actuation)
+    per_arm = _by_arm(lengths, helyx.GEOMETRIES[GEOMETRY]["L0"])
+    angles = _by_arm(tendon_angles, helyx.TENDON_ANGLES)
+    bases = {**BASE_POSITIONS, **(base_positions or {})}
+    model = {arm: helyx.model(lengths=per_arm[arm], section_radius=section_radius) for arm in ARMS}
+    body = Assembly({arm: (model[arm], bases[arm], (0.0, 0.0, 0.0)) for arm in ARMS})
+    for arm in ARMS:
+        if len(angles[arm]) != len(per_arm[arm]):
+            raise ValueError(f"the {arm} arm needs one row of tendon_angles per segment")
+    drive = {
+        arm: helyx.tendons(efficiency, angles=angles[arm], spool_radius=spool_radius)
+        for arm in ARMS
+    }
+    robot = Mechanism(name, model=body, actuation=body.stacked_actuation(drive))
     g = GRAVITY if gravity is None else gravity
     robot.add_param(Param("gravity", g, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf)))
-    L0 = np.array(helyx.GEOMETRIES[GEOMETRY]["L0"])
-    b = np.concatenate([[0.0], np.cumsum(L0)]) / L0.sum()
     for arm in ARMS:
-        for i, length in enumerate(L0):
-            mass = SEGMENT_MASS * length / helyx.REFERENCE_LENGTH
+        b = model[arm].breakpoints()
+        for i, length in enumerate(per_arm[arm]):
+            mass = segment_mass * length / helyx.REFERENCE_LENGTH
             robot.add(f"{arm}_m{i + 1}", PointMass(robot.point(arm, s=(b[i] + b[i + 1]) / 2), mass))
     return robot
 
 
 def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -> Mechanism:
-    """Give both arms their identified stiffness and damping in Δ, and gravity, for simulation."""
-    for i, arm in enumerate(ARMS):
-        delta = robot.joint(slice(9 * i, 9 * i + 9))
-        K = (stiffness or STIFFNESS)[arm]
-        D = (damping or DAMPING)[arm]
+    """Give both arms their identified stiffness and damping in Δ, and gravity, for simulation.
+
+    ``stiffness`` [N/m] and ``damping`` [N·s/m] are dicts by arm (9 values each); an arm left out
+    keeps its identified values.
+    """
+    stiffness = {**STIFFNESS, **(stiffness or {})}
+    damping = {**DAMPING, **(damping or {})}
+    offset = 0
+    for arm in ARMS:
+        n = robot.model.parts[arm].space.nq
+        delta = robot.joint(slice(offset, offset + n))
+        offset += n
+        K, D = stiffness[arm], damping[arm]
         robot.add(
             f"{arm}_stiffness",
             LinearSpring(delta, Param("stiffness", K, unit="N/m", scope="design")),

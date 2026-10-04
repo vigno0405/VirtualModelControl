@@ -1,4 +1,4 @@
-{{ name | escape | underline}}
+{{ fullname | replace("virtualmodelcontrol.", "") | escape | underline }}
 
 .. automodule:: {{ fullname }}
 

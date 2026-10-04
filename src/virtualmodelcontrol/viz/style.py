@@ -35,8 +35,10 @@ def rc(usetex: bool | None = None, font_size: float = 18.0) -> dict[str, Any]:
         "text.usetex": usetex,
         "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
         "font.family": "serif",
-        "font.serif": ["Computer Modern Roman", "CMU Serif", "DejaVu Serif"],
+        # Without LaTeX, matplotlib's own Computer Modern (cmr10); DejaVu fills missing glyphs.
+        "font.serif": ["Computer Modern Roman", "CMU Serif", "cmr10", "DejaVu Serif"],
         "mathtext.fontset": "cm",
+        "axes.formatter.use_mathtext": True,  # tick labels as math: cmr10 has no minus sign
         "axes.unicode_minus": False,  # LaTeX renders "-" in math mode as a minus sign
         "font.size": font_size,
         "axes.labelsize": font_size,

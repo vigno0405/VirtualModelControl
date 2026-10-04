@@ -16,6 +16,7 @@ dependencies = [
     "scipy>=1.11",
     "casadi>=3.6",
     "matplotlib>=3.8",
+    "imageio-ffmpeg>=0.5",
     "pyyaml>=6",
     "dynamixel-sdk>=3.7",
     "pyserial>=3.5",
@@ -39,10 +40,9 @@ classifiers = [
 docs = [
     "sphinx>=7.2",
     "myst-nb>=1.1",
-    "pydata-sphinx-theme>=0.15",
+    "furo>=2024.8",
     "sphinx-copybutton>=0.5",
     "sphinx-design>=0.5",
-    "sphinxcontrib-mermaid>=0.9",
 ]
 dev = [
     "pytest>=8",
@@ -75,7 +75,15 @@ only-include = [
     "LICENSE",
     "pyproject.toml",
 ]
-exclude = ["*.pdf", "docs/_build", "docs/jupyter_execute", "docs/reference/generated"]
+exclude = [
+    "*.pdf",
+    "*.mp4",
+    "*.gif",
+    "*.webp",
+    "docs/_build",
+    "docs/jupyter_execute",
+    "docs/api/generated",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/virtualmodelcontrol"]

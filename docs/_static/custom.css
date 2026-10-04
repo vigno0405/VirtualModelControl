@@ -1,4 +1,61 @@
-/* Long names (modules, classes) wrap instead of running off the page. */
-h1, h2, h3, .prev-next-title, .bd-sidenav a, .bd-breadcrumbs a, .autosummary td {
-  overflow-wrap: anywhere;
+/* Large type: 18 px article text, 16 px navigation. The root stays at the browser's size, so
+   the theme's layout and breakpoints are unchanged. */
+article[role="main"] {
+  font-size: 1.125rem;
+}
+body {
+  --sidebar-item-font-size: 1rem;
+  --sidebar-caption-font-size: 0.875rem;
+  --toc-font-size: 0.875rem;
+  --toc-title-font-size: 0.8125rem;
+  --code-font-size: 0.875em;
+}
+@media (max-width: 40em) {
+  article[role="main"] {
+    font-size: 1.0625rem;
+  }
+  article[role="main"] h1 {
+    font-size: 1.75em;
+  }
+}
+
+/* Long names wrap only where they must. */
+h1,
+h2,
+h3,
+table.autosummary td {
+  overflow-wrap: break-word;
+}
+
+/* Animations written by the pages (the video directive), shown at their own size or smaller. */
+figure.video {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+figure.video video {
+  display: inline-block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.25rem;
+}
+figure.video figcaption {
+  font-size: var(--font-size--small);
+  color: var(--color-foreground-secondary);
+  margin-top: 0.5rem;
+}
+
+/* Figures: white background in dark mode too, never wider than the text. */
+.cell_output img {
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+  border-radius: 0.25rem;
+}
+
+/* Task lists (the roadmap): the checkbox replaces the bullet. */
+ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25rem;
 }

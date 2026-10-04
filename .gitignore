@@ -12,7 +12,6 @@ dist/
 src/virtualmodelcontrol/_version.py
 docs/_build/
 docs/jupyter_execute/
-docs/reference/generated/
 
 # Tool caches
 .pytest_cache/
@@ -22,3 +21,8 @@ docs/reference/generated/
 
 # Papers stay out of the repository
 *.pdf
+docs/api/generated/
+# Animations written by the docs build
+docs/**/*.mp4
+docs/**/*.gif
+docs/**/*.webp

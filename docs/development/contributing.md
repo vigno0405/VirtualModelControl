@@ -2,48 +2,80 @@
 
 ## Set up
 
-Linux or macOS, from a clone of the repository:
+From a clone of the repository, on Linux or macOS:
 
 ```bash
+cd VirtualModelControl
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev,docs]"
 ```
 
-On Debian/Ubuntu, `python3 -m venv` needs the `python3-venv` package
-(`sudo apt install python3-venv`); a conda environment works too. If ROS 2 is sourced in your
-shell, prefix every command on this page with `env -u PYTHONPATH`.
+With ROS 2 sourced in the shell, prefix every command on this page with `env -u PYTHONPATH`.
 
-## Check your change
+## Check a change
 
-Run these from the repository root before opening a pull request:
+These are the checks CI runs; all of them must pass:
 
 ```bash
+cd VirtualModelControl
 .venv/bin/python -m pytest
-.venv/bin/ruff check .
-.venv/bin/ruff format --check .
+.venv/bin/ruff check . && .venv/bin/ruff format --check .
 .venv/bin/mypy
 .venv/bin/lint-imports
 .venv/bin/sphinx-build -W -b html docs docs/_build/html
 ```
 
-`pre-commit run --all-files` runs the formatters and file checks in one go. It is not
-installed as a git hook.
+The site then opens from `docs/_build/html/index.html`.
 
-## Rules
+## Code
 
-- **SI units** inside the library. Unit conversions belong in the hardware layers.
-- **No numbers in model code.** Geometry, gains, masses and calibration are `Param`s; their
-  defaults live in robot data.
-- **CasADi is the only symbolic source.** No second copy of a model in numpy or sympy.
-- **Short docstrings:** numpydoc, a 1–3 line summary, units on physical parameters. Theory goes
-  in the docs.
-- **Ported code** comes with a golden regression test: a small `.npz` fixture in `tests/data/`
-  generated from the original implementation, plus the property tests that apply.
-- **Behaviour changes are opt-in.** Projects pin library versions; deprecate for one minor
-  version before removing anything.
-- Add a line to `CHANGELOG.md` under "Unreleased".
+- SI units inside the library; degrees, ticks and currents only at the hardware boundary.
+- No numbers in model code: every geometric or physical number is a `Param`, with its default
+  in the robot's template, and templates take their geometry as arguments.
+- Models are written once, with CasADi operations; no second copy in numpy or sympy.
+- Docstrings are short (one to three lines, numpydoc, units on physical quantities); theory goes
+  in the documentation.
+- New behaviour is opt-in: projects pin a version, and a finished experiment must run the same
+  after an update.
+- Every change adds a line to `CHANGELOG.md` under "Unreleased".
 
-## Release
+## Tests
 
-Releases follow semantic versioning (0.x for now). The version comes from git tags: pushing a
-tag `vX.Y.Z` builds the package and creates a GitHub release.
+`tests/` mirrors `src/`. Derivatives are checked against finite differences, energies against
+the power balance, and code ported from earlier implementations against their recorded results:
+the small `.npz` fixtures in `tests/data/`. `tests/test_readme.py` runs the README's examples
+and `tests/test_docs.py` the documentation's house rules. Timing benchmarks run on request:
+
+```bash
+cd VirtualModelControl
+.venv/bin/python -m pytest -m bench
+```
+
+## Documentation
+
+Pages are MyST notebooks: every code cell runs at each build, and an error fails it.
+
+- Open a tutorial or example with one sentence on what we build; then, for each step, a task
+  heading, a few short sentences, the code, the result.
+- Keep pages essential: state each fact once and link to it elsewhere.
+- Visible code lines are at most 76 characters.
+- Numbers in the text come from the page's own computation, inserted with `glue`.
+- Figures use `vmc.viz` (the lab style, set by `docs/docs_setup.py`); schematics are drawn from
+  the robots' Params by the modules in `docs/schematics/`.
+- A page that simulates shows its run with `viz.animate` and the `video` directive.
+
+## Releases
+
+Versions follow semantic versioning and come from git tags. To release:
+
+1. In `CHANGELOG.md`, rename "Unreleased" to the new version and date.
+2. Push `main`, then tag and push the tag:
+
+   ```bash
+   cd VirtualModelControl
+   git tag -a v0.2.0 -m "virtualmodelcontrol 0.2.0"
+   git push origin v0.2.0
+   ```
+
+The release workflow builds the package, publishes it to PyPI and creates the GitHub release.
+The documentation is rebuilt and published whenever a push to `main` changes it or the code.

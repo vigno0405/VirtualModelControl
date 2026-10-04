@@ -1,6 +1,16 @@
 """Sphinx configuration."""
 
+import os
+import sys
 from importlib.metadata import version as _version
+from pathlib import Path
+
+DOCS = Path(__file__).parent
+sys.path.insert(0, str(DOCS / "_ext"))
+# The executed pages import the docs' own helpers (schematics, page setup) from here.
+os.environ["PYTHONPATH"] = os.pathsep.join(
+    [str(DOCS), *filter(None, [os.environ.get("PYTHONPATH")])]
+)
 
 project = "virtualmodelcontrol"
 author = "Lorenzo Vignoli"
@@ -17,20 +27,22 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx_copybutton",
     "sphinx_design",
-    "sphinxcontrib.mermaid",
+    "video",
 ]
 
-myst_enable_extensions = ["amsmath", "colon_fence", "deflist", "dollarmath"]
+myst_enable_extensions = ["amsmath", "colon_fence", "deflist", "dollarmath", "tasklist"]
 myst_heading_anchors = 3
 
 # Every code cell in the docs runs at each build, and an error fails the build.
 nb_execution_mode = "force"
 nb_execution_raise_on_error = True
 nb_execution_timeout = 300
+nb_render_markdown_format = "myst"  # tables computed by a page render as tables
 
 autosummary_generate = True
 autodoc_typehints = "description"
 autodoc_member_order = "bysource"
+autodoc_type_aliases = {"ArrayLike": "numpy.typing.ArrayLike"}
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 
@@ -39,27 +51,34 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable", None),
 }
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "furo"
 html_title = "virtualmodelcontrol"
-exclude_patterns = ["_build", "jupyter_execute"]
+exclude_patterns = ["_build", "jupyter_execute", "schematics", "_ext"]
 
+# Colours from the figures' palette: navy for links, red for accents.
+_brand = {"color-brand-primary": "#3C5488", "color-brand-content": "#3C5488"}
 html_theme_options = {
-    "github_url": "https://github.com/vigno0405/VirtualModelControl",
-    "icon_links": [
+    "light_css_variables": _brand,
+    "dark_css_variables": {"color-brand-primary": "#8491B4", "color-brand-content": "#8491B4"},
+    "source_repository": "https://github.com/vigno0405/VirtualModelControl",
+    "source_branch": "main",
+    "source_directory": "docs/",
+    "top_of_page_buttons": [],
+    "footer_icons": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/vigno0405/VirtualModelControl",
+            "html": "GitHub",
+            "class": "",
+        },
         {
             "name": "PyPI",
             "url": "https://pypi.org/project/virtualmodelcontrol/",
-            "icon": "fa-brands fa-python",
-        }
+            "html": "PyPI",
+            "class": "",
+        },
     ],
-    "navbar_align": "left",
-    "header_links_before_dropdown": 6,
-    "show_toc_level": 2,
-    "navigation_with_keys": False,
-    "footer_start": ["copyright"],
-    "footer_end": [],
 }
-html_context = {"default_mode": "light"}
 html_copy_source = False
 html_show_sourcelink = False
 templates_path = ["_templates"]

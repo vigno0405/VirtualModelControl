@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from ..core.params import Param
@@ -21,30 +23,46 @@ GRAVITY = (0.0, 0.0, -9.81)
 """Gravity in the arm's base frame [m/s²], base on a table."""
 
 
-def model() -> SerialChain:
-    """The arm's kinematics; site ``tool`` is the flange frame."""
-    return SerialChain.from_dh(DH_D, DH_A, DH_ALPHA, tool="tool")
+def model(*, d: Any = DH_D, a: Any = DH_A, alpha: Any = DH_ALPHA) -> SerialChain:
+    """The arm's kinematics from its DH table (d, a [m], α [rad]); site ``tool`` is the flange."""
+    return SerialChain.from_dh(d, a, alpha, tool="tool")
 
 
-def arm(name: str = "ur5") -> Mechanism:
+def arm(name: str = "ur5", *, d: Any = DH_D, a: Any = DH_A, alpha: Any = DH_ALPHA) -> Mechanism:
     """The UR5 alone; q holds its six joint angles [rad] (it is position-controlled)."""
-    return Mechanism(name, model=model())
+    return Mechanism(name, model=model(d=d, a=a, alpha=alpha))
 
 
 def with_hand(
-    name: str = "ur5_hand", mounting_angle: float = adapt.HAND_MOUNTING_ANGLE
+    name: str = "ur5_hand",
+    mounting_angle: float = adapt.HAND_MOUNTING_ANGLE,
+    *,
+    mounting_position: Any = (0.0, 0.0, 0.0),
+    d: Any = DH_D,
+    a: Any = DH_A,
+    alpha: Any = DH_ALPHA,
+    link_masses: Any = None,
+    **hand: Any,
 ) -> Mechanism:
     """The UR5 with the ADAPT hand on its flange: q = (6 arm joints, 13 hand motors).
 
     Gravity stays in the arm's base frame, so the hand's gravity follows the arm's pose. The arm's
-    joints are measured only: send the last 13 torques to the hand.
+    joints are measured only: send the last 13 torques to the hand. The hand sits at
+    ``mounting_position`` [m] in the flange frame, turned by ``mounting_angle`` [rad] about its z
+    axis; ``hand`` takes the keyword arguments of ``adapt.hand_model``, and ``link_masses`` [kg]
+    overrides the hand's masses by key.
     """
     body = Assembly({
-        "ur5": (model(), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
-        "hand": (adapt.hand_model(), (0.0, 0.0, 0.0), (0.0, 0.0, mounting_angle), "ur5/tool"),
+        "ur5": (model(d=d, a=a, alpha=alpha), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+        "hand": (
+            adapt.hand_model(**hand),
+            mounting_position,
+            (0.0, 0.0, mounting_angle),
+            "ur5/tool",
+        ),
     })  # fmt: skip
     robot = Mechanism(name, model=body)
     robot.add_param(
         Param("gravity", GRAVITY, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf))
     )
-    return adapt.add_hand_masses(robot, prefix="hand/")
+    return adapt.add_hand_masses(robot, prefix="hand/", link_masses=link_masses)

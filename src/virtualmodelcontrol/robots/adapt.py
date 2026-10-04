@@ -18,12 +18,30 @@ MOTOR_RADIUS = 0.005  # [m] motor pulley
 FINGER_PULLEY_RADIUS = 0.00223  # [m] pulley on the MCP joint
 PIP_TRANSMISSION = 0.00813  # [m] cable transmission constant of the PIP/DIP drive
 
-COUPLING = np.array([
-    [FINGER_PULLEY_RADIUS / MOTOR_RADIUS, 0.0],
-    [0.0, MOTOR_RADIUS / PIP_TRANSMISSION],
-    [0.0, MOTOR_RADIUS / PIP_TRANSMISSION],
-])  # fmt: skip
-"""Joint angles (MCP, PIP, DIP) = COUPLING · motor angles; the DIP joint mimics the PIP joint."""
+
+def _merged(default: dict[str, Any], override: Any) -> dict[str, Any]:
+    """The defaults with some entries replaced (by key)."""
+    return {**default, **(override or {})}
+
+
+def finger_coupling(
+    motor_radius: float = MOTOR_RADIUS,
+    pulley_radius: float = FINGER_PULLEY_RADIUS,
+    pip_transmission: float = PIP_TRANSMISSION,
+) -> np.ndarray:
+    """Joint angles (MCP, PIP, DIP) per motor angle; the DIP joint mimics the PIP joint."""
+    return np.array([
+        [pulley_radius / motor_radius, 0.0],
+        [0.0, motor_radius / pip_transmission],
+        [0.0, motor_radius / pip_transmission],
+    ])  # fmt: skip
+
+
+COUPLING = finger_coupling()
+"""Joint angles (MCP, PIP, DIP) = COUPLING · motor angles, at the default transmission."""
+
+JOINT_AXES = ((1.0, 0.0, 0.0),) * 3
+"""Axes of the MCP, PIP and DIP joints in the finger's base frame."""
 
 LINK_MASSES = (0.0057, 0.0040, 0.025)
 """Masses of the three phalanges [kg]."""
@@ -56,13 +74,25 @@ def output_stage() -> list[Any]:
     return [FrictionCompensation(*FRICTION), TorqueLimit(TORQUE_LIMIT)]
 
 
-def finger(name: str = "finger", gravity: Any = None) -> Mechanism:
+def finger(
+    name: str = "finger",
+    gravity: Any = None,
+    *,
+    link_lengths: Any = LINK_LENGTHS,
+    link_masses: Any = LINK_MASSES,
+    link_cogs: Any = LINK_COGS,
+    joint_axes: Any = JOINT_AXES,
+    motor_radius: float = MOTOR_RADIUS,
+    pulley_radius: float = FINGER_PULLEY_RADIUS,
+    pip_transmission: float = PIP_TRANSMISSION,
+) -> Mechanism:
     """The finger as a robot mechanism; q holds the two motor angles [rad].
 
-    Sites: ``pip``, ``dip``, ``tip`` and the phalanges' centres of gravity ``*_cog``.
+    Sites: ``pip``, ``dip``, ``tip`` and the phalanges' centres of gravity ``*_cog``. The
+    phalanges' lengths [m], masses [kg] and centres of gravity [m, in each phalanx's frame], the
+    joint axes, the pulley radii [m] and the PIP cable constant [m] override the defaults.
     """
-    a, b, c = LINK_LENGTHS
-    x = [1.0, 0.0, 0.0]
+    a, b, c = link_lengths
     joints = ([0.0, 0.0, 0.0], [0.0, a, 0.0], [0.0, a + b, 0.0])
     sites = {
         "pip": (1, joints[1]),
@@ -70,8 +100,10 @@ def finger(name: str = "finger", gravity: Any = None) -> Mechanism:
         "tip": (3, [0.0, a + b + c, 0.0]),
     }
     for i, link in enumerate(("mcp", "pip", "dip")):
-        sites[f"{link}_cog"] = (i + 1, np.asarray(joints[i]) + LINK_COGS[i])
-    model = LinearCoupling(SerialChain(["revolute"] * 3, [x, x, x], list(joints), sites), COUPLING)
+        sites[f"{link}_cog"] = (i + 1, np.asarray(joints[i]) + np.asarray(link_cogs[i]))
+    coupling = finger_coupling(motor_radius, pulley_radius, pip_transmission)
+    axes = [list(axis) for axis in joint_axes]
+    model = LinearCoupling(SerialChain(["revolute"] * 3, axes, list(joints), sites), coupling)
     robot = Mechanism(name, model=model)
     robot.add_param(
         Param(
@@ -83,7 +115,7 @@ def finger(name: str = "finger", gravity: Any = None) -> Mechanism:
         )
     )
     for i, link in enumerate(("mcp", "pip", "dip")):
-        robot.add(f"m_{link}", PointMass(robot.point(f"{link}_cog"), LINK_MASSES[i]))
+        robot.add(f"m_{link}", PointMass(robot.point(f"{link}_cog"), link_masses[i]))
     return robot
 
 
@@ -112,10 +144,14 @@ def joint_angles(robot: Mechanism) -> Custom:
     )
 
 
-def joint_limit_spring(robot: Mechanism, stiffness: Any = LIMIT_STIFFNESS) -> LimitSpring:
-    """A spring that pushes each joint back inside its range (zero force inside)."""
-    lower = [lim[0] for lim in JOINT_LIMITS.values()]
-    upper = [lim[1] for lim in JOINT_LIMITS.values()]
+def joint_limit_spring(
+    robot: Mechanism, stiffness: Any = LIMIT_STIFFNESS, limits: Any = None
+) -> LimitSpring:
+    """A spring that pushes each joint back inside its range (zero force inside); ``limits``
+    [rad] overrides ranges by joint name ("MCP", "PIP", "DIP")."""
+    ranges = _merged(JOINT_LIMITS, limits)
+    lower = [lim[0] for lim in ranges.values()]
+    upper = [lim[1] for lim in ranges.values()]
     return LimitSpring(joint_angles(robot), stiffness, lower, upper)
 
 
@@ -345,68 +381,119 @@ _LINK_JOINTS = {
 """Joint frame each link's mass is attached to."""
 
 
-def hand_coupling() -> np.ndarray:
-    """Joint angles (20: thumb CMC1, CMC2, MCP, IP; each finger spread, MCP, PIP, DIP) per motor."""
+FINGERS = ("index", "middle", "ring", "pinky")
+
+
+def hand_coupling(
+    *,
+    finger_transmissions: Any = None,
+    thumb_transmission: Any = None,
+    spread_ratios: Any = None,
+    spread_correction: float = HAND_SPREAD_CORRECTION,
+) -> np.ndarray:
+    """Joint angles (20: thumb CMC1, CMC2, MCP, IP; each finger spread, MCP, PIP, DIP) per motor.
+
+    The transmissions [m] and spread ratios override the defaults, by key.
+    """
+    t = _merged(HAND_THUMB_TRANSMISSION, thumb_transmission)
+    ratios = _merged(HAND_SPREAD_RATIOS, spread_ratios)
+    overrides = finger_transmissions or {}
     C = np.zeros((20, 13))
-    t = HAND_THUMB_TRANSMISSION
     C[0, 0] = t["r_motor"] / t["CMC1_pulley"]
     C[1, 1] = t["r_motor"] / t["CMC2_pulley"]
     C[2, 2] = -t["r_motor"] / t["MCP_c"]
     C[3, 3] = -t["r_motor"] / t["IP_c"]
-    for k, finger in enumerate(("index", "middle", "ring", "pinky")):
+    for k, finger in enumerate(FINGERS):
         row, mcp, pip = 4 + 4 * k, 5 + 2 * k, 6 + 2 * k
-        tr = HAND_FINGER_TRANSMISSIONS[finger]
-        C[row, 4] = HAND_SPREAD_CORRECTION * HAND_SPREAD_RATIOS[finger]
+        tr = _merged(HAND_FINGER_TRANSMISSIONS[finger], overrides.get(finger))
+        C[row, 4] = spread_correction * ratios[finger]
         C[row + 1, mcp] = tr["r_pulley"] / tr["r_motor"]
         C[row + 2, pip] = -tr["r_motor"] / tr["c_param"]
         C[row + 3, pip] = -tr["r_motor"] / tr["c_param"]
     return C
 
 
-def _digit_chain(digit: str) -> SerialChain:
+def _digit_chain(digit: str, geometry: dict[str, Any]) -> SerialChain:
     """One digit as a chain in the hand base frame; sites: the tip and each link's mass."""
-    joints = HAND_JOINTS[digit]
-    base = np.asarray(HAND_PALM_ORIGIN) + np.asarray(HAND_FINGER_BASES[digit])
+    joints = geometry["joints"][digit]
+    base = np.asarray(geometry["palm_origin"]) + np.asarray(geometry["finger_bases"][digit])
     points, axes = [], []
     for _name, origin, axis in joints:
         base = base + np.asarray(origin)
         points.append(base.copy())
         axes.append(list(axis))
     sites: dict[str, tuple[int, Any]] = {
-        "tip": (4, points[-1] + np.asarray(HAND_TIP_OFFSETS[digit]))
+        "tip": (4, points[-1] + np.asarray(geometry["tip_offsets"][digit]))
     }
     names = [j[0] for j in joints]
     mapping = _LINK_JOINTS["thumb" if digit == "thumb" else "finger"]
     for link, joint in mapping.items():
         k = names.index(joint)
-        sites[f"{link}_cog"] = (k + 1, points[k] + np.asarray(HAND_LINK_COGS[f"{digit}_{link}"]))
+        cog = np.asarray(geometry["link_cogs"][f"{digit}_{link}"])
+        sites[f"{link}_cog"] = (k + 1, points[k] + cog)
     return SerialChain(["revolute"] * 4, axes, [list(p) for p in points], sites)
 
 
-def hand_model() -> LinearCoupling:
-    """The hand's kinematics: five digit chains in the hand base frame, coupled to 13 motors."""
-    body = Assembly({d: (_digit_chain(d), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)) for d in HAND_DIGITS})
-    return LinearCoupling(body, hand_coupling())
+def hand_model(
+    *,
+    palm_origin: Any = HAND_PALM_ORIGIN,
+    finger_bases: Any = None,
+    joints: Any = None,
+    tip_offsets: Any = None,
+    link_cogs: Any = None,
+    finger_transmissions: Any = None,
+    thumb_transmission: Any = None,
+    spread_ratios: Any = None,
+    spread_correction: float = HAND_SPREAD_CORRECTION,
+) -> LinearCoupling:
+    """The hand's kinematics: five digit chains in the hand base frame, coupled to 13 motors.
+
+    Each argument overrides the default table of the same name (``HAND_FINGER_BASES``,
+    ``HAND_JOINTS``, ...) by key: ``tip_offsets={"thumb": (0.0, 0.0, 0.02)}`` changes the thumb
+    only. Lengths in metres, axes as directions.
+    """
+    geometry = {
+        "palm_origin": palm_origin,
+        "finger_bases": _merged(HAND_FINGER_BASES, finger_bases),
+        "joints": _merged(HAND_JOINTS, joints),
+        "tip_offsets": _merged(HAND_TIP_OFFSETS, tip_offsets),
+        "link_cogs": _merged(HAND_LINK_COGS, link_cogs),
+    }
+    body = Assembly(
+        {d: (_digit_chain(d, geometry), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)) for d in HAND_DIGITS}
+    )
+    coupling = hand_coupling(
+        finger_transmissions=finger_transmissions,
+        thumb_transmission=thumb_transmission,
+        spread_ratios=spread_ratios,
+        spread_correction=spread_correction,
+    )
+    return LinearCoupling(body, coupling)
 
 
-def add_hand_masses(robot: Mechanism, prefix: str = "") -> Mechanism:
-    """Add the hand's link masses at the sites ``"{prefix}<digit>/<link>_cog"``."""
+def add_hand_masses(robot: Mechanism, prefix: str = "", link_masses: Any = None) -> Mechanism:
+    """Add the hand's link masses [kg] at the sites ``"{prefix}<digit>/<link>_cog"``;
+    ``link_masses`` overrides ``HAND_LINK_MASSES`` by key."""
+    masses = _merged(HAND_LINK_MASSES, link_masses)
     for digit in HAND_DIGITS:
         mapping = _LINK_JOINTS["thumb" if digit == "thumb" else "finger"]
         for link in mapping:
             point = robot.point(f"{prefix}{digit}/{link}_cog")
-            robot.add(f"m_{digit}_{link}", PointMass(point, HAND_LINK_MASSES[f"{digit}_{link}"]))
+            robot.add(f"m_{digit}_{link}", PointMass(point, masses[f"{digit}_{link}"]))
     return robot
 
 
-def hand(name: str = "hand", gravity: Any = None) -> Mechanism:
+def hand(
+    name: str = "hand", gravity: Any = None, *, link_masses: Any = None, **geometry: Any
+) -> Mechanism:
     """The hand as a robot: q holds the 13 motor angles [rad] in ``HAND_MOTORS`` order.
 
-    Sites: ``"<digit>/tip"`` and ``"<digit>/<link>_cog"``. The wrist is rigid. On an arm whose
-    orientation changes, compile with ``runtime=["*.gravity"]`` and set ``hand_gravity(R)`` each
-    step, or use the arm and hand together (``robots.ur5.with_hand``).
+    Sites: ``"<digit>/tip"`` and ``"<digit>/<link>_cog"``. The wrist is rigid. ``geometry`` takes
+    the keyword arguments of ``hand_model``, ``link_masses`` [kg] overrides masses by key. On an
+    arm whose orientation changes, compile with ``runtime=["*.gravity"]`` and set
+    ``hand_gravity(R)`` each step, or use the arm and hand together (``robots.ur5.with_hand``).
     """
-    robot = Mechanism(name, model=hand_model())
+    robot = Mechanism(name, model=hand_model(**geometry))
     robot.add_param(
         Param(
             "gravity",
@@ -416,7 +503,7 @@ def hand(name: str = "hand", gravity: Any = None) -> Mechanism:
             bounds=(-np.inf, np.inf),
         )
     )
-    return add_hand_masses(robot)
+    return add_hand_masses(robot, link_masses=link_masses)
 
 
 def hand_output_stage() -> list[Any]:
@@ -444,12 +531,15 @@ def hand_joint_angles(robot: Mechanism) -> Custom:
     )
 
 
-def hand_joint_limit_spring(robot: Mechanism, stiffness: Any = HAND_LIMIT_STIFFNESS) -> LimitSpring:
-    """Springs that push each of the 20 joints back inside its range."""
-    names = [f"{d}_{j[0]}" for d in HAND_DIGITS for j in HAND_JOINTS[d]]
-    limits = [
-        HAND_JOINT_LIMITS[n if not n.endswith("_Spread") else n[:-7] + "_spread"] for n in names
-    ]
+def hand_joint_limit_spring(
+    robot: Mechanism, stiffness: Any = HAND_LIMIT_STIFFNESS, limits: Any = None, joints: Any = None
+) -> LimitSpring:
+    """Springs that push each of the 20 joints back inside its range; ``limits`` [rad]
+    overrides ``HAND_JOINT_LIMITS`` by key, ``joints`` is the hand's own ``joints`` override."""
+    ranges = _merged(HAND_JOINT_LIMITS, limits)
+    table = _merged(HAND_JOINTS, joints)
+    names = [f"{d}_{j[0]}" for d in HAND_DIGITS for j in table[d]]
+    limits = [ranges[n if not n.endswith("_Spread") else n[:-7] + "_spread"] for n in names]
     return LimitSpring(
         hand_joint_angles(robot), stiffness, [lo for lo, _ in limits], [hi for _, hi in limits]
     )

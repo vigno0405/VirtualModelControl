@@ -33,34 +33,59 @@ REFERENCE_LENGTH = 0.145  # [m]
 PRETENSION_WEIGHTS = 0.010  # [N·m/rad] per motor, on the real arm only
 
 
-def output_stage() -> list[Any]:
+def output_stage(motors: int = 9) -> list[Any]:
     """The real arm's output stage: a linear pretension W ∘ θ on every motor."""
-    return [Pretension(np.full(9, PRETENSION_WEIGHTS))]
+    return [Pretension(np.full(motors, PRETENSION_WEIGHTS))]
 
 
-def model(geometry: str = "145-290-290") -> PCC:
-    """The PCC model of one arm geometry."""
-    return PCC(GEOMETRIES[geometry]["L0"], SECTION_RADIUS)
+def model(
+    geometry: str = "145-290-290", *, lengths: Any = None, section_radius: Any = SECTION_RADIUS
+) -> PCC:
+    """The PCC model of an arm; ``lengths`` [m], base to tip, replace the geometry's."""
+    return PCC(GEOMETRIES[geometry]["L0"] if lengths is None else lengths, section_radius)
 
 
-def tendons(efficiency: Any = 1.0) -> TendonTransmission:
-    """The tendon transmission of one arm (three tendons per segment)."""
-    return TendonTransmission(list(TENDON_ANGLES), SPOOL_RADIUS, efficiency)
+def tendons(
+    efficiency: Any = 1.0, *, angles: Any = TENDON_ANGLES, spool_radius: Any = SPOOL_RADIUS
+) -> TendonTransmission:
+    """The tendon transmission of one arm: ``angles`` [rad] holds a row of tendons per segment."""
+    return TendonTransmission(list(np.asarray(angles, dtype=float)), spool_radius, efficiency)
 
 
-def arm(geometry: str = "145-290-290", name: str = "arm", gravity: Any = None) -> Mechanism:
+def arm(
+    geometry: str = "145-290-290",
+    name: str = "arm",
+    gravity: Any = None,
+    *,
+    lengths: Any = None,
+    section_radius: Any = SECTION_RADIUS,
+    spool_radius: Any = SPOOL_RADIUS,
+    tendon_angles: Any = TENDON_ANGLES,
+    masses: Any = None,
+) -> Mechanism:
     """The arm as a robot mechanism: PCC model, tendons, lumped masses and a gravity Param.
 
-    ``gravity`` [m/s², base frame] overrides the geometry's mounting.
+    ``geometry`` gives the defaults; ``lengths`` [m], ``section_radius`` [m], ``spool_radius``
+    [m], ``tendon_angles`` [rad], ``masses`` [kg, one per segment] and ``gravity`` [m/s², base
+    frame] override them, for any number of segments.
     """
     spec = GEOMETRIES[geometry]
-    robot = Mechanism(name, model=model(geometry), actuation=tendons())
-    pcc = robot.model
+    L0 = spec["L0"] if lengths is None else lengths
+    if len(tendon_angles) != len(L0):
+        raise ValueError(
+            f"{len(L0)} segments need {len(L0)} rows of tendon_angles, got {len(tendon_angles)}"
+        )
+    if masses is None:
+        masses = [SEGMENT_MASS * (length / REFERENCE_LENGTH) for length in L0]
+    robot = Mechanism(
+        name,
+        model=model(lengths=L0, section_radius=section_radius),
+        actuation=tendons(angles=tendon_angles, spool_radius=spool_radius),
+    )
     g = spec["gravity"] if gravity is None else gravity
     robot.add_param(Param("gravity", g, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf)))
-    b = pcc.breakpoints()
-    for i, length in enumerate(spec["L0"]):
-        mass = SEGMENT_MASS * (length / REFERENCE_LENGTH)
+    b = robot.model.breakpoints()
+    for i, mass in enumerate(masses):
         robot.add(f"m{i + 1}", PointMass(robot.point(s=(b[i] + b[i + 1]) / 2), mass))
     return robot
 
@@ -84,10 +109,13 @@ SIM_DAMPING = np.array([
 def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -> Mechanism:
     """Give the arm its physical stiffness and damping in Δ and gravity, for simulation.
 
-    ``stiffness`` [N/m] and ``damping`` [N·s/m] are per-axis (9 values); the defaults are the
-    simulated arm's.
+    ``stiffness`` [N/m] and ``damping`` [N·s/m] are per-axis (3 values per segment); the
+    defaults are the simulated three-segment arm's, so other arms must give their own.
     """
-    delta = robot.joint(slice(0, 9))
+    n = robot.model.space.nq
+    if n != SIM_STIFFNESS.size and (stiffness is None or damping is None):
+        raise ValueError(f"an arm with {n // 3} segments needs its own stiffness and damping")
+    delta = robot.joint(slice(0, n))
     K = SIM_STIFFNESS if stiffness is None else stiffness
     D = SIM_DAMPING if damping is None else damping
     robot.add("stiffness", LinearSpring(delta, Param("stiffness", K, unit="N/m", scope="design")))
