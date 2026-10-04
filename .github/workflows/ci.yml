@@ -71,6 +71,33 @@ jobs:
       - run: /tmp/user/bin/python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
       - run: /tmp/user/bin/python -m pytest -q -p no:cacheprovider
 
+  # The ROS 2 bridge in the distributions the robots run, on a private domain, this host only.
+  ros:
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [humble, jazzy]
+    runs-on: ubuntu-latest
+    container: ros:${{ matrix.distro }}-ros-core
+    env:
+      ROS_DOMAIN_ID: "73"
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      ROS_LOCALHOST_ONLY: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends git python3-pip python3-venv
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: python3 -m venv --system-site-packages /tmp/venv && /tmp/venv/bin/pip install -e ".[dev]"
+      # ROS's own pytest plugins do not load with a recent pytest; these tests do not need them.
+      - run: |
+          source /opt/ros/${{ matrix.distro }}/setup.bash
+          /tmp/venv/bin/python -m pytest -q -p no:cacheprovider -p no:launch_testing -p no:launch_ros tests/ros
+
   other-os:
     if: github.event_name == 'workflow_dispatch' && inputs.all_os
     strategy:
