@@ -167,8 +167,13 @@ controller = vmc.VMCController(vmc.compile(system))
 arm = [np.pi, -1.2, 1.4, -np.pi / 2 - 0.2, -np.pi / 2, -np.pi / 2]  # [rad]
 x = np.concatenate([arm, np.zeros(13)])
 meas = vmc.Signals(0.0, motor_position=x, motor_velocity=np.zeros(19))
-u = controller.step(0.0, meas)["motor_torque"][6:]  # the hand's 13 motors
+u = controller.step(0.0, meas)["motor_torque"]
+u[6:].round(4)  # the hand's 13 motor torques [N·m], sent to the hand
+```
 
+The figure draws this pose:
+
+```{code-cell} python
 fig, ax = plt.subplots(figsize=(6.4, 5.0))
 viz.draw_robot(ax, robot, x)
 lines = viz.skeleton(robot, x)  # the arm, then the five digits

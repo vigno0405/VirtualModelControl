@@ -441,7 +441,5 @@ new designs against these themes, so nothing they need is made hard:
 - Gravity compensation of the soft arms is about 20% stronger than before the arc-formula fix:
   check it on the next real-arm run.
 - The hand's thumb tip offset is uncertain: measure it.
-- The right arm of the bimanual robot is about 2 cm shorter than the left: calibrate per-arm
-  segment lengths.
 - matplotlib 3.11 drops minus signs from LaTeX-rendered PDFs; render paper figures with 3.10 until
   it is fixed.

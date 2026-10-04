@@ -69,7 +69,8 @@ ready-made robots:
 - [a soft arm](examples/soft-arm.md) that reaches a point, avoids an obstacle and changes shape;
 - [two soft arms](examples/two-arms.md) that squeeze an object between them;
 - [a finger](examples/finger.md) with a stiff fingertip and soft joint limits;
-- [a hand](examples/hand.md) that grasps, alone or mounted on a UR5 arm.
+- [a hand](examples/hand.md) that grasps, alone or mounted on a UR5 arm;
+- [a crawling turtle](examples/turtle.md) whose two cranks follow a virtual flywheel.
 
 ## Authors
 
@@ -109,6 +110,7 @@ examples/soft-arm
 examples/two-arms
 examples/finger
 examples/hand
+examples/turtle
 ```
 
 ```{toctree}
@@ -117,7 +119,6 @@ examples/hand
 
 concepts/library
 concepts/pcc
-concepts/components
 concepts/conventions
 ```
 

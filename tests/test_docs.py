@@ -3,8 +3,6 @@
 import re
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).parents[1]
 PAGES = sorted((ROOT / "docs").rglob("*.md"))
 WIDTH = 76  # characters of code that fit the docs' column without scrolling
@@ -19,7 +17,6 @@ def visible_code(text):
         yield from (line for line in body.splitlines() if not line.startswith(":tags:"))
 
 
-@pytest.mark.xfail(reason="pages still being rewritten for 0.2.0", strict=False)
 def test_code_lines_fit_the_page():
     long = [
         f"{page.relative_to(ROOT)}: {line}"
@@ -39,6 +36,8 @@ def test_no_em_dashes_in_public_text():
         *(ROOT / "docs").rglob("*.py"),
     ]
     hits = [
-        str(f.relative_to(ROOT)) for f in files if "_build" not in f.parts and "\u2014" in f.read_text()
+        str(f.relative_to(ROOT))
+        for f in files
+        if "_build" not in f.parts and "\u2014" in f.read_text()
     ]
     assert not hits, hits

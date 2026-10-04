@@ -20,7 +20,6 @@ def figure(length: float = 0.2, radius: float = 0.03, dx: float = 0.02) -> Any:
     q = np.array([dx, 0.0, 0.0])
     kin = vmc.Kinematics(segment)
     end, R_end = kin.position(q, 1.0), kin.rotation(q, 1.0)
-    theta = dx / radius  # bending angle D / d with Dy = 0
 
     fig, ax = plt.subplots(figsize=(5.6, 5.4))
     ax.plot([0, 0], [0, length], color="0.8", lw=6, solid_capstyle="round")

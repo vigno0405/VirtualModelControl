@@ -66,17 +66,17 @@ command, a soft stop of {glue:text}`PRETENSION_WEIGHTS:.2f` N·m/rad on motors t
 their tendon past {glue:text}`threshold:.0f`°, and a clip at ±{glue:text}`TORQUE_LIMIT:.1f` N·m;
 the simulation below leaves it out.
 
-The template takes its geometry as arguments, one value for both arms or a dict by arm. The
-right arm of the real pair is about 2 cm shorter than the left, which the defaults leave out;
-per-arm lengths express it:
+The template takes its geometry as arguments, one value for both arms or a dict by arm. Here
+both arms are longer and their bases 30 cm apart:
 
 ```{code-cell} python
 import numpy as np
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import bimanual
 
-pair = bimanual.arms(lengths={"right": (0.27, 0.145, 0.145)},  # [m]
-                     base_positions={"left": (-0.15, 0.0, 0.0)})  # [m]
+pair = bimanual.arms(lengths=(0.3, 0.15, 0.15),  # [m], both arms
+                     base_positions={"right": (0.15, 0.0, 0.0),
+                                     "left": (-0.15, 0.0, 0.0)})
 kin = vmc.Kinematics(pair)
 [kin.position(np.zeros(18), (arm, 1.0)) for arm in bimanual.ARMS]  # tips
 ```

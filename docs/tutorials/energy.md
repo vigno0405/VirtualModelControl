@@ -76,7 +76,8 @@ We evaluate the four functions at every logged step: `map(n)` evaluates a CasADi
 
 ```{code-cell} python
 t = rows["t"].ravel()
-q, v, u = rows["q"].T, rows["v"].T, rows["motor_torque"].T  # a column per step
+q, v = rows["q"].T, rows["v"].T  # a column per step
+u = rows["motor_torque"].T
 z = np.zeros((0, t.size))  # this controller has no virtual states
 p_c, p_r = controller.params, plant.p  # live Params of each
 
