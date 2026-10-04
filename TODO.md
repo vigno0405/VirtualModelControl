@@ -79,9 +79,10 @@ Virtual Model Control must be able to control a robot from the documentation alo
 
 ### Documentation overhaul (the priority)
 
-Decided (4 October 2026): the site uses the Furo theme (navigation on the left), large type and
-the plain style of the best library docs (VMRobotControl.jl, pykoopman): Home, Installation,
-Tutorials, Examples, Concepts, Reference, Developer notes. Pages are complete but essential:
+Decided (4 October 2026): the site uses the Material layout (sphinx-immaterial): five sections
+as tabs in the top bar (Getting started, Tutorials, Examples, Concepts, Reference), the pages of
+each section in the left sidebar, large type and the plain style of the best library docs
+(VMRobotControl.jl, pykoopman). Pages are complete but essential:
 each fact once, linked elsewhere. Schematics and figures are drawn by code from the robots'
 Params. Robots get no pages of their own and no videos of the real hardware: each example opens
 with its robot.

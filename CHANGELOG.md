@@ -48,7 +48,8 @@ versions, with one minor version of deprecation before a removal).
 - Contact as stiff one-sided springs: signed distances `PlaneDistance` and `SphereDistance`,
   `ContactSpring` (optional smoothing for optimization) and `ContactDamper` (damps only in
   contact); `adapt.add_dynamics` gives the finger and the hand their gravity for simulation.
-- Documentation rebuilt for students: a theme with the navigation on the left and large type;
+- Documentation rebuilt for students: the Material layout (sections as tabs, the pages of each
+  section in the left sidebar) and large type;
   installation and troubleshooting; tutorials (how it works, a first controller, coordinates
   and components, parameters, energy, kinematics, tuning, contact, building a robot, extending
   the library); an example per robot (soft arm, two arms, finger, hand and the UR5, turtle), each

@@ -40,9 +40,7 @@ classifiers = [
 docs = [
     "sphinx>=7.2",
     "myst-nb>=1.1",
-    "furo>=2024.8",
-    "sphinx-copybutton>=0.5",
-    "sphinx-design>=0.5",
+    "sphinx-immaterial>=0.13",
 ]
 dev = [
     "pytest>=8",

@@ -25,8 +25,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
-    "sphinx_copybutton",
-    "sphinx_design",
+    "sphinx_immaterial",
     "video",
 ]
 
@@ -51,31 +50,51 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable", None),
 }
 
-html_theme = "furo"
+html_theme = "sphinx_immaterial"
 html_title = "virtualmodelcontrol"
 exclude_patterns = ["_build", "jupyter_execute", "schematics", "_ext"]
 
-# Colours from the figures' palette: navy for links, red for accents.
-_brand = {"color-brand-primary": "#3C5488", "color-brand-content": "#3C5488"}
+# The layout of Material for MkDocs: the sections of the site as tabs under the header, the
+# pages of the current section in the left sidebar, the outline of the page on the right.
 html_theme_options = {
-    "light_css_variables": _brand,
-    "dark_css_variables": {"color-brand-primary": "#8491B4", "color-brand-content": "#8491B4"},
-    "source_repository": "https://github.com/vigno0405/VirtualModelControl",
-    "source_branch": "main",
-    "source_directory": "docs/",
-    "top_of_page_buttons": [],
-    "footer_icons": [
+    "repo_url": "https://github.com/vigno0405/VirtualModelControl",
+    "repo_name": "VirtualModelControl",
+    "icon": {"repo": "fontawesome/brands/github", "logo": "material/robot-industrial"},
+    "font": {"text": "Inter", "code": "JetBrains Mono"},
+    "features": [
+        "navigation.tabs",
+        "navigation.tabs.sticky",
+        "navigation.top",
+        "search.highlight",
+        "toc.follow",
+        "content.code.copy",
+    ],
+    "palette": [
         {
-            "name": "GitHub",
-            "url": "https://github.com/vigno0405/VirtualModelControl",
-            "html": "GitHub",
-            "class": "",
+            "media": "(prefers-color-scheme: light)",
+            "scheme": "default",
+            "primary": "white",
+            "accent": "indigo",
+            "toggle": {"icon": "material/weather-night", "name": "Dark mode"},
         },
         {
-            "name": "PyPI",
-            "url": "https://pypi.org/project/virtualmodelcontrol/",
-            "html": "PyPI",
-            "class": "",
+            "media": "(prefers-color-scheme: dark)",
+            "scheme": "slate",
+            "primary": "black",
+            "accent": "indigo",
+            "toggle": {"icon": "material/weather-sunny", "name": "Light mode"},
+        },
+    ],
+    "globaltoc_collapse": True,
+    "toc_title_is_page_title": True,
+    "social": [
+        {
+            "icon": "fontawesome/brands/github",
+            "link": "https://github.com/vigno0405/VirtualModelControl",
+        },
+        {
+            "icon": "fontawesome/brands/python",
+            "link": "https://pypi.org/project/virtualmodelcontrol/",
         },
     ],
 }

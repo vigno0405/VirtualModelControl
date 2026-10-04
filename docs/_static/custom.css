@@ -1,35 +1,51 @@
-/* Large type: 18 px article text, 16 px navigation. The root stays at the browser's size, so
-   the theme's layout and breakpoints are unchanged. */
-article[role="main"] {
-  font-size: 1.125rem;
+/* Large type: about 17 px text, 19 px on wide screens (the theme's root size grows with the
+   window). Bold titles. */
+.md-typeset {
+  font-size: 0.85rem;
 }
-body {
-  --sidebar-item-font-size: 1rem;
-  --sidebar-caption-font-size: 0.875rem;
-  --toc-font-size: 0.875rem;
-  --toc-title-font-size: 0.8125rem;
-  --code-font-size: 0.875em;
+.md-typeset h1,
+.md-typeset h2 {
+  color: var(--md-default-fg-color);
+  font-weight: 700;
 }
-@media (max-width: 40em) {
-  article[role="main"] {
-    font-size: 1.0625rem;
-  }
-  article[role="main"] h1 {
-    font-size: 1.75em;
+.md-typeset h3 {
+  font-weight: 600;
+}
+/* The page title links to the page already; its hidden permalink would wrap on phones. */
+.md-typeset h1 .headerlink {
+  display: none;
+}
+
+/* The layout fills wide windows. */
+.md-grid {
+  max-width: 68rem;
+}
+
+/* The home page belongs to no section: its sidebar lists all of them. */
+@media screen and (min-width: 76.25em) {
+  .md-nav--lifted > .md-nav__list:not(:has(> .md-nav__item--active)) > .md-nav__item {
+    display: block;
   }
 }
 
-/* Long names wrap only where they must. */
-h1,
-h2,
-h3,
-table.autosummary td {
-  overflow-wrap: break-word;
+/* Code cells like the theme's code blocks: no coloured margin. */
+:root {
+  --mystnb-source-border-color: transparent;
+  --mystnb-source-margin-color: transparent;
+}
+
+/* Colours from the figures' palette: navy links, lavender in dark mode. */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #3c5488;
+  --md-accent-fg-color: #e64b35;
+}
+[data-md-color-scheme="slate"] {
+  --md-typeset-a-color: #8491b4;
 }
 
 /* Animations written by the pages (the video directive), shown at their own size or smaller. */
 figure.video {
-  margin: 1.5rem 0;
+  margin: 1.5em 0;
   text-align: center;
 }
 figure.video video {
@@ -37,13 +53,13 @@ figure.video video {
   width: auto;
   height: auto;
   max-width: 100%;
-  border: 1px solid var(--color-background-border);
-  border-radius: 0.25rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
 }
 figure.video figcaption {
-  font-size: var(--font-size--small);
-  color: var(--color-foreground-secondary);
-  margin-top: 0.5rem;
+  font-size: 0.85em;
+  color: var(--md-default-fg-color--light);
+  margin-top: 0.5em;
 }
 
 /* Figures: white background in dark mode too, never wider than the text. */
@@ -51,11 +67,22 @@ figure.video figcaption {
   max-width: 100%;
   height: auto;
   background: #fff;
-  border-radius: 0.25rem;
+  border-radius: 0.2rem;
 }
 
 /* Task lists (the roadmap): the checkbox replaces the bullet. */
 ul.contains-task-list {
   list-style: none;
   padding-left: 0.25rem;
+}
+
+/* Reference tables: names on one line and a readable last column; on a phone a wide table
+   scrolls sideways inside itself instead of squeezing its columns. */
+.md-typeset table.docutils td code {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.md-typeset table.docutils td:last-child {
+  min-width: 14em;
 }

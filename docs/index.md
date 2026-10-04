@@ -62,9 +62,10 @@ pip install virtualmodelcontrol
 
 ## Where to start
 
-The [tutorials](tutorials/introduction.md) introduce the library step by step, from the idea of
-a virtual mechanism to building your own robot. The examples apply it to complete tasks on
-ready-made robots:
+[How it works](tutorials/introduction.md) explains the idea, and
+[your first controller](tutorials/first-controller.md) puts it to work on the soft arm. The
+[tutorials](tutorials/coordinates-and-components.md) then go through the library step by step,
+up to building your own robot, and the examples apply it to complete tasks on ready-made robots:
 
 - [a soft arm](examples/soft-arm.md) that reaches a point, avoids an obstacle and changes shape;
 - [two soft arms](examples/two-arms.md) that squeeze an object between them;
@@ -83,6 +84,8 @@ ready-made robots:
 :caption: Getting started
 
 installation
+tutorials/introduction
+tutorials/first-controller
 troubleshooting
 ```
 
@@ -90,8 +93,6 @@ troubleshooting
 :hidden:
 :caption: Tutorials
 
-tutorials/introduction
-tutorials/first-controller
 tutorials/coordinates-and-components
 tutorials/parameters
 tutorials/energy
@@ -129,11 +130,5 @@ concepts/conventions
 api/index
 development/changelog
 Roadmap <development/roadmap>
-```
-
-```{toctree}
-:hidden:
-:caption: Developer notes
-
 development/contributing
 ```

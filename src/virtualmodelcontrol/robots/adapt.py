@@ -94,7 +94,7 @@ def finger(
     """
     a, b, c = link_lengths
     joints = ([0.0, 0.0, 0.0], [0.0, a, 0.0], [0.0, a + b, 0.0])
-    sites = {
+    sites: dict[str, tuple[int, Any]] = {
         "pip": (1, joints[1]),
         "dip": (2, joints[2]),
         "tip": (3, [0.0, a + b + c, 0.0]),

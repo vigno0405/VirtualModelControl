@@ -66,7 +66,7 @@ def animate(
         height = 5.0
         figsize = (float(np.clip(height * (x1 - x0) / (y1 - y0) + 1.2, 3.6, 8.0)), height)
     # Frames are drawn many times: mathtext instead of a LaTeX run per frame, saved as drawn.
-    style = {**rc(usetex=False, font_size=font_size), **_SAVE}
+    style: Any = {**rc(usetex=False, font_size=font_size), **_SAVE}
 
     with mpl.rc_context(style):
         fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
