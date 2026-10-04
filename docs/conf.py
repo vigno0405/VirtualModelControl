@@ -52,6 +52,8 @@ intersphinx_mapping = {
 
 html_theme = "sphinx_immaterial"
 html_title = "virtualmodelcontrol"
+# Tooltips of API objects without their synopsis, which the theme joins with an em dash.
+object_description_options = [("py:.*", {"generate_synopses": None})]
 exclude_patterns = ["_build", "jupyter_execute", "schematics", "_ext"]
 
 # The layout of Material for MkDocs: the sections of the site as tabs under the header, the
