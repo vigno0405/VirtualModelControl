@@ -17,8 +17,10 @@ import docs_setup
 ## The robot
 
 `helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
-kinematics, its nine tendon motors and the masses of its segments. A simulator also needs the
-arm's own stiffness and damping, and gravity; `helyx.add_dynamics` adds them.
+kinematics, its nine tendon motors and the masses of its segments. Like the real arm, it
+receives only {glue:text}`eta:.0f` % of each motor torque: the efficiency of its tendons,
+`helyx.EFFICIENCY`. A simulator also needs the arm's own stiffness and damping, and gravity;
+`helyx.add_dynamics` adds them.
 
 ```{code-cell} python
 import numpy as np
@@ -123,18 +125,21 @@ from myst_nb import glue
 distance = 100 * np.linalg.norm(tip - goal, axis=1)  # [cm]
 travel = distance[0] - distance
 t = rows["t"].ravel()
+outside = np.abs(travel - travel[-1]) > 0.01 * travel[-1]  # more than 1 % off the end
 glue("start", float(distance[0]), display=False)
 glue("end", float(distance[-1]), display=False)
 glue("fast", 1000 * float(t[np.argmax(travel >= 0.9 * travel[-1])]), display=False)
-glue("slow", float(t[np.argmax(travel >= 0.99 * travel[-1])]), display=False)
+glue("slow", float(t[np.nonzero(outside)[0][-1] + 1]), display=False)
+glue("eta", 100 * helyx.EFFICIENCY, display=False)
 ```
 
 The tip starts {glue:text}`start:.1f` cm from the goal. It covers nine tenths of its way in the
-first {glue:text}`fast:.0f` ms, then creeps on for about {glue:text}`slow:.1f` s while the
-arm's own damping slows it down. It stops {glue:text}`end:.1f` cm short of the goal, where the
-virtual spring
-balances the arm's own stiffness; a stiffer virtual spring would bring it closer. The torques
-peak as the spring first pulls, then settle to the small values that hold the arm in place.
+first {glue:text}`fast:.0f` ms, swings back a little and settles within about
+{glue:text}`slow:.1f` s. It stops {glue:text}`end:.1f` cm short of the goal: the arm feels only
+{glue:text}`eta:.0f` % of the virtual spring and of the gravity compensation, so its own
+stiffness and the rest of its weight hold it back. A stiffer virtual spring would bring it
+closer. The torques peak as the spring first pulls, then settle to the small values that hold
+the arm in place.
 
 ## Animate
 

@@ -92,9 +92,11 @@ params.table(arm, {
 }, degrees=("seg1.delta",))
 ```
 
-The stiffness and damping come from an identification on a real arm. They are referred to the
-commanded motor torque: the identified values were divided by the measured transmission
-efficiency, 0.12, so the template keeps `efficiency` at 1. Only the simulator uses them.
+The stiffness and damping come from an identification on a real arm; only the simulator uses
+them. The efficiency, measured against a load cell, is the share of each motor torque that the
+tendons pass on to the arm. Controllers send their torques as computed, so in simulation, as
+on the real arm, the arm feels {glue:text}`eta:.0f` % of every virtual element, gravity
+compensation included.
 
 On the real arm, `helyx.output_stage()` adds a small pretension to every motor command
 (0.010 N·m per radian of motor angle). The simulations below leave it out.
@@ -150,14 +152,17 @@ from myst_nb import glue
 
 travel = distance[0] - distance
 t = rows["t"].ravel()
+outside = np.abs(travel - travel[-1]) > 0.01 * travel[-1]  # more than 1 % off the end
 glue("reach_start", float(distance[0]), display=False)
 glue("reach_end", float(distance[-1]), display=False)
-glue("reach_99", float(t[np.argmax(travel >= 0.99 * travel[-1])]), display=False)
+glue("reach_99", float(t[np.nonzero(outside)[0][-1] + 1]), display=False)
+glue("eta", 100 * helyx.EFFICIENCY, display=False)
 ```
 
-The tip starts {glue:text}`reach_start:.0f` cm from the goal and covers 99 % of its way in
-{glue:text}`reach_99:.1f` s. It stops {glue:text}`reach_end:.1f` cm short of the goal, where
-the virtual spring balances the arm's own stiffness; a stiffer spring brings it closer.
+The tip starts {glue:text}`reach_start:.0f` cm from the goal, swings twice and is within 1 % of
+its final distance after {glue:text}`reach_99:.1f` s. It stops {glue:text}`reach_end:.1f` cm
+short of the goal, where {glue:text}`eta:.0f` % of the virtual spring balances the arm's own
+stiffness and the part of its weight left uncompensated; a stiffer spring brings it closer.
 
 ## Avoid an obstacle
 
@@ -237,5 +242,12 @@ viz.label_axes(ax)
 ax.legend(loc="lower left");
 ```
 
-The middle of the arm sits on its goal and the tip on the dashed line, free to settle anywhere
-along it.
+```{code-cell} python
+:tags: [remove-cell]
+glue("middle_off", 100 * float(np.linalg.norm(kin.position(q, 0.5) - middle)), display=False)
+glue("height_off", 100 * float(kin.position(q, 1.0)[2] - height), display=False)
+```
+
+The middle of the arm settles {glue:text}`middle_off:.1f` cm from its goal and the tip
+{glue:text}`height_off:.1f` cm below the dashed line, free to slide along it: as in the first
+run, the arm's own stiffness and the uncompensated part of its weight hold both a little short.
