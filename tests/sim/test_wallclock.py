@@ -97,3 +97,24 @@ def test_a_real_time_run_on_the_finger_through_a_fake_bus():
         log = vmc.sim.run(plant, controller, vmc.sim.WallClock(dt=0.005, stale=0.05), T=0.1)
     assert log.info["steps"] == 20 and log.info["stale"] == 0
     assert log.info["rate"] == pytest.approx(200.0, rel=0.5)  # paced, not flat out
+
+
+def test_ctrl_c_ends_a_real_time_run_with_the_log_so_far():
+    time = FakeTime()
+
+    class Interrupted(Controller):
+        def step(self, t, meas):
+            if len(self.times) == 5:
+                raise KeyboardInterrupt
+            return super().step(t, meas)
+
+    clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+    log = vmc.sim.run(Plant(time), Interrupted(time), clock, T=None)
+    rows = log.arrays()
+    assert log.info["steps"] == 5
+    assert len(rows["t"]) == len(rows["motor_torque"]) == len(rows["motor_position"]) == 5
+
+
+def test_a_simulated_run_needs_its_duration():
+    with pytest.raises(ValueError, match="duration"):
+        vmc.sim.run(None, None, vmc.sim.SimClock(0.01), T=None)

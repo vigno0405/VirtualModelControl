@@ -9,7 +9,7 @@ rclpy = pytest.importorskip("rclpy")
 
 import virtualmodelcontrol as vmc  # noqa: E402
 from virtualmodelcontrol.robots import adapt  # noqa: E402
-from virtualmodelcontrol.ros import LiveParams, RosPlant, serve  # noqa: E402
+from virtualmodelcontrol.ros import LiveParams, RosPlant, control, serve  # noqa: E402
 
 DT = 1 / 500
 
@@ -96,3 +96,18 @@ def test_close_sends_zero_torque(ros):
             break
     listener.destroy_node()
     assert received[-1] == [0.0, 0.0] and received[0] == [0.1, 0.2]
+
+
+def test_the_controller_node_runs_in_real_time_on_a_twin(ros):
+    robot, controller = finger_controller()
+    stop, thread = start_twin(robot, rate=500.0)
+    try:
+        profile = adapt.finger_hardware().replace(rate=200.0)
+        log = control(controller, profile, duration=0.2)
+    finally:
+        stop.set()
+        thread.join()
+    rows = log.arrays()
+    assert 30 <= log.info["steps"] <= 40 and log.info["stale"] == 0
+    assert np.abs(rows["motor_torque"]).max() > 0.0
+    assert np.ptp(rows["motor_position"], axis=0).max() > 0.01  # the twin's finger moved

@@ -7,6 +7,15 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+### Added
+
+- `vmc.ros.control`: the controller node. It runs a controller at the profile's rate on the
+  robot behind the driver's topics, with its live Params as ROS parameters, for a duration or
+  until Ctrl-C, and ends with zero torque.
+- On real time (`WallClock`), `vmc.sim.run(..., T=None)` runs until Ctrl-C, and Ctrl-C ends
+  any run with the log so far.
+- CI runs the ROS tests in ROS 2 Humble and Jazzy containers, on a private domain.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

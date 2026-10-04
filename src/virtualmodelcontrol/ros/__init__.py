@@ -7,11 +7,12 @@ from typing import TYPE_CHECKING, Any
 from .joint_io import TOPICS, JointIO
 
 if TYPE_CHECKING:
+    from .node import control
     from .params import LiveParams
     from .plant import RosPlant
     from .twin import serve
 
-_LAZY = {"RosPlant": ".plant", "LiveParams": ".params", "serve": ".twin"}
+_LAZY = {"RosPlant": ".plant", "LiveParams": ".params", "serve": ".twin", "control": ".node"}
 
 
 def __getattr__(name: str) -> Any:
@@ -20,4 +21,4 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["TOPICS", "JointIO", "LiveParams", "RosPlant", "serve"]
+__all__ = ["TOPICS", "JointIO", "LiveParams", "RosPlant", "control", "serve"]

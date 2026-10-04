@@ -70,7 +70,7 @@ def run(
     plant: Any,
     controller: Any,
     clock: SimClock | WallClock,
-    T: float,
+    T: float | None,
     guard: Guard | None = None,
     z0: Any = None,
 ) -> RunLog:
@@ -78,12 +78,15 @@ def run(
 
     Each step reads the plant, asks the controller for a command (zero torque if the guard
     trips), writes it, then advances a simulated plant by ``clock.dt`` or, with a ``WallClock``,
-    waits for the next step. ``z0`` sets the controller's initial virtual state; the log also
+    waits for the next step. On real time, ``T=None`` runs until Ctrl-C, and Ctrl-C ends any run
+    with the log so far. ``z0`` sets the controller's initial virtual state; the log also
     records that state, ``z``, when the controller has one.
     """
     guard = Guard() if guard is None else guard
     if isinstance(clock, WallClock):
         return _run_wall(plant, controller, clock, T, guard, z0)
+    if T is None:
+        raise ValueError("a simulated run needs its duration T")
     log = RunLog()
     meas = plant.read()
     _reset(controller, plant.t, meas, z0)
@@ -109,36 +112,40 @@ def _reset(controller: Any, t: float, meas: Signals, z0: Any) -> None:
 
 
 def _run_wall(
-    plant: Any, controller: Any, clock: WallClock, T: float, guard: Guard, z0: Any
+    plant: Any, controller: Any, clock: WallClock, T: float | None, guard: Guard, z0: Any
 ) -> RunLog:
     """The run loop on real time: measured steps, stale readings refused, rate statistics."""
-    log, steps = RunLog(), round(T / clock.dt)
+    log, limit = RunLog(), None if T is None else round(T / clock.dt)
     meas = plant.read()
     motors = len(meas["motor_position"])
     t0 = previous = tick = clock.now()
     _reset(controller, 0.0, meas, z0)
-    overruns = stale = 0
-    for _ in range(steps):
-        now = clock.now()
-        t = now - t0
-        meas = plant.read()
-        old = clock.stale is not None and plant.t - meas.t > clock.stale
-        stale += old
-        if guard.ok(meas) and not old:
-            cmd = controller.step(t, meas)
-        else:
-            cmd = Signals(t, motor_torque=np.zeros(motors))
-        plant.write(cmd)
-        log.append(t=t, dt=now - previous, motor_torque=cmd["motor_torque"])
-        log.append(**{n: meas[n] for n in meas.names})
-        if getattr(controller, "z", None) is not None and np.size(controller.z):
-            log.append(z=controller.z)
-        previous, tick = now, tick + clock.dt
-        wait = tick - clock.now()
-        if wait > 0:
-            clock.sleep(wait)
-        else:  # late: start again from now rather than catching up in a burst
-            overruns, tick = overruns + 1, clock.now()
+    steps = overruns = stale = 0
+    try:
+        while limit is None or steps < limit:
+            now = clock.now()
+            t = now - t0
+            meas = plant.read()
+            old = clock.stale is not None and plant.t - meas.t > clock.stale
+            stale += old
+            if guard.ok(meas) and not old:
+                cmd = controller.step(t, meas)
+            else:
+                cmd = Signals(t, motor_torque=np.zeros(motors))
+            plant.write(cmd)
+            log.append(t=t, dt=now - previous, motor_torque=cmd["motor_torque"])
+            log.append(**{n: meas[n] for n in meas.names})
+            if getattr(controller, "z", None) is not None and np.size(controller.z):
+                log.append(z=controller.z)
+            steps += 1
+            previous, tick = now, tick + clock.dt
+            wait = tick - clock.now()
+            if wait > 0:
+                clock.sleep(wait)
+            else:  # late: start again from now rather than catching up in a burst
+                overruns, tick = overruns + 1, clock.now()
+    except KeyboardInterrupt:  # Ctrl-C ends a real-time run with the log so far
+        log.rows = {name: rows[:steps] for name, rows in log.rows.items()}
     dt = np.diff(log.arrays()["t"].ravel()) if steps > 1 else np.array([clock.dt])
     log.info = {
         "steps": steps,
