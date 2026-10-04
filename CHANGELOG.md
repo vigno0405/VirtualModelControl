@@ -28,7 +28,10 @@ versions, with one minor version of deprecation before a removal).
   delivered torques or from one measured quantity with a weight per motor (a fingertip force,
   say). Both agree with the lab's calibration code, and the fit gives the finger's
   `adapt.MOTOR_EFFICIENCY` back from its recorded data.
-- Docs: a "Transmission efficiency" page in the concepts.
+- Docs: concepts pages "Transmission efficiency", "Virtual Model Control" (coordinates, forces,
+  the torques that realize them, virtual states), "Passivity" (the energy balances, stability,
+  what weakens it) and "Finger and hand kinematics" (motors to joints, joints to the
+  fingertip, the hand's couplings).
 - The constrained elements as components of their own: `ConstrainedLinearSpring`,
   `ConstrainedTanhSpring`, `ConstrainedGaussianSpring`, `ConstrainedLinearDamper` and
   `ConstrainedTanhDamper` act along one direction (`normal`) only, leaving the plane normal to

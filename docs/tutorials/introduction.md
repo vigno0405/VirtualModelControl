@@ -76,5 +76,7 @@ four_steps.figure();
 - [Parameters](parameters.md) shows which numbers can change while the robot runs.
 - [Energy and passivity](energy.md) follows the energy through a run.
 - [Build a robot](build-a-robot.md) describes a robot of our own.
+- [Virtual Model Control](../concepts/vmc.md) and [Passivity](../concepts/passivity.md) give the
+  equations behind these steps.
 - [How the library is organized](../concepts/library.md) maps the packages, and the
   [glossary](../concepts/conventions.md) defines the terms.

@@ -121,7 +121,10 @@ examples/turtle
 :caption: Concepts
 
 concepts/library
+concepts/vmc
+concepts/passivity
 concepts/pcc
+concepts/finger
 concepts/efficiency
 concepts/conventions
 ```
