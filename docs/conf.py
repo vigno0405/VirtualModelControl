@@ -52,6 +52,8 @@ intersphinx_mapping = {
 
 html_theme = "sphinx_immaterial"
 html_title = "virtualmodelcontrol"
+html_logo = "_static/logo-light.svg"  # the header is navy in both colour schemes
+html_favicon = "_static/favicon.svg"
 # Tooltips of API objects without their synopsis, which the theme joins with an em dash.
 object_description_options = [("py:.*", {"generate_synopses": None})]
 exclude_patterns = ["_build", "jupyter_execute", "schematics", "_ext"]
@@ -61,7 +63,7 @@ exclude_patterns = ["_build", "jupyter_execute", "schematics", "_ext"]
 html_theme_options = {
     "repo_url": "https://github.com/vigno0405/VirtualModelControl",
     "repo_name": "VirtualModelControl",
-    "icon": {"repo": "fontawesome/brands/github", "logo": "material/robot-industrial"},
+    "icon": {"repo": "fontawesome/brands/github"},
     "font": {"text": "Inter", "code": "JetBrains Mono"},
     "features": [
         "navigation.tabs",

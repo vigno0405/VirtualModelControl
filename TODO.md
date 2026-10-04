@@ -131,12 +131,13 @@ docs build. Nothing is pasted as an image if it can be computed.
 - [x] Developer notes: contributing, with tests, documentation rules and releases.
 - [x] Troubleshooting: ROS on the `PYTHONPATH`, missing `python3-venv`, CasADi import errors,
   first compile time, matplotlib and LaTeX.
-- [ ] Create a logo for the library: in the site header, as the favicon and at the top of the
+- [x] Create a logo for the library: in the site header, as the favicon and at the top of the
   README.
 - [ ] Add the EPFL logo to the home page and the README, following EPFL's rules for using its
-  logo.
+  logo (EPFL's guidelines place it top left, in red).
 - [ ] Add the University of Cambridge logo next to it, following Cambridge's rules for using its
-  logo.
+  logo (Cambridge supplies the artwork after a permission request supported by a Cambridge staff
+  member).
 
 **Quality bar.**
 

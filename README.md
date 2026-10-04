@@ -5,7 +5,9 @@ attaching virtual springs, dampers and masses to your robot, and the library tur
 motor torques at the control rate, in simulation and on the real robot.
 
 <p align="center">
-  <a href="https://vigno0405.github.io/VirtualModelControl/"><img src="https://img.shields.io/badge/Documentation-tutorials%20%C2%B7%20examples%20%C2%B7%20API-3c5488?style=for-the-badge&labelColor=13294b" alt="Documentation: tutorials, examples, API"></a>
+  <a href="https://vigno0405.github.io/VirtualModelControl/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vigno0405/VirtualModelControl/main/docs/_static/logo-light.svg"><img src="https://raw.githubusercontent.com/vigno0405/VirtualModelControl/main/docs/_static/logo.svg" height="64" align="middle" alt="virtualmodelcontrol logo"></picture></a>
+  &nbsp;
+  <a href="https://vigno0405.github.io/VirtualModelControl/"><img src="https://img.shields.io/badge/Documentation-tutorials%20%C2%B7%20examples%20%C2%B7%20API-3c5488?style=for-the-badge&labelColor=13294b" align="middle" alt="Documentation: tutorials, examples, API"></a>
 </p>
 
 <p align="center">
