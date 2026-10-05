@@ -6,10 +6,9 @@ kernelspec:
 
 # Hanging soft arm: identify it, reach around an obstacle
 
-In this example we simulate the Helyx soft arm that hangs from its base, in two of its
-experiments: its stiffness and damping are identified from step responses, and its tip reaches
-a target around an obstacle, pulled by a force-limited spring and pushed by two repulsive
-fields.
+In this example we simulate the Helyx soft arm that hangs from its base, in two experiments.
+First we identify its stiffness and damping from step responses. Then its tip reaches a target
+around an obstacle, pulled by a force-limited spring and pushed by two repulsive fields.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -31,9 +30,9 @@ schematic.figure("145-290-290");
 ```
 
 The arc parameter $s$ runs from 0 at the base to 1 at the tip, uniformly in arc length, and
-`arm.point(s=...)` gives any point of the body. Each segment's section, seen along its $z$
-axis, shows where its tendons sit and the index of the motor that pulls each one in the motor
-vector. A positive motor angle pulls its tendon.
+`arm.point(s=...)` gives any point of the body. The cross-sections below, seen along each
+segment's $z$ axis, show where the tendons sit. The number beside a tendon is the index of its
+motor in the motor vector. A positive motor angle pulls its tendon.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -62,10 +61,10 @@ params.table(arm, {
 }, degrees=("seg1.delta",))
 ```
 
-The stiffness and damping come from an identification on a real Helyx arm; only the simulator
-uses them. They were fitted to the torques the motors were commanded, so the simulated arm
-takes each torque as the controller sends it: its efficiency is 1, the default of every
-template. The nine motors and their bus are in `helyx.hardware("145-290-290")`.
+The stiffness and damping come from an identification on a real Helyx arm. Only the simulator
+uses them. The fit used the commanded motor torques, so the simulated arm takes each torque as
+the controller sends it: its efficiency is 1, the default of every template. The nine motors
+and their bus are in `helyx.hardware("145-290-290")`.
 
 ## Identify its stiffness and damping
 
@@ -193,20 +192,20 @@ shows it little. On a real arm, add a run that keeps the motors moving.
 ## Reach around an obstacle
 
 A tanh spring pulls the tip towards a target with at most 2 N, and a damper slows the tip
-down. An obstacle of radius 2 cm sits next to the arm's way, and the arm must keep 2 cm clear
-of it. Two Gaussian fields, attached at $s = 0.6$ and at the tip, the ends of the part that
-has to get past it, push the arm away from the obstacle's centre.
+down. An obstacle of radius 2 cm sits beside the arm's path, and the arm must keep 2 cm clear
+of it. Two Gaussian fields push the arm away from the obstacle's centre. They are attached at
+$s = 0.6$ and at the tip, the ends of the part that has to get past the obstacle.
 
 ```{code-cell} python
 target = np.array([0.20, 0.0, 0.66])  # [m]
 obstacle, radius = np.array([0.155, 0.0, 0.50]), 0.02  # [m]
 tip = arm.point(s=1.0)
 
-def reach(avoid):
+def reach(fields):
     ctrl = vmc.Mechanism("ctrl")
     ctrl.add("reach", vmc.TanhSpring(tip - target, 60.0, 2.0))  # [N/m], [N]
     ctrl.add("damp", vmc.LinearDamper(tip, 1.0))  # [N·s/m]
-    if avoid:
+    if fields:
         for i, s in enumerate((0.6, 1.0)):
             away = arm.point(s=s) - obstacle
             ctrl.add(f"avoid{i}", vmc.GaussianSpring(away, 140.0, 0.06))
@@ -216,17 +215,17 @@ def reach(avoid):
     clock = vmc.sim.SimClock(dt=1 / 330)
     return vmc.sim.run(vmc.sim.ModelPlant(arm), controller, clock, T=5.0)
 
-log_free, log_avoid = reach(False), reach(True)
+free, avoid = reach(False), reach(True)
 ```
 
 ```{code-cell} python
 :tags: [remove-output]
-def draw_obstacle(ax, row=None):
+def draw(ax, row=None):
     disc = plt.Circle((obstacle[0], obstacle[2]), radius, color="0.4")
     ax.add_patch(disc)
 
-viz.animate(arm, log_avoid, "hanging-arm-avoid.mp4",
-            springs=[(1.0, target)], trace=1.0, draw=draw_obstacle,
+viz.animate(arm, avoid, "hanging-arm-avoid.mp4",
+            springs=[(1.0, target)], trace=1.0, draw=draw,
             invert=True)
 ```
 
@@ -238,12 +237,12 @@ viz.animate(arm, log_avoid, "hanging-arm-avoid.mp4",
 fig, ax = plt.subplots(figsize=(4.6, 5.6))
 kin = vmc.Kinematics(arm)
 viz.draw_robot(ax, arm, np.zeros(9), color="0.85")
-viz.draw_robot(ax, arm, log_free.arrays()["q"][-1],
+viz.draw_robot(ax, arm, free.arrays()["q"][-1],
                color=viz.PALETTE[5], label="reach")
-viz.draw_robot(ax, arm, log_avoid.arrays()["q"][-1],
+viz.draw_robot(ax, arm, avoid.arrays()["q"][-1],
                label="reach and avoid")
 viz.draw_goal(ax, target, label="target")
-draw_obstacle(ax)
+draw(ax)
 ax.invert_yaxis()  # the arm hangs: z points down
 viz.label_axes(ax)
 ax.legend(loc="lower left", fontsize=14);
@@ -259,12 +258,12 @@ def closest(log):  # the body's closest approach to the obstacle's surface [cm]
 def miss(log):  # the tip's final distance to the target [cm]
     return 100 * np.linalg.norm(kin.position(log.arrays()["q"][-1], 1.0) - target)
 
-assert closest(log_free) < 2.0 < closest(log_avoid)  # the 2 cm clearance
-assert miss(log_avoid) > miss(log_free)
-glue("free_gap", float(closest(log_free)), display=False)
-glue("avoid_gap", float(closest(log_avoid)), display=False)
-glue("free_miss", float(miss(log_free)), display=False)
-glue("avoid_miss", float(miss(log_avoid)), display=False)
+assert closest(free) < 2.0 < closest(avoid)  # the 2 cm clearance
+assert miss(avoid) > miss(free)
+glue("free_gap", float(closest(free)), display=False)
+glue("avoid_gap", float(closest(avoid)), display=False)
+glue("free_miss", float(miss(free)), display=False)
+glue("avoid_miss", float(miss(avoid)), display=False)
 ```
 
 Without the fields the body passes {glue:text}`free_gap:.1f` cm from the obstacle's surface,

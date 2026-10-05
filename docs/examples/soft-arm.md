@@ -6,10 +6,10 @@ kernelspec:
 
 # Soft arm: reach past an obstacle, limit the force, shape the body
 
-In this example we simulate the Helyx soft arm mounted on its side, in three of its
-experiments: the tip reaches for a target while two repulsive fields keep the body off an
-obstacle, a force-limited spring pulls the tip against a string, and a constrained spring holds
-the tip on a line while another spring shapes the body.
+In this example we simulate the Helyx soft arm mounted on its side, in three experiments. In
+the first, the tip reaches for a target while two repulsive fields keep the body off an
+obstacle. In the second, a force-limited spring pulls the tip against a string. In the third, a
+constrained spring holds the tip on a line while another spring shapes the body.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -33,8 +33,9 @@ The arm is mounted on its side: gravity acts along $-y$, out of the drawing, so 
 in a horizontal plane. The arc parameter $s$ runs from 0 at the base to 1 at the tip,
 uniformly in arc length, and `arm.point(s=...)` gives any point of the body.
 
-Each segment's section, seen along its $z$ axis, shows where its tendons sit and the index of
-the motor that pulls each one in the motor vector. A positive motor angle pulls its tendon.
+The cross-sections below, seen along each segment's $z$ axis, show where the tendons sit. The
+number beside a tendon is the index of its motor in the motor vector. A positive motor angle
+pulls its tendon.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -65,11 +66,11 @@ params.table(arm, {
 }, degrees=("seg1.delta",))
 ```
 
-The stiffness and damping come from an identification on a real Helyx arm; only the simulator
-uses them. They were fitted to the torques the motors were commanded, so the simulated arm
-takes each torque as the controller sends it: its efficiency is 1, the default of every
-template. The efficiency of the tendons measured against a load cell, `helyx.EFFICIENCY`
-({glue:text}`eta:.0f` %), matters for the forces the real arm exerts on its surroundings; the
+The stiffness and damping come from an identification on a real Helyx arm. Only the simulator
+uses them. The fit used the commanded motor torques, so the simulated arm takes each torque as
+the controller sends it: its efficiency is 1, the default of every template. The efficiency of
+the tendons, measured against a load cell, is `helyx.EFFICIENCY` ({glue:text}`eta:.0f` %). It
+matters for the forces the real arm exerts on its surroundings. The
 [efficiency page](../concepts/efficiency.md) explains when to use it.
 
 The nine motors and their bus are in `helyx.hardware("145-145-145")`. On the real arm,
@@ -79,10 +80,10 @@ motor angle). The simulations below leave it out.
 ## Reach past an obstacle
 
 A spring pulls the tip towards a target beyond an obstacle, while two repulsive Gaussian
-fields, attached a third and two thirds of the way along the arm, push the body away from it.
-Dampers on the three points slow them down. Each run lets the fields ramp up over 5 s, then
-walks the target from the tip at rest to its place at 10 cm/s, and holds it for 3 s. We repeat
-the run for four strengths of the fields.
+fields push the body away from it. The fields are attached a third and two thirds of the way
+along the arm. Dampers on the tip and on those two points slow them down. Each run lets the
+fields ramp up over 5 s, then walks the target from the tip at rest to its place at 10 cm/s,
+and holds it for 3 s. We repeat the run for four strengths of the fields.
 
 ```{code-cell} python
 import numpy as np
@@ -112,7 +113,7 @@ The loop is the one `vmc.sim.run` runs, with one `set` before each step for the 
 strength and the target:
 
 ```{code-cell} python
-def reach_past(strength, dt=1 / 330):
+def reach(strength, dt=1 / 330):
     controller = vmc.VMCController(law)
     plant = vmc.sim.ModelPlant(arm)
     controller.reset(plant.t, plant.read())
@@ -131,7 +132,7 @@ def reach_past(strength, dt=1 / 330):
     return plant.read()["q"]
 
 strengths = (0.0, 200.0, 600.0, 1000.0)  # [N/m]
-final = {k: reach_past(k) for k in strengths}
+final = {k: reach(k) for k in strengths}
 ```
 
 ```{code-cell} python
@@ -164,19 +165,19 @@ for k, (gap, m) in enumerate(zip(gaps, misses)):
 
 Turning the fields up buys clearance and costs reach. The body's closest point to the obstacle
 is {glue:text}`gap0:.1f` cm from it without the fields, then {glue:text}`gap1:.1f`,
-{glue:text}`gap2:.1f` and {glue:text}`gap3:.1f` cm as the strength grows to 1000 N/m, while the
-tip ends {glue:text}`miss0:.1f`, {glue:text}`miss1:.1f`, {glue:text}`miss2:.1f` and
+{glue:text}`gap2:.1f` and {glue:text}`gap3:.1f` cm as the strength grows to 1000 N/m. The tip
+ends {glue:text}`miss0:.1f`, {glue:text}`miss1:.1f`, {glue:text}`miss2:.1f` and
 {glue:text}`miss3:.1f` cm from the target. The target lies beyond the arm's reach, so even
 without the fields the tip stops short of it.
 
 ## Limit the force
 
-A string ties the tip back to where it rests, through a load cell that measures its pull; in
-the simulation the string is a stiff constrained spring that acts along $x$ only, added to the
-robot mechanism. A spring at the tip pulls towards a goal that moves 5 cm further along $-x$ every
-3 s, up to 50 cm. A linear spring pulls ten times its stretch, ever harder; a tanh spring with
-the same stiffness, 10 N/m, pulls the same at first but never more than its maximum force,
-1.33 N.
+A string ties the tip back to where it rests, through a load cell that measures its pull. In
+the simulation the string is a stiff constrained spring that acts along $x$ only, and we add it
+to the robot mechanism. A spring at the tip pulls towards a goal that moves 5 cm further along
+$-x$ every 3 s, up to 50 cm. We try two springs of the same stiffness, 10 N/m. A linear spring
+pulls ten times its stretch, ever harder. A tanh spring pulls the same at first but never more
+than its maximum force, 1.33 N.
 
 ```{code-cell} python
 tied = helyx.add_dynamics(helyx.arm("145-145-145"))
@@ -227,7 +228,7 @@ glue("tanh_end", float(tanh[-1]), display=False)
 ```
 
 The linear spring's pull grows with the stretch, to {glue:text}`linear_end:.2f` N when the goal
-is 50 cm away; the tanh spring's levels off at {glue:text}`tanh_end:.2f` N, just under its
+is 50 cm away. The tanh spring's pull levels off at {glue:text}`tanh_end:.2f` N, just under its
 maximum, however far the goal moves. A real transmission passes on only part of each motor
 torque, so on the real arm the string feels less than either: see the
 [efficiency page](../concepts/efficiency.md).
@@ -237,7 +238,7 @@ torque, so on the real arm the string feels less than either: see the
 Springs can pull on any point of the arm, not only on its tip, so together they set the shape
 of the whole body. Here a linear spring pulls the middle of the arm ($s = 0.5$) to a point, the
 cross, and a constrained spring pulls the tip towards the dashed line $z = 0.38$ m. A
-constrained spring acts along one direction only, here the line's normal $z$: it stretches with
+constrained spring acts along one direction only, here the line's normal $z$. It stretches with
 the tip's distance from the line, so it does not mind where along the line the tip ends.
 
 ```{code-cell} python
@@ -274,5 +275,5 @@ glue("z_off", 100 * float(kin.position(q, 1.0)[2] - on_line[2]), display=False)
 
 The middle of the arm stops {glue:text}`middle_off:.1f` cm from the cross and the tip
 {glue:text}`z_off:.1f` cm above the line: the arm's own stiffness holds both a little short of
-their goals. Nothing pulls the tip along the line, so where it ends there follows from the
+their goals. Nothing pulls the tip along the line, so its place on the line follows from the
 shape the two springs give the body.
