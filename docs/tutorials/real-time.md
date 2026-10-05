@@ -142,7 +142,8 @@ for name, result in (("healthy", log), ("three late steps", late)):
     ax.plot(1000 * result.arrays()["dt"][1:], label=name)
 ax.set_xlabel("step")
 ax.set_ylabel("step length [ms]")
-ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=18);
+ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2,
+          fontsize=18);
 ```
 
 ```{code-cell} python

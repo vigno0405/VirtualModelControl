@@ -7,6 +7,8 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-05
+
 ### Added
 
 - `vmc.config`: experiments in YAML files. `vmc.config.load` reads the robot (a template and its
@@ -64,7 +66,7 @@ versions, with one minor version of deprecation before a removal).
   robot behind the driver's topics, with its live Params as ROS parameters, for a duration or
   until Ctrl-C, and ends with zero torque.
 - On real time (`WallClock`), `vmc.sim.run(..., T=None)` runs until Ctrl-C, and Ctrl-C ends
-  any run with the log so far.
+  a real-time run with the log so far.
 - CI runs the ROS tests in ROS 2 Humble and Jazzy containers, on a private domain.
 - `vmc.control.SwapController` and `blend_weight`: one set of virtual elements replaces another
   with a quintic blend of the two controllers' torques (continuous torque and first two
@@ -283,6 +285,7 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/vigno0405/VirtualModelControl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vigno0405/VirtualModelControl/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vigno0405/VirtualModelControl/releases/tag/v0.1.0
