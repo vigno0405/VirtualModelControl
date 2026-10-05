@@ -62,11 +62,11 @@ turns faster than about {glue:text}`speed:.2f` rad/s, then clips the commands to
 
 The motors pass on only part of their torque: {glue:text}`eta_mcp:.0f` % at the MCP and
 {glue:text}`eta_pip:.0f` % at the PIP (`adapt.MOTOR_EFFICIENCY`), fitted to measured fingertip
-forces. The template's efficiency is 1, the default of every template, and the simulations
-below deliver the full torque: with a different efficiency on each of two motors that one
-virtual spring couples, the force the finger receives no longer derives from the spring's
-energy, and a simulated finger can start to vibrate.
-`adapt.finger(efficiency=adapt.MOTOR_EFFICIENCY)` includes them.
+forces. The template's efficiency is 1, the default of every template, so the simulations below
+deliver the full torque. With a different efficiency on each of two motors that one virtual
+spring couples, the force the finger receives no longer derives from the spring's energy, and a
+simulated finger can start to vibrate. `adapt.finger(efficiency=adapt.MOTOR_EFFICIENCY)`
+includes the efficiencies.
 
 The template takes its geometry and transmission as arguments. A longer finger with a larger
 pulley on the MCP joint, for example, has a new first coupling ratio:
@@ -118,7 +118,7 @@ their ranges, with PIP and DIP turning together.
 ## Joint limits
 
 A goal above the finger asks it to bend back at the MCP, out of its range.
-`adapt.joint_limit_spring` adds springs on the three joint angles that do nothing inside the
+`adapt.joint_limit_spring` adds springs on the three joint angles. They do nothing inside the
 ranges and push a joint back once it leaves its range. We start from where the finger stopped,
 without and with them, and plot the joint angles against their ranges (shaded):
 
@@ -174,7 +174,7 @@ keeps the joints closer to their ranges.
 
 ## Animate
 
-`plane="yz"` shows the finger from the side and `invert=True` turns $z$ down, as mounted;
+`plane="yz"` shows the finger from the side and `invert=True` turns $z$ down, as mounted.
 `speed=0.25` slows the run down four times.
 
 ```{code-cell} python

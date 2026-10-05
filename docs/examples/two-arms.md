@@ -28,7 +28,7 @@ schematic.figure();
 
 The frame's origin lies midway between the bases, with $z$ up. Both arms keep its orientation,
 so the tendons of each sit as in the [soft-arm example](soft-arm.md), and the left arm's motors
-are numbered on from 9. These are the Params of the pair used below, read from the template:
+are numbered from 9. These are the Params of the pair used below, read from the template:
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -55,19 +55,19 @@ params.table(bimanual.add_dynamics(bimanual.arms()), {
 })
 ```
 
-The stiffness and damping, which only the simulator uses, were identified on the real arms
-from the torques the motors were commanded, so the simulated arms take each torque as the
-controller sends it: their efficiency is 1, the default of every template. The efficiency of
-the tendons measured against a load cell, `bimanual.EFFICIENCY` ({glue:text}`EFFICIENCY:.2f`),
-matters for the forces the real arms exert on their surroundings; the
-[efficiency page](../concepts/efficiency.md) explains when to use it.
+The stiffness and damping come from an identification on the real arms. Only the simulator
+uses them. The fit used the commanded motor torques, so the simulated arms take each torque as
+the controller sends it: their efficiency is 1, the default of every template. The efficiency
+of the tendons, measured against a load cell, is `bimanual.EFFICIENCY`
+({glue:text}`EFFICIENCY:.2f`). It matters for the forces the real arms exert on their
+surroundings. The [efficiency page](../concepts/efficiency.md) explains when to use it.
 
 The arms' encoders follow the library's sign convention (`bimanual.ENCODER_SIGN` is
 {glue:text}`ENCODER_SIGN:+.0f`), and their controller runs at {glue:text}`CONTROL_RATE:.0f` Hz.
 On the real arms, `bimanual.output_stage()` adds {glue:text}`TORQUE_OFFSET:.2f` N·m to every
 command, a soft stop of {glue:text}`PRETENSION_WEIGHTS:.2f` N·m/rad on motors that release
-their tendon past {glue:text}`threshold:.0f`°, and a clip at ±{glue:text}`TORQUE_LIMIT:.1f` N·m;
-the simulation below leaves it out.
+their tendon past {glue:text}`threshold:.0f`°, and a clip at ±{glue:text}`TORQUE_LIMIT:.1f` N·m.
+The simulation below leaves it out.
 
 The template takes its geometry as arguments, one value for both arms or a dict by arm. Here
 both arms are longer and their bases 30 cm apart:
@@ -160,8 +160,8 @@ rest holds the soft arms bent. A stiffer spring squeezes harder.
 
 ## Animate
 
-`viz.animate` draws springs from the robot to fixed points only, so the spring between the tips
-and the object come from the `draw` callback, which receives the log's row at each frame.
+`viz.animate` draws only springs from the robot to fixed points. The `draw` callback adds the
+object and the spring between the tips. It receives the log's row at each frame.
 
 ```{code-cell} python
 :tags: [remove-output]
