@@ -42,6 +42,10 @@ All notable changes to this project are documented here. The format follows
   that runs on any plant. Every motor gets the baseline torque, and each pull adds a torque to some
   motors for `hold` seconds, with `rest` seconds at the baseline between them. Its log marks the
   training steps (`train`), which the fit uses as they are; the held-out ones are for validation.
+- `fit_stiffness_damping(..., friction=True)` adds a static friction torque per motor, F sign(θ̇),
+  to the fit and returns it after K and D (`K, D, F`). Friction that is not in the fit passes for
+  damping. A motor that stands still has none in the model, so a run that stops at the end of every
+  step hardly shows it: use one that keeps the motors moving.
 - `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation
