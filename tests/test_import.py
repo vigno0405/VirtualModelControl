@@ -25,18 +25,9 @@ def test_hardware_loads_only_when_used():
     code = (
         "import sys, virtualmodelcontrol as vmc; "
         "assert 'virtualmodelcontrol.hardware' not in sys.modules; "
-        "vmc.hardware.HardwareProfile; assert 'dynamixel_sdk' not in sys.modules"
+        "vmc.hardware.HardwareProfile; assert 'virtualmodelcontrol.hardware' in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
-
-
-def test_ros_is_reachable_without_loading_ros():
-    code = (
-        "import sys, virtualmodelcontrol as vmc; "
-        "assert 'virtualmodelcontrol.ros' not in sys.modules; "
-        "vmc.ros.TOPICS; assert 'rclpy' not in sys.modules"
-    )
-    subprocess.run([sys.executable, "-W", "ignore::DeprecationWarning", "-c", code], check=True)
 
 
 def test_scipy_loads_only_for_the_fits_that_use_it():

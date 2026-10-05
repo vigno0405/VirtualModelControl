@@ -1,11 +1,11 @@
 """The run loop on real time: steps on schedule, measured time, stale readings, overruns."""
 
+import time
+
 import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.hardware.bus import FakeBus
-from virtualmodelcontrol.hardware.dynamixel import DynamixelPlant
 from virtualmodelcontrol.robots import adapt
 
 
@@ -20,6 +20,14 @@ class FakeTime:
 
     def sleep(self, seconds):
         self.t += seconds
+
+
+class Computer:
+    """The computer's own clock, as the time of a plant."""
+
+    @property
+    def t(self):
+        return time.monotonic()
 
 
 class Plant:
@@ -86,16 +94,12 @@ def test_stale_readings_send_zero_torque():
     assert all(np.all(u == 0.0) for u in plant.sent)
 
 
-def test_a_real_time_run_on_the_finger_through_a_fake_bus():
-    profile = adapt.finger_hardware()
+def test_a_real_time_run_on_the_computers_clock_is_paced():
     robot, ctrl = adapt.finger(), vmc.Mechanism("ctrl")
     ctrl.add("hold", vmc.LinearSpring(robot.joint(slice(0, 2)), 1.0))
     controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl)))
-    bus = FakeBus(
-        dict.fromkeys(profile.ids, "XC330-T288"), dict(zip(profile.ids, (2000, 3000), strict=True))
-    )
-    with DynamixelPlant(profile, bus) as plant:
-        log = vmc.sim.run(plant, controller, vmc.sim.WallClock(dt=0.005, stale=0.05), T=0.1)
+    clock = vmc.sim.WallClock(dt=0.005, stale=0.05)
+    log = vmc.sim.run(Plant(Computer()), controller, clock, T=0.1)
     assert log.info["steps"] == 20 and log.info["stale"] == 0
     assert log.info["rate"] == pytest.approx(200.0, rel=0.5)  # paced, not flat out
 

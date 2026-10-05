@@ -1,8 +1,8 @@
 # Installation
 
 The library needs Python 3.10 or newer and runs on Linux, macOS and Windows. pip installs
-everything it uses: numpy, SciPy, CasADi, matplotlib, imageio-ffmpeg (to write videos), PyYAML,
-the Dynamixel SDK and pyserial (the last two leave in 0.4.0).
+everything it uses: numpy, SciPy, CasADi, matplotlib, imageio-ffmpeg (to write videos) and
+PyYAML.
 
 ## With pip
 
@@ -58,9 +58,9 @@ environment up as shown in the next section.
 
 The library never needs ROS. If ROS 2 is sourced in your shell, though, `PYTHONPATH` points at
 ROS's own Python packages. pip then takes them for installed: it ends with an error about their
-dependencies (`generate-parameter-library-py requires jinja2`, say) and skips any package that
-ROS also ships, such as the Dynamixel SDK. They can also shadow the versions in your
-environment. Unset `PYTHONPATH` for the commands that install or run the library:
+dependencies (`generate-parameter-library-py requires jinja2`, say). They also come first on the
+import path, so they can shadow the versions in your environment. Unset `PYTHONPATH` for the
+commands that install or run the library:
 
 ```bash
 env -u PYTHONPATH ~/venvs/vmc/bin/pip install virtualmodelcontrol

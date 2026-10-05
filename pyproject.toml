@@ -18,8 +18,6 @@ dependencies = [
     "matplotlib>=3.8",
     "imageio-ffmpeg>=0.5",
     "pyyaml>=6",
-    "dynamixel-sdk>=3.7",
-    "pyserial>=3.5",
 ]
 keywords = ["robotics", "control", "virtual model control", "passivity", "soft robots", "casadi"]
 classifiers = [
@@ -138,27 +136,13 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "Only the ROS bridge imports ROS"
+name = "The library never imports ROS"
 type = "forbidden"
-source_modules = [
-    "virtualmodelcontrol.core",
-    "virtualmodelcontrol.mechanisms",
-    "virtualmodelcontrol.models",
-    "virtualmodelcontrol.system",
-    "virtualmodelcontrol.compiler",
-    "virtualmodelcontrol.dynamics",
-    "virtualmodelcontrol.control",
-    "virtualmodelcontrol.sim",
-    "virtualmodelcontrol.identification",
-    "virtualmodelcontrol.hardware",
-    "virtualmodelcontrol.viz",
-    "virtualmodelcontrol.interactive",
-    "virtualmodelcontrol.robots",
-]
+source_modules = ["virtualmodelcontrol"]
 forbidden_modules = ["rclpy", "std_msgs"]
 
 [[tool.importlinter.contracts]]
-name = "Robot data, hardware, ROS, figures and configurations are edges: the layers never import them"
+name = "Robot data, hardware, figures and configurations are edges: the layers never import them"
 type = "forbidden"
 source_modules = [
     "virtualmodelcontrol.core",
@@ -174,7 +158,6 @@ source_modules = [
 forbidden_modules = [
     "virtualmodelcontrol.robots",
     "virtualmodelcontrol.hardware",
-    "virtualmodelcontrol.ros",
     "virtualmodelcontrol.viz",
     "virtualmodelcontrol.config",
     "virtualmodelcontrol.interactive",

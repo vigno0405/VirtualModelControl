@@ -7,6 +7,16 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+### Removed
+
+- `vmc.ros` (`RosPlant`, `control`, `serve`, `LiveParams`, `JointIO`, `TOPICS`) and the direct
+  Dynamixel path (`hardware.DynamixelPlant`, `home`, `present_ticks`, `scan`, `latency_timer`,
+  `Bus`, `SdkBus`, `FakeBus`), deprecated in 0.3.0. The library is communication-agnostic: it
+  turns measurements into torques, and how they reach the robot stays outside it. The Dynamixel
+  SDK and pyserial are no longer dependencies, and CI no longer runs the ROS tests. Hardware
+  profiles (`HardwareProfile`, `Motor`, `KT`, `MODES` and each robot's `hardware` template) stay.
+  A project that still uses a removed name keeps `virtualmodelcontrol==0.3.0`.
+
 ## [0.3.0] - 2026-10-05
 
 ### Added

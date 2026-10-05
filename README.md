@@ -47,8 +47,6 @@ pip installs them with the library:
 | [matplotlib](https://matplotlib.org) | 3.8 or newer | figures and animations |
 | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | 0.5 or newer | MP4 videos of the animations |
 | [PyYAML](https://pyyaml.org) | 6 or newer | robot and hardware files |
-| [Dynamixel SDK](https://github.com/ROBOTIS-GIT/DynamixelSDK) | 3.7 or newer | Dynamixel motors (leaves in 0.4.0) |
-| [pyserial](https://github.com/pyserial/pyserial) | 3.5 or newer | the serial port of the Dynamixel SDK (leaves in 0.4.0) |
 
 ## The example in the figure
 

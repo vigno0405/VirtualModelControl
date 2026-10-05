@@ -31,9 +31,8 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 - **Opt-in.** New behaviour never changes how finished experiments run; projects pin a version.
 - **Modular.** Each subpackage works without the ones above it. Someone with only a kinematic
   model builds and runs a controller without importing simulation, optimization or learning code.
-- **Safety.** Nothing touches a real robot without the owner's go-ahead. ROS tests (until 0.4.0)
-  use a private `ROS_DOMAIN_ID` between 70 and 79, never 0. No torque limits unless asked for
-  (they are opt-in output stages).
+- **Safety.** Nothing touches a real robot without the owner's go-ahead. No torque limits unless
+  asked for (they are opt-in output stages).
 - **Light on the CPU.** At most two or three processes; optimizers on one core.
 - **Double-check everything, as thoroughly as possible.** Every change is verified once while it
   is made and again in a separate review from a clean state (fresh clone, fresh environment,
@@ -275,8 +274,10 @@ Virtual mechanisms designed by optimization instead of by hand: their stiffness,
 and structure, offline with the robot's dynamics and online within an energy budget, first on
 the soft arm among obstacles.
 
-- [ ] **Remove the deprecated parts:** `vmc.ros`, the direct Dynamixel path, dynamixel-sdk and
-  pyserial, and the ROS CI job.
+- [x] **Remove the deprecated parts:** `vmc.ros`, the direct Dynamixel path, dynamixel-sdk and
+  pyserial, and the ROS CI job. Done (5 October 2026): the ROS package, the Dynamixel plant,
+  homing and bus modules, their tests and the CI job are gone, the two dependencies leave the
+  install, and the real-time test runs on a plain plant. Hardware profiles stay.
 - [ ] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
   new language: trajectories (trapezoidal and Hermite-Simpson collocation, multiple shooting,
   free final time, periodic), equilibria, data fits (identification, moving-horizon
