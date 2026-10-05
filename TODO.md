@@ -21,8 +21,8 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   data, never in model code.
 - **Jacobians and Hessians.** Every model and coordinate gives both, by automatic
   differentiation, tested against finite differences.
-- **SI units inside.** Degrees, encoder ticks, grams and motor currents exist only at the
-  hardware boundary.
+- **SI units inside.** Degrees exist only in the hardware profiles; a driver's raw units
+  (encoder ticks, motor currents) never enter the library.
 - **Communication-agnostic.** The library turns measurements into commands; how they reach the
   robot (the lab's ROS Dynamixel driver, or any other platform) stays outside it. A plant is
   anything with `read` and `write`.
@@ -146,8 +146,8 @@ docs build. Nothing is pasted as an image if it can be computed.
 
 **Animations.**
 
-- [x] `vmc.viz.animate(robot, log, ...)`: animation of a run (2D projections now, 3D with
-  meshes after 0.4.0), saved as MP4 (H.264) or animated WebP/GIF under 2 MB.
+- [x] `vmc.viz.animate(robot, log, ...)`: animation of a run (2D projections), saved as MP4
+  (H.264) or animated WebP/GIF under 2 MB.
 - [x] Every page that simulates embeds the animation of its own run, made by the docs build.
 
 **Pages to write or rewrite.**

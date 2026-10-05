@@ -2,8 +2,9 @@
 
 ## Units and signs
 
-- SI everywhere: m, rad, s, N, N·m, kg. Degrees, encoder ticks, grams and motor currents belong
-  only at the boundary with the hardware.
+- SI everywhere: m, rad, s, N, N·m, kg. Degrees stay at the boundary with the hardware, in the
+  robot's hardware profile; a driver's raw units (encoder ticks, motor currents) never enter
+  the library.
 - A positive motor angle pulls its tendon. Each template states the sign of its robot's
   encoders against this convention (`helyx.ENCODER_SIGN`, `bimanual.ENCODER_SIGN`,
   `turtle.MOTOR_SIGNS`); multiply raw readings and commands by it.

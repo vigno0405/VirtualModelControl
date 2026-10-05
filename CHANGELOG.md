@@ -2,8 +2,7 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
-[Semantic Versioning](https://semver.org/) (0.x: the API may still change between minor
-versions, with one minor version of deprecation before a removal).
+[Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
 ## [Unreleased]
 

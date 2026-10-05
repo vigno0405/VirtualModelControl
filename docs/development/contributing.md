@@ -29,7 +29,7 @@ The site then opens from `docs/_build/html/index.html`.
 
 ## Code
 
-- SI units inside the library; degrees, ticks and currents only at the hardware boundary.
+- SI units inside the library; degrees only in the hardware profiles.
 - No numbers in model code: every geometric or physical number is a `Param`, with its default
   in the robot's template, and templates take their geometry as arguments.
 - Models are written once, with CasADi operations; no second copy in numpy or sympy.

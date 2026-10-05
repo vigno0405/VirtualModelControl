@@ -388,7 +388,7 @@ HAND_CONTROL_RATE = 330.0  # [Hz]
 
 @register("hardware", "adapt.hand_hardware")
 def hand_hardware() -> HardwareProfile:
-    """The hand's motors in ``HAND_MOTORS`` order and the held wrist; a ROS driver publishes the
+    """The hand's motors in ``HAND_MOTORS`` order and the held wrist; a driver publishes the
     13 motors in the order of their IDs."""
     motors = tuple(Motor(HAND_MOTOR_IDS[name]) for name in HAND_MOTORS)
     wrist = tuple(Motor(i, hold=True) for i in HAND_WRIST_IDS)
