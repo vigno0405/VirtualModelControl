@@ -1,4 +1,4 @@
-"""Ask and tell: the grid, random search and CMA-ES, `tune`, and the bridge to Params."""
+"""Ask and tell: the searchers (grid, random, CMA-ES, extremum seeking, Bayes), `tune`, Params."""
 
 from itertools import pairwise
 
@@ -184,3 +184,76 @@ def test_extremum_seeking_takes_two_costs_per_round():
     searcher = opt.ExtremumSeeking([0.0, 0.0], 0.1, 0.1)
     with pytest.raises(ValueError, match="2 candidates but 1 costs"):
         searcher.tell(searcher.ask(), [1.0])
+
+
+def branin(x):
+    """Three minima of 0.3979 on [-5, 10] x [0, 15]."""
+    b, c, t = 5.1 / (4 * np.pi**2), 5 / np.pi, 1 / (8 * np.pi)
+    return float((x[1] - b * x[0] ** 2 + c * x[0] - 6.0) ** 2 + 10 * (1 - t) * np.cos(x[0]) + 10)
+
+
+def test_bayes_beats_random_search_on_the_same_few_episodes():
+    lower, upper = [-5.0, 0.0], [10.0, 15.0]
+    for seed in range(3):
+        bayes = opt.tune(opt.Bayes(lower, upper, seed=seed), branin, 30)
+        random = opt.tune(opt.Random(lower, upper, size=1, seed=seed), branin, 30)
+        print(f"branin, seed {seed}: {bayes.best_cost:.3f}, {random.best_cost:.3f}")
+        assert bayes.best_cost < 1.0 and bayes.best_cost < random.best_cost
+        assert len(bayes.history) == 30
+
+
+def test_bayes_starts_from_a_latin_hypercube_and_then_asks_one_candidate_at_a_time():
+    lower, upper = np.array([-1.0, 2.0]), np.array([1.0, 3.0])
+    bayes = opt.Bayes(lower, upper, initial=6, seed=1)
+    first = []
+    for _ in range(6):
+        (x,) = bayes.ask()
+        first.append(x)
+        bayes.tell([x], [sphere(x)])
+    unit = (np.array(first) - lower) / (upper - lower)
+    for column in unit.T:  # one point in each sixth of every dimension
+        assert sorted(np.floor(6 * column)) == list(range(6))
+    for _ in range(4):
+        candidates = bayes.ask()
+        assert len(candidates) == 1 and np.all(candidates[0] >= lower)
+        assert np.all(candidates[0] <= upper)
+        bayes.tell(candidates, [sphere(candidates[0])])
+    assert len(bayes.history) == 10
+
+
+def test_bayes_closes_in_on_the_minimum_of_a_bowl_and_repeats_with_the_seed():
+    def bowl(x):
+        return float((x[0] - 0.3) ** 2 + 2 * (x[1] + 0.2) ** 2)
+
+    a = opt.tune(opt.Bayes([-1.0, -1.0], [1.0, 1.0], seed=2), bowl, 20)
+    b = opt.tune(opt.Bayes([-1.0, -1.0], [1.0, 1.0], seed=2), bowl, 20)
+    np.testing.assert_array_equal(a.best, b.best)
+    np.testing.assert_allclose(a.best, [0.3, -0.2], atol=0.05)
+    other = opt.tune(opt.Bayes([-1.0, -1.0], [1.0, 1.0], seed=3), bowl, 20)
+    assert not np.array_equal(other.best, a.best)
+
+
+def next_after(xs, costs):
+    """Where Bayes asks next on [0, 1] once told the cost at each of the points ``xs``."""
+    bayes = opt.Bayes([0.0], [1.0], initial=len(xs), seed=0)
+    bayes.tell([[x] for x in xs], costs)
+    return float(bayes.ask()[0][0])
+
+
+def test_bayes_tries_where_it_knows_least_and_where_the_costs_promise_most():
+    # equal costs in a corner say nothing about the rest: it explores the far end
+    assert next_after([0.0, 0.05, 0.1], [1.0, 1.0, 1.0]) > 0.8
+    # costs falling steadily to the right: it goes on to the right edge
+    assert next_after([0.0, 0.2, 0.4, 0.6, 0.8], [1.0, 0.8, 0.6, 0.4, 0.2]) > 0.9
+    # a valley between 0.3 and 0.8, lowest at 0.5: the expected improvement is highest just beside
+    # it, on the side that is less known
+    assert 0.58 < next_after([0.0, 0.3, 0.5, 0.8, 1.0], [1.0, 0.2, 0.0, 0.4, 1.0]) < 0.62
+
+
+def test_bayes_refines_around_the_best_point_in_six_dimensions():
+    centre = np.array([0.3, -0.2, 0.1, 0.5, -0.4, 0.0])
+    for seed in (1, 2):
+        bayes = opt.Bayes(-np.ones(6), np.ones(6), seed=seed)
+        opt.tune(bayes, lambda x: float(np.sum((np.asarray(x) - centre) ** 2)), 40)
+        print(f"6-D bowl, seed {seed}: {bayes.best_cost:.3f}")
+        assert bayes.best_cost < 0.06  # random points alone stay near 0.1 here

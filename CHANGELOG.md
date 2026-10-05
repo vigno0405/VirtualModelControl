@@ -60,10 +60,11 @@ All notable changes to this project are documented here. The format follows
   that earn their place: structure optimization, tested on a mass with three springs and on the
   soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
   keep").
-- `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
-  gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
-  `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation
-  or on a robot in your own loop.
+- `vmc.optimization.Grid`, `Random`, `CMAES`, `ExtremumSeeking` and `Bayes`: gradient-free tuning by ask and tell
+  (`ask()` gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
+  `bounds_of` for the bounds and values of named Params. `Bayes` fits a Gaussian process to the
+  costs seen so far and asks for the candidate with the highest expected improvement: it suits
+  slow episodes, tens of them. The episodes are yours, in simulation or on a robot in your own loop.
 - `compile_dynamics(robot, runtime, actuation)` takes the actuation of a robot that has none, so a
   system's efficiency Params (`robot.efficiency.c1`) are the ones the dynamics read.
 

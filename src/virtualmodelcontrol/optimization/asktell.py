@@ -176,6 +176,70 @@ class ExtremumSeeking(_Searcher):
         self.x = np.clip(self.x - self.gain * slope, self.lower, self.upper)
 
 
+class Bayes(_Searcher):
+    """Bayesian optimization: a Gaussian process of the costs so far, and the next candidate where
+    it expects the most improvement.
+
+    The first ``initial`` candidates come from a Latin hypercube in the bounds; after that, every
+    ask gives the one of ``pool`` random points (some of them near the best so far) with the
+    highest expected improvement. It suits episodes that are slow and few: tens, not thousands.
+    """
+
+    def __init__(
+        self,
+        lower: ArrayLike,
+        upper: ArrayLike,
+        initial: int = 5,
+        pool: int = 1000,
+        seed: int = 0,
+    ) -> None:
+        super().__init__()
+        self.lower, self.upper = np.asarray(lower, dtype=float), np.asarray(upper, dtype=float)
+        self.initial, self.pool, self._seed = initial, pool, seed
+        self._rng = np.random.default_rng(seed)
+        self._start: list[np.ndarray] | None = None
+
+    def _unit(self, x: ArrayLike) -> np.ndarray:
+        """Points as fractions of the bounds."""
+        return (np.asarray(x, dtype=float) - self.lower) / (self.upper - self.lower)
+
+    def ask(self) -> list[np.ndarray]:
+        """One candidate: the next of the first ``initial``, then the best expected improvement."""
+        from scipy.linalg import cho_factor, cho_solve
+        from scipy.special import ndtr
+        from scipy.stats import qmc
+
+        n = self.lower.size
+        if self._start is None:
+            sample = qmc.LatinHypercube(d=n, seed=self._seed).random(self.initial)
+            self._start = list(self.lower + sample * (self.upper - self.lower))
+        if len(self.history) < self.initial:
+            return [self._start[len(self.history)]]
+        x = np.array([self._unit(point) for point, _ in self.history])
+        cost = np.array([c for _, c in self.history])
+        y = (cost - cost.mean()) / (cost.std() or 1.0)
+
+        def gram(a: np.ndarray, b: np.ndarray, length: float) -> np.ndarray:
+            return np.exp(-0.5 * ((a[:, None, :] - b[None]) ** 2).sum(-1) / length**2)
+
+        def evidence(length: float) -> float:  # log marginal likelihood of y
+            factor = cho_factor(gram(x, x, length) + 1e-6 * np.eye(len(x)))
+            return float(-0.5 * y @ cho_solve(factor, y) - np.log(np.diag(factor[0])).sum())
+
+        length = max((0.1, 0.2, 0.4, 0.8), key=lambda ell: evidence(ell * np.sqrt(n)))
+        length *= np.sqrt(n)
+        factor = cho_factor(gram(x, x, length) + 1e-6 * np.eye(len(x)))
+        near = np.clip(x[np.argmin(y)] + 0.1 * self._rng.standard_normal((self.pool // 5, n)), 0, 1)
+        points = np.vstack([self._rng.uniform(size=(self.pool, n)), near])
+        k = gram(points, x, length)
+        mean = k @ cho_solve(factor, y)
+        variance = np.maximum(1.0 - np.einsum("ij,ji->i", k, cho_solve(factor, k.T)), 1e-12)
+        gap, spread = y.min() - mean, np.sqrt(variance)
+        z = gap / spread
+        improvement = gap * ndtr(z) + spread * np.exp(-0.5 * z**2) / np.sqrt(2 * np.pi)
+        return [self.lower + points[np.argmax(improvement)] * (self.upper - self.lower)]
+
+
 S = TypeVar("S", bound=_Searcher)
 
 
