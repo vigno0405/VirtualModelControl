@@ -330,9 +330,10 @@ the soft arm among obstacles.
   it. The arm on its side is still to be identified, on the arm.
 - [ ] **Calibration:** transmission ratios, base transforms between arms, Stribeck friction for
   the compensation stage.
-- [ ] **Docs:** optimizing a virtual mechanism (the tutorial is written; the soft arm among
-  obstacles remains). Written: the energy tank, the step experiment (the hanging arm's page),
-  rollouts (Real-time runs) and tuning with a search (Tuning stiffness and damping).
+- [x] **Docs:** optimizing a virtual mechanism (the tutorial ends with the soft arm planned around a
+  sphere), the energy tank, the step experiment (the hanging arm's page), rollouts (Real-time
+  runs) and tuning with a search (Tuning stiffness and damping). Done (6 October 2026); each
+  item below that is still open brings its own section.
 
 ---
 

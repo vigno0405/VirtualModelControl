@@ -25,6 +25,8 @@ All notable changes to this project are documented here. The format follows
   to solver tolerance. Controllers with virtual states and non-flat configuration spaces are not
   supported yet.
 - Docs: tutorial "Optimizing a virtual mechanism".
+- Docs: the optimization tutorial plans the soft arm around a sphere (`Bound` on `SphereDistance`),
+  checks the clearance in simulation, and shows that two sets of scales give the same plan.
 - `vmc.sim.rollout(system, q0, T, dt)`: the closed loop simulated in one compiled call
   (`mapaccum`), differentiable with respect to the controller's live Params, with the robot
   integrated by `"implicit"` (the default, as `ModelPlant`), `"rk4"` or `"cvodes"`;

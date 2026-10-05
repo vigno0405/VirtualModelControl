@@ -293,6 +293,123 @@ limit, and the optimizer picks a softer spring, {glue:text}`k_capped:.1f` N/m. T
 coordinate can be anything the library knows: a joint, a distance to a sphere or a plane (see
 [Contact](contact.md)), the sum of several, or your own `vmc.Custom`.
 
+## Around an obstacle
+
+A sphere of radius 2 cm stands next to the arm's way to a farther target. We add a repulsive
+Gaussian field on the arm, at $s = 0.6$, that pushes that point away from the sphere's centre,
+and let the optimizer choose its strength together with the spring's stiffness. `SphereDistance`
+is the signed distance from a point to the sphere's surface, and a `Bound` keeps it above 2 cm
+at every node, for 41 points along the arm:
+
+```{code-cell} python
+goal = [0.20, 0.0, 0.66]  # [m]
+ball, R = [0.15, 0.0, 0.50], 0.02  # the sphere's centre and radius [m]
+
+k = vmc.Param("k", 20.0, bounds=(1.0, 300.0), scope="stage")  # [N/m]
+A = vmc.Param("A", 50.0, bounds=(0.0, 500.0), scope="stage")  # [N/m]
+around = vmc.Mechanism("around")
+around.add("pull", vmc.TanhSpring(tip - goal, k, 2.0))
+around.add("push", vmc.GaussianSpring(arm.point(s=0.6) - ball, A, 0.06))
+around.add("damp", vmc.LinearDamper(tip, 2.0))
+around.add("gravity", vmc.GravityCompensation(arm))
+detour = vmc.VirtualMechanismSystem(arm, around)
+
+body = [arm.point(s=s) for s in np.linspace(0.0, 1.0, 41)]
+clear = vmc.Stack(*[vmc.SphereDistance(p, ball, R) for p in body])
+
+
+def plan_for(terms=(), scales=(1, 1, 1)):
+    problem = opt.Problem(detour)
+    problem.add(opt.Collocation(q0, HORIZON, NODES, initial=held,
+                                transition=SWAP, scales=scales))
+    problem.free("around.pull.stiffness", "around.push.strength")
+    problem.add(opt.Effort(0.2))
+    problem.add(opt.Cost(tip - goal, t_from=SWAP, name="reach"))
+    for term in terms:
+        problem.add(term)
+    return problem.solve()
+
+
+straight = plan_for()  # the sphere is not in the problem
+safe = plan_for([opt.Bound(clear, lower=0.02, name="clear")])
+```
+
+Without the bound the optimizer has no reason to push: it keeps the field off and takes the
+cheapest spring. With it, it switches the field on. We check both plans by running them on the
+simulated arm, as before, and follow the arm's distance to the sphere's surface, at its closest
+point:
+
+```{code-cell} python
+def swap_to(plan):
+    controller = vmc.VMCController(vmc.compile(detour))
+    plan.apply(controller)
+    swap = vmc.control.SwapController(vmc.VMCController(vmc.compile(held)))
+    swap.swap(controller, SWAP)
+    sim = vmc.sim.ModelPlant(arm, q0=q0)
+    return vmc.sim.run(sim, swap, vmc.sim.SimClock(1 / 330), T=HORIZON)
+
+
+def gap(q):  # [cm] from the arm to the sphere's surface, at its closest
+    points = [kin.position(q, s) for s in np.linspace(0.0, 1.0, 101)]
+    return 100 * (min(np.linalg.norm(p - ball) for p in points) - R)
+
+
+runs = {"without the bound": swap_to(straight).arrays(),
+        "with the bound": swap_to(safe).arrays()}
+
+fig, ax = plt.subplots()
+for name, rows in runs.items():
+    ax.plot(rows["t"][::5], [gap(q) for q in rows["q"][::5]], label=name)
+ax.plot(safe.t, [gap(q) for q in safe.q], "o", label="plan")
+ax.axhline(2.0, color="gray", linestyle=":")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("distance to the sphere [cm]")
+ax.legend(loc="upper right", fontsize=18);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+low = [min(gap(q) for q in rows["q"][::5]) for rows in runs.values()]
+assert low[0] < 1.0 and low[1] > 1.9, low
+glue("low_straight", float(low[0]), display=False)
+glue("low_safe", float(low[1]), display=False)
+glue("k_safe", safe.params["around.pull.stiffness"].item(), display=False)
+glue("a_safe", safe.params["around.push.strength"].item(), display=False)
+glue("a_straight", straight.params["around.push.strength"].item(), display=False)
+```
+
+Without the bound the arm passes {glue:text}`low_straight:.1f` cm from the sphere. With it, the
+optimizer chose a stiffness of {glue:text}`k_safe:.0f` N/m and a field of
+{glue:text}`a_safe:.0f` N/m (it was {glue:text}`a_straight:.0f` before), and the simulated arm
+keeps {glue:text}`low_safe:.2f` cm: the bound holds at the nodes and at 41 points of the arm,
+and between them the arm can come a little closer. The dotted line marks 2 cm.
+
+### Do the scales matter?
+
+Not on this problem. With other scales, `(0.05, 0.3, 20)`, the solver finds the same plan:
+
+```{code-cell} python
+other = plan_for([opt.Bound(clear, lower=0.02, name="clear")],
+                 scales=(0.05, 0.3, 20.0))
+for plan in (safe, other):
+    print(plan.iterations, {n: round(v.item(), 1)
+                            for n, v in plan.params.items()})
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(other.cost / safe.cost - 1) < 1e-3, (other.cost, safe.cost)
+for name, value in safe.params.items():
+    assert abs(other.params[name].item() / value.item() - 1) < 0.02, name
+glue("iters", safe.iterations, display=False)
+glue("iters_other", other.iterations, display=False)
+```
+
+Both reach the same stiffness and strength, in {glue:text}`iters` and {glue:text}`iters_other`
+iterations. This is a property of the problem. The scales change the solver's path, and a
+problem with several local optima can end in another one with another scaling (see below), so
+when you plan a new task, try two scalings and compare.
+
 ## Good to know
 
 - **Scales.** The solver works on q, v and a divided by `Collocation(scales=(s_q, s_v, s_a))`,
@@ -320,5 +437,7 @@ coordinate can be anything the library knows: a joint, a distance to a sphere or
 - **Not yet.** The controller to plan cannot have virtual states, and the robot's
   configuration must live in a flat space (every robot template here does).
 
-The next steps are in the [roadmap](../development/roadmap.md): other collocation schemes,
-shooting, gradient-free tuning and an energy tank for online updates.
+To change a running controller within an energy budget, see [Energy and
+passivity](energy.md), and to tune one by trial runs instead of a plan, see
+[Tuning](tuning.md). The next steps are in the [roadmap](../development/roadmap.md): other
+collocation schemes, shooting and structure optimization.
