@@ -50,13 +50,13 @@ except ImportError:  # a source tree that was never installed
     __version__ = "0.0.0+unknown"
 
 if TYPE_CHECKING:
-    from . import hardware, ros, viz
+    from . import config, hardware, ros, viz
 
 
 def __getattr__(name: str) -> Any:
-    # ``vmc.viz`` (matplotlib), ``vmc.hardware`` and ``vmc.ros`` load only when first used;
-    # ``vmc.ros`` imports ROS itself only when a ROS class is first used.
-    if name in ("viz", "hardware", "ros"):
+    # ``vmc.viz`` (matplotlib), ``vmc.hardware``, ``vmc.ros`` and ``vmc.config`` load only when
+    # first used; ``vmc.ros`` imports ROS itself only when a ROS class is first used.
+    if name in ("viz", "hardware", "ros", "config"):
         return importlib.import_module(f".{name}", __name__)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -108,6 +108,7 @@ __all__ = [
     "__version__",
     "compile",
     "compile_dynamics",
+    "config",
     "hardware",
     "identification",
     "register",

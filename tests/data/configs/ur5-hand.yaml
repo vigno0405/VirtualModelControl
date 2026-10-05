@@ -1,0 +1,12 @@
+# The hand on the UR5's flange holds its motors; the arm is only measured.
+robot: {template: ur5.with_hand, mounting_angle: 0.3}
+controller:
+  elements:
+    hold:
+      type: linear_spring
+      coordinate:
+        difference:
+          - {joint: {start: 6, stop: 19}}
+          - [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]
+      stiffness: 0.1
+    gravity: {type: gravity_compensation}

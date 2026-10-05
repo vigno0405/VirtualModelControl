@@ -1,0 +1,28 @@
+# The finger presses on a table that only the simulator feels.
+robot: adapt.finger
+coordinates:
+  tip: {point: tip}
+controller:
+  elements:
+    press:
+      type: linear_spring
+      coordinate: {difference: [tip, [0.0, 0.05, 0.065]]}
+      stiffness: 100.0
+    damp: {type: linear_damper, coordinate: tip, damping: 1.0}
+    limits: {type: adapt.joint_limit_spring, stiffness: 1.0}
+    gravity: {type: gravity_compensation}
+experiment:
+  plant:
+    type: simulation
+    dynamics: {template: adapt.add_dynamics, damping: 0.01}
+    elements:
+      table:
+        type: contact_spring
+        coordinate:
+          plane_distance: {point: tip, normal: [0.0, 0.0, -1.0], origin: [0.0, 0.0, 0.06]}
+        stiffness: 1.0e4
+    q0: [0.8, 0.8]
+    max_step: 1e-4
+  rate: 500
+  duration: 0.4
+  output: [{type: adapt.output_stage}]

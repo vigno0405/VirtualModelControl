@@ -12,9 +12,11 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..core.registry import register
 from ..core.signals import Signals
 
 
+@register("output", "friction_compensation")
 @dataclass
 class FrictionCompensation:
     """Static-friction feed-forward per motor (Stribeck): u + τ_max exp(−(θ̇/v)²) sign(u).
@@ -31,6 +33,7 @@ class FrictionCompensation:
         return u + np.asarray(self.max_torque) * np.exp(-((v / self.velocity) ** 2)) * np.sign(u)
 
 
+@register("output", "pretension")
 @dataclass
 class Pretension:
     """Linear pretension u − W ∘ θ; with ``threshold`` [rad], only where θ < −threshold.
@@ -51,6 +54,7 @@ class Pretension:
         return u - tau
 
 
+@register("output", "torque_offset")
 @dataclass
 class TorqueOffset:
     """A constant torque added to every command [N·m], scalar or per motor."""
@@ -62,6 +66,7 @@ class TorqueOffset:
         return u + np.asarray(self.offset)
 
 
+@register("output", "torque_limit")
 @dataclass
 class TorqueLimit:
     """Clips every command to ±limit [N·m] (scalar or per motor)."""

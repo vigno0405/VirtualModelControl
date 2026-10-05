@@ -1,0 +1,45 @@
+# The soft arm on its side: a spring walks the tip to a goal while a repulsive field ramps in,
+# then a softer, force-limited controller takes over.
+robot:
+  template: helyx.arm
+  geometry: "145-145-145"
+coordinates:
+  tip: {point: {s: 1.0}}
+  middle: {point: {s: 0.5}}
+controller:
+  elements:
+    reach:
+      type: linear_spring
+      coordinate:
+        difference: [tip, {ref: {name: goal, value: [0.0, 0.0, 0.435]}}]
+      stiffness: 300.0
+    push:
+      type: gaussian_spring
+      coordinate: {difference: [middle, [0.05, 0.0, 0.2]]}
+      strength: 0.0
+      sigma: 0.05
+    damp: {type: linear_damper, coordinate: tip, damping: 5.0}
+    gravity: {type: gravity_compensation}
+swaps:
+  soft:
+    elements:
+      reach:
+        type: tanh_spring
+        coordinate: {difference: [tip, [0.1, 0.0, 0.40]]}
+        stiffness: 100.0
+        max_force: 1.0
+      damp: {type: linear_damper, coordinate: tip, damping: 5.0}
+      gravity: {type: gravity_compensation}
+experiment:
+  plant:
+    type: simulation
+    dynamics: helyx.add_dynamics
+  rate: 330
+  duration: 1.0
+  output: [{type: helyx.output_stage}]
+  schedule:
+    - param: ctrl.push.strength
+      points: [[0.0, 0.0], [0.3, 800.0]]
+    - param: ctrl.reach.goal
+      points: [[0.0, [0.0, 0.0, 0.435]], [0.4, [0.1, 0.0, 0.40]]]
+    - {swap: soft, at: 0.6, duration: 0.2}

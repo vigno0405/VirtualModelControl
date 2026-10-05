@@ -1,0 +1,18 @@
+# The turtle's cranks follow a virtual flywheel that starts at the left crank.
+robot: turtle.robot
+controller:
+  template: turtle.controller
+  speed: 2.0
+  ramp_time: 0.5
+  stiffness: 0.5
+  damping: 0.01
+experiment:
+  plant:
+    type: simulation
+    elements:
+      inertia: {type: inertance, coordinate: {joint: [0, 1]}, inertance: 1.0e-3}
+      friction: {type: linear_damper, coordinate: {joint: [0, 1]}, damping: 1.0e-2}
+    q0: [0.3, 0.0]
+  rate: 100
+  duration: 3.0
+  z0: turtle.initial_state

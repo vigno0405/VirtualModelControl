@@ -79,8 +79,9 @@ def run(
     Each step reads the plant, asks the controller for a command (zero torque if the guard
     trips), writes it, then advances a simulated plant by ``clock.dt`` or, with a ``WallClock``,
     waits for the next step. On real time, ``T=None`` runs until Ctrl-C, and Ctrl-C ends any run
-    with the log so far. ``z0`` sets the controller's initial virtual state; the log also
-    records that state, ``z``, when the controller has one.
+    with the log so far. ``z0`` sets the controller's initial virtual state, or is a function of
+    the first reading that returns it; the log also records that state, ``z``, when the
+    controller has one.
     """
     guard = Guard() if guard is None else guard
     if isinstance(clock, WallClock):
@@ -111,6 +112,8 @@ def _motors(meas: Signals) -> int:
 
 
 def _reset(controller: Any, t: float, meas: Signals, z0: Any) -> None:
+    if callable(z0):
+        z0 = z0(meas)
     if z0 is None:
         controller.reset(t, meas)
     else:

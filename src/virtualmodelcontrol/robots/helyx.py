@@ -8,6 +8,7 @@ import numpy as np
 
 from ..control.output import Pretension
 from ..core.params import Param
+from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
 from ..models import PCC, TendonTransmission
@@ -34,6 +35,7 @@ REFERENCE_LENGTH = 0.145  # [m]
 PRETENSION_WEIGHTS = 0.010  # [N·m/rad] per motor, on the real arm only
 
 
+@register("output", "helyx.output_stage")
 def output_stage(motors: int = 9) -> list[Any]:
     """The real arm's output stage: a linear pretension W ∘ θ on every motor."""
     return [Pretension(np.full(motors, PRETENSION_WEIGHTS))]
@@ -53,6 +55,7 @@ BUS = {"145-145-145": (1_000_000, 0.000354), "145-290-290": (4_000_000, 0.001783
 CONTROL_RATE = 330.0  # [Hz]
 
 
+@register("hardware", "helyx.hardware")
 def hardware(geometry: str = "145-290-290") -> HardwareProfile:
     """The arm's motors and bus (the 290-145-145 arms belong to ``bimanual.hardware``)."""
     baudrate, kt = BUS[geometry]
@@ -76,6 +79,7 @@ def tendons(
     return TendonTransmission(list(np.asarray(angles, dtype=float)), spool_radius, efficiency)
 
 
+@register("robot", "helyx.arm")
 def arm(
     geometry: str = "145-290-290",
     name: str = "arm",
@@ -134,6 +138,7 @@ SIM_DAMPING = np.array([
 for every three-segment arm; referred like the stiffness."""
 
 
+@register("dynamics", "helyx.add_dynamics")
 def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -> Mechanism:
     """Give the arm its stiffness and damping in Δ and gravity, for simulation.
 

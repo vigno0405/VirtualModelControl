@@ -1,0 +1,23 @@
+# Two soft arms squeeze an object between their tips.
+robot: bimanual.arms
+coordinates:
+  right: {point: {at: right, s: 1.0}}
+  left: {point: {at: left, s: 1.0}}
+  between: {difference: [right, left]}
+controller:
+  elements:
+    squeeze: {type: linear_spring, coordinate: between, stiffness: 20.0}
+    damp: {type: linear_damper, coordinate: between, damping: 2.0}
+    gravity: {type: gravity_compensation}
+experiment:
+  plant:
+    type: simulation
+    dynamics: bimanual.add_dynamics
+    elements:
+      object:
+        type: contact_spring
+        coordinate: {difference: [{norm: between}, [0.1]]}
+        stiffness: 1000.0
+  rate: 500
+  duration: 0.3
+  output: [{type: bimanual.output_stage}]

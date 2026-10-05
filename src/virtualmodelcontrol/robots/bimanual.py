@@ -8,6 +8,7 @@ import numpy as np
 
 from ..control.output import Pretension, TorqueLimit, TorqueOffset
 from ..core.params import Param
+from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
 from ..models import Assembly
@@ -83,12 +84,14 @@ PRETENSION_THRESHOLD = np.radians(30.0)  # [rad]
 TORQUE_LIMIT = 0.5  # [N·m]
 
 
+@register("hardware", "bimanual.hardware")
 def hardware() -> HardwareProfile:
     """The two arms' motors and their bus."""
     motors = tuple(Motor(i, "XL330-M288", ENCODER_SIGN, kt=KT, home=HOME[i]) for i in MOTOR_IDS)
     return HardwareProfile(motors, baudrate=BAUDRATE, rate=CONTROL_RATE)
 
 
+@register("output", "bimanual.output_stage")
 def output_stage(motors: int = 18) -> list[Any]:
     """The arms' output stage: a torque offset, a soft stop on slack tendons, a torque clip."""
     return [
@@ -105,6 +108,7 @@ def _by_arm(value: Any, default: Any) -> dict[str, Any]:
     return {arm: default if value is None else value for arm in ARMS}
 
 
+@register("robot", "bimanual.arms")
 def arms(
     name: str = "arms",
     gravity: Any = None,
@@ -148,6 +152,7 @@ def arms(
     return robot
 
 
+@register("dynamics", "bimanual.add_dynamics")
 def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -> Mechanism:
     """Give both arms their identified stiffness and damping in Δ, and gravity, for simulation.
 

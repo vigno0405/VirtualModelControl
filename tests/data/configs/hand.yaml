@@ -1,0 +1,21 @@
+# The hand closes every motor towards 0.4 rad within its joints' ranges.
+robot:
+  template: adapt.hand
+  tip_offsets: {thumb: [-0.025, 0.0, 0.0]}
+coordinates:
+  motors: {joint: {stop: 13}}
+controller:
+  elements:
+    close:
+      type: linear_spring
+      coordinate:
+        difference: [motors, [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4]]
+      stiffness: 0.05
+    limits: {type: adapt.hand_joint_limit_spring}
+    gravity: {type: gravity_compensation}
+experiment:
+  plant:
+    type: simulation
+    dynamics: {template: adapt.add_dynamics, damping: 0.01}
+  rate: 330
+  duration: 0.2

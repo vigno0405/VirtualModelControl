@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from ..core.registry import register
 from ..core.signals import Signals
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import (
@@ -54,6 +55,7 @@ DEFAULTS = {
 """Default controller parameters (starting values, not tuned)."""
 
 
+@register("hardware", "turtle.hardware")
 def hardware() -> HardwareProfile:
     """The cranks' motors and the held VSA motor, and their bus."""
     cranks = tuple(Motor(i, sign=sign) for i, sign in zip(MOTOR_IDS, MOTOR_SIGNS, strict=True))
@@ -61,11 +63,13 @@ def hardware() -> HardwareProfile:
     return HardwareProfile(motors, baudrate=BAUDRATE, rate=CONTROL_RATE)
 
 
+@register("robot", "turtle.robot")
 def robot(name: str = "turtle") -> Mechanism:
     """The two cranks as a robot in the gait convention: q = (left, right) [rad]."""
     return Mechanism(name, model=JointSpace(2))
 
 
+@register("controller", "turtle.controller")
 def controller(robot: Mechanism, name: str = "ctrl", **params: Any) -> Mechanism:
     """The virtual flywheel controller; each crank follows the flywheel phase through a spring.
 
@@ -89,6 +93,7 @@ def controller(robot: Mechanism, name: str = "ctrl", **params: Any) -> Mechanism
     return ctrl
 
 
+@register("initial_state", "turtle.initial_state")
 def initial_state(meas: Signals) -> np.ndarray:
     """Flywheel state at start: the left crank's angle, at rest."""
     return np.array([meas["motor_position"][0], 0.0])

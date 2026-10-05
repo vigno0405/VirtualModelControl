@@ -8,6 +8,7 @@ import numpy as np
 
 from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
+from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
 from ..models import Assembly, Direct, LinearCoupling, SerialChain
@@ -79,6 +80,7 @@ FINGER_BAUDRATE = 1_000_000  # [bit/s]
 FINGER_CONTROL_RATE = 900.0  # [Hz]
 
 
+@register("hardware", "adapt.finger_hardware")
 def finger_hardware() -> HardwareProfile:
     """The finger's motors and their bus."""
     motors = tuple(Motor(i, home=h) for i, h in zip(FINGER_MOTOR_IDS, FINGER_HOME, strict=True))
@@ -88,11 +90,13 @@ def finger_hardware() -> HardwareProfile:
 FRICTION = (0.20, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
 
 
+@register("output", "adapt.output_stage")
 def output_stage() -> list[Any]:
     """The finger's output stage: friction compensation, then a torque clip."""
     return [FrictionCompensation(*FRICTION), TorqueLimit(TORQUE_LIMIT)]
 
 
+@register("robot", "adapt.finger")
 def finger(
     name: str = "finger",
     gravity: Any = None,
@@ -141,6 +145,7 @@ def finger(
     return robot
 
 
+@register("dynamics", "adapt.add_dynamics")
 def add_dynamics(robot: Mechanism, damping: Any = None) -> Mechanism:
     """Give the finger or the hand its gravity, for simulation.
 
@@ -166,6 +171,7 @@ def joint_angles(robot: Mechanism) -> Custom:
     )
 
 
+@register("component", "adapt.joint_limit_spring")
 def joint_limit_spring(
     robot: Mechanism, stiffness: Any = LIMIT_STIFFNESS, limits: Any = None
 ) -> LimitSpring:
@@ -385,6 +391,7 @@ HAND_BAUDRATE = 2_000_000  # [bit/s]
 HAND_CONTROL_RATE = 330.0  # [Hz]
 
 
+@register("hardware", "adapt.hand_hardware")
 def hand_hardware() -> HardwareProfile:
     """The hand's motors in ``HAND_MOTORS`` order, the held wrist, and their bus; a ROS driver
     publishes the 13 motors in the order of their IDs."""
@@ -543,6 +550,7 @@ def add_hand_masses(robot: Mechanism, prefix: str = "", link_masses: Any = None)
     return robot
 
 
+@register("robot", "adapt.hand")
 def hand(
     name: str = "hand",
     gravity: Any = None,
@@ -573,6 +581,7 @@ def hand(
     return add_hand_masses(robot, link_masses=link_masses)
 
 
+@register("output", "adapt.hand_output_stage")
 def hand_output_stage() -> list[Any]:
     """The hand's output stage: friction compensation, then a torque clip."""
     return [FrictionCompensation(*HAND_FRICTION), TorqueLimit(HAND_TORQUE_LIMIT)]
@@ -598,6 +607,7 @@ def hand_joint_angles(robot: Mechanism) -> Custom:
     )
 
 
+@register("component", "adapt.hand_joint_limit_spring")
 def hand_joint_limit_spring(
     robot: Mechanism, stiffness: Any = HAND_LIMIT_STIFFNESS, limits: Any = None, joints: Any = None
 ) -> LimitSpring:

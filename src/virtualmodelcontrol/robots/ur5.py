@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from ..core.params import Param
+from ..core.registry import register
 from ..mechanisms import Mechanism
 from ..models import Assembly, Direct, SerialChain
 from . import adapt
@@ -28,11 +29,13 @@ def model(*, d: Any = DH_D, a: Any = DH_A, alpha: Any = DH_ALPHA) -> SerialChain
     return SerialChain.from_dh(d, a, alpha, tool="tool")
 
 
+@register("robot", "ur5.arm")
 def arm(name: str = "ur5", *, d: Any = DH_D, a: Any = DH_A, alpha: Any = DH_ALPHA) -> Mechanism:
     """The UR5 alone; q holds its six joint angles [rad] (it is position-controlled)."""
     return Mechanism(name, model=model(d=d, a=a, alpha=alpha))
 
 
+@register("robot", "ur5.with_hand")
 def with_hand(
     name: str = "ur5_hand",
     mounting_angle: float = adapt.HAND_MOUNTING_ANGLE,
