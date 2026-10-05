@@ -17,7 +17,7 @@ import docs_setup
 ## The robot
 
 The turtle crawls on two cranks, left and right, each turned by its own motor. A third motor
-sets the angle of a variable-stiffness actuator (VSA); it is position-controlled and not part
+sets the angle of a variable-stiffness actuator (VSA). It is position-controlled and not part
 of this controller. `turtle.robot()` holds only the two crank angles $q$ = (left, right)
 [rad]: it has no geometry and no masses.
 
@@ -66,7 +66,7 @@ Markdown("\n".join(rows))
 ## Simulate the cranks
 
 The template has no dynamics, so we give the cranks an inertia and a viscous friction with two
-library components; their values are illustrative. They belong to the robot mechanism, which
+library components. Their values are illustrative. They belong to the robot mechanism, which
 `ModelPlant` simulates, while `compile` uses the controller's components only. We ask for a
 faster speed than the default, with the cranks half a turn apart.
 
@@ -125,17 +125,18 @@ glue("commanded", w, display=False)
 glue("predicted", b * w / (b + 2 * c), display=False)
 ```
 
-The cranks start together. The right crank's spring pulls it back by half a turn; it
+The cranks start together. The right crank's spring pulls it back by half a turn. It
 overshoots, swings and settles after about {glue:text}`settled:.1f` s, half a turn behind the
 left one from then on. The flywheel spins up over the ramp, and the left crank follows it so
-closely that their lines overlap. It settles at {glue:text}`speed:.2f` rad/s, not
-{glue:text}`commanded:.0f`: the cranks' friction $c$ loads the flywheel through the springs,
-and $b_v(\bar\omega - \omega) = 2c\,\omega$ gives {glue:text}`predicted:.2f` rad/s.
+closely that their lines overlap. The flywheel settles at {glue:text}`speed:.2f` rad/s, not
+{glue:text}`commanded:.0f`: the cranks' friction $c$ loads it through the springs, and
+$b_v(\bar\omega - \omega) = 2c\,\omega$ gives {glue:text}`predicted:.2f` rad/s.
 
 ## Animate
 
-The robot has no geometry, so `animate` cannot draw it alone: `draw` draws the cranks as bars
-and the flywheel as a disc with a mark, from each row of the log, and `limits` sets the view.
+The robot has no geometry, so `animate` cannot draw it alone. The `draw` callback draws the
+cranks as bars and the flywheel as a disc with a mark, from each row of the log. `limits` sets
+the view.
 
 ```{code-cell} python
 :tags: [remove-output]

@@ -35,9 +35,9 @@ from schematics import hand as schematic
 schematic.figure();
 ```
 
-The hand seen from the front at $q = 0$, with $z$ up: beside each joint, the index of the motor
-that turns it. The spread motor turns the index, ring and pinky fingers (dashed); the middle
-finger stays in place. Every number of the template is a `Param`, for example:
+The figure shows the hand from the front at $q = 0$, with $z$ up. Beside each joint is the index
+of the motor that turns it. The spread motor turns the index, ring and pinky fingers (dashed).
+The middle finger stays in place. Every number of the template is a `Param`, for example:
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -66,22 +66,23 @@ for robot in (adapt.hand(), custom):
 On the real hand, `adapt.hand_output_stage()` adds a friction feed-forward of
 {glue:text}`friction:.1f` N·m that fades out above about {glue:text}`fade:.2f` rad/s, then
 clips each command to ±{glue:text}`limit:.1f` N·m. The simulation below leaves it out. The real
-hand's tendons only pull; the model lets every motor turn both ways.
+hand's tendons only pull. The model lets every motor turn both ways.
 
-The measured motor efficiencies, `adapt.HAND_MOTOR_EFFICIENCY` (the finger's two values on the
-MCP and PIP motors of each finger and on the thumb's MCP and IP motors, 1 elsewhere), are left
-out of the simulation for the reason given in the [finger example](finger.md);
+`adapt.HAND_MOTOR_EFFICIENCY` holds the measured motor efficiencies: the finger's two values on
+the MCP and PIP motors of each finger and on the thumb's MCP and IP motors, and 1 elsewhere.
+The simulation leaves them out, for the reason given in the [finger example](finger.md).
 `adapt.hand(efficiency=adapt.HAND_MOTOR_EFFICIENCY)` includes them.
 
 ## Grasp a ball
 
-A ball sits in front of the palm, in the robot mechanism: the simulator feels it, while the
+A ball sits in front of the palm, in the robot mechanism. The simulator feels it, while the
 controller, compiled from its own components only, does not know it is there (see
-[contact](../tutorials/contact.md)). Springs pull three fingertips to the ball's centre. The
-template's thumb tip, (0, 0, 0.0175) in its last joint frame like the fingers', is the point
-the hand's controllers attach to, beside the thumb's last phalanx, which runs along $-x$; for
-a fingertip grasp we take the end of that phalanx, as in the custom hand above. The motor
-damping and the ball's stiffness are illustrative.
+[contact](../tutorials/contact.md)). Springs pull three fingertips to the ball's centre.
+
+The template's thumb tip, (0, 0, 0.0175) in its last joint frame like the fingers', is the point
+the hand's controllers attach to. It lies beside the thumb's last phalanx, which runs along
+$-x$. For a fingertip grasp we take the end of that phalanx, as in the custom hand above. The
+motor damping and the ball's stiffness are illustrative.
 
 ```{code-cell} python
 centre, radius = np.array([-0.02, 0.08, 0.035]), 0.03  # [m]
@@ -137,11 +138,11 @@ stiffness times radius ({glue:text}`pull:.1f` N), a little less as the ball give
 
 ```{code-cell} python
 :tags: [remove-output]
-def draw_ball(ax, row):
+def draw(ax, row):
     disc = plt.Circle(centre[1:], radius, color=viz.PALETTE[1], alpha=0.3)
     ax.add_patch(disc)
 
-viz.animate(hand, log, "hand-grasp.mp4", plane="yz", draw=draw_ball,
+viz.animate(hand, log, "hand-grasp.mp4", plane="yz", draw=draw,
             springs=[(f"{d}/tip", centre) for d in digits])
 ```
 
@@ -151,7 +152,7 @@ viz.animate(hand, log, "hand-grasp.mp4", plane="yz", draw=draw_ball,
 
 ## The hand on a UR5
 
-On the arm, the hand sits on the flange of a UR5, whose six revolute joints are built from its
+The hand sits on the flange of a UR5. The UR5's six revolute joints come from its
 Denavit-Hartenberg table (`ur5.arm(d=..., a=..., alpha=...)` takes another one):
 
 ```{code-cell} python
@@ -166,7 +167,7 @@ arm_schematic.dh_table()
 The hand sits at `mounting_position` [m] on the flange, turned by `mounting_angle` [rad] about
 its $z$ axis. Gravity stays in the arm's base frame, so the hand's weight follows the arm's pose.
 The UR5 is position-controlled and has no masses in the template, so there is nothing to
-simulate: its joint angles are only measured, and only the hand's torques are sent.
+simulate. Its joint angles are only measured, and only the hand's torques are sent.
 
 ```{code-cell} python
 from virtualmodelcontrol.robots import ur5
