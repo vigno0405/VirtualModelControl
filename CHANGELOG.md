@@ -54,6 +54,12 @@ All notable changes to this project are documented here. The format follows
   `vmc.sim.rollout` takes `u`, motor torques with a row per step, to simulate open loop.
 - Docs: the hanging arm's page identifies its stiffness and damping with `Steps`, checks them on
   held-out steps and shows the friction option.
+- `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
+  `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
+  that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements
+  that earn their place: structure optimization, tested on a mass with three springs and on the
+  soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
+  keep").
 - `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation

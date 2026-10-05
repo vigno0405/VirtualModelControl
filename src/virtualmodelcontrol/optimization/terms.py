@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..mechanisms.coordinates.base import Coordinate
-from .builder import Builder
+from .builder import Builder, param_bounds
 from .trajectory import Trajectory
 
 
@@ -159,3 +159,26 @@ class Bound(Term):
         values, _ = trajectory.coordinate(self.coordinate)
         lower, upper = np.tile(self.lower, len(nodes)), np.tile(self.upper, len(nodes))
         return [(ca.vertcat(*[values[k] for k in nodes]), lower, upper)]
+
+
+class Sparsity(Term):
+    """``weight`` × the sum of the free Params matching ``patterns``, each of them at least 0.
+
+    This L1 norm drives a gate, or a gain, to exactly 0 when keeping it earns less than ``weight``
+    for each unit of it.
+    """
+
+    def __init__(self, weight: float, *patterns: str, name: str = "sparsity") -> None:
+        self.weight, self.patterns, self.name = float(weight), patterns, name
+
+    def build(self, builder: Builder) -> None:
+        """Add the sum of the free Params whose names match."""
+        names = [n for n in builder.params.select(patterns=self.patterns) if n in builder.free]
+        if not names:
+            raise ValueError(f"{self.name!r}: no free Param matches {list(self.patterns)}")
+        total = ca.MX(0)
+        for name in names:
+            if np.any(param_bounds(builder.params[name])[0] < 0):
+                raise ValueError(f"{name!r} can be negative: the sum is an L1 norm only above 0")
+            total = total + ca.sum1(builder.value(builder.params[name]))
+        builder.cost(self.name, self.weight * total)

@@ -7,7 +7,7 @@ from .problem import Problem
 from .result import Result
 from .search import Search, search_references, sphere_points
 from .solver import CONVERGED, IPOPT
-from .terms import Bound, Cost, Effort, Term
+from .terms import Bound, Cost, Effort, Sparsity, Term
 from .trajectory import Trajectory
 
 __all__ = [
@@ -25,6 +25,7 @@ __all__ = [
     "Random",
     "Result",
     "Search",
+    "Sparsity",
     "Term",
     "Trajectory",
     "bounds_of",

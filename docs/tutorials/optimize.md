@@ -410,6 +410,72 @@ iterations. This is a property of the problem. The scales change the solver's pa
 problem with several local optima can end in another one with another scaling (see below), so
 when you plan a new task, try two scalings and compare.
 
+## Which fields to keep
+
+We put the field at $s = 0.6$ ourselves. Let the optimizer choose among five places instead.
+`Gated` multiplies an element's force by a gate between 0 and 1, a live Param like the others,
+and `Sparsity` adds the sum of the gates to the cost: an element that does not pay for itself
+closes. We free the gates and the spring's stiffness:
+
+```{code-cell} python
+places = [0.3, 0.45, 0.6, 0.75, 0.9]  # candidate fields, along the arm [s]
+
+fields = vmc.Mechanism("fields")
+fields.add("pull", vmc.TanhSpring(tip - goal, k, 2.0))
+fields.add("damp", vmc.LinearDamper(tip, 2.0))
+for i, s in enumerate(places):
+    push = vmc.GaussianSpring(arm.point(s=s) - ball, 200.0, 0.06)
+    fields.add(f"push{i}", vmc.Gated(push, 0.5))  # open halfway
+fields.add("gravity", vmc.GravityCompensation(arm))
+choice = vmc.VirtualMechanismSystem(arm, fields)
+
+
+def choose(weight):
+    problem = opt.Problem(choice)
+    problem.add(opt.Collocation(q0, HORIZON, NODES, initial=held,
+                                transition=SWAP))
+    problem.free("fields.pull.stiffness", "fields.push*.gate")
+    problem.add(opt.Effort(0.2))
+    problem.add(opt.Cost(tip - goal, t_from=SWAP, name="reach"))
+    problem.add(opt.Bound(clear, lower=0.02, name="clear"))
+    if weight:
+        problem.add(opt.Sparsity(weight, "fields.push*.gate"))
+    return problem.solve()
+
+
+many, few = choose(0.0), choose(3e-3)
+gates = {name: [plan.params[f"fields.push{i}.gate"].item()
+                for i in range(5)]
+         for name, plan in (("no sparsity", many), ("sparsity", few))}
+
+fig, ax = plt.subplots()
+x = np.arange(5)
+for dx, (name, values) in zip((-0.2, 0.2), gates.items()):
+    ax.bar(x + dx, values, 0.4, label=name)
+ax.set_xticks(x, [f"{s:g}" for s in places])
+ax.set_xlabel("place of the field along the arm [s]")
+ax.set_ylabel("gate")
+ax.legend(fontsize=18);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+open_many = int(np.sum(np.array(gates["no sparsity"]) > 1e-3))
+open_few = int(np.sum(np.array(gates["sparsity"]) > 1e-3))
+assert many.converged and few.converged and open_few == 1 < open_many, gates
+glue("open_many", open_many, display=False)
+glue("place", places[int(np.argmax(gates["sparsity"]))], display=False)
+glue("gate", float(max(gates["sparsity"])), display=False)
+glue("k_few", few.params["fields.pull.stiffness"].item(), display=False)
+```
+
+Without the term, {glue:text}`open_many` fields are open. With it, one is: the field at
+s = {glue:text}`place`, with a gate of {glue:text}`gate:.2f` and a spring of
+{glue:text}`k_few:.0f` N/m. A gate is a number, not a switch: a gate of 0.3 is a weaker field.
+The weight decides how much a field must earn to stay. Structure problems are rough, since
+elements switch on and off, and another weight, another start or other scales can end in
+another structure, so solve a few and compare.
+
 ## Good to know
 
 - **Scales.** The solver works on q, v and a divided by `Collocation(scales=(s_q, s_v, s_a))`,

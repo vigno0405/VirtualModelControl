@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 import casadi as ca
 import numpy as np
@@ -25,7 +25,7 @@ class Component:
     inertance has an inertia M(y); a source has a metered force f.
     """
 
-    kind: ClassVar[str] = ""
+    kind: str = ""
 
     def __init__(self, coord: Coordinate) -> None:
         self.coord = coord

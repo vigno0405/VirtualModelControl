@@ -308,8 +308,11 @@ the soft arm among obstacles.
   lab's optimizer to rounding error in its cost and constraints and to solver tolerance in its
   solved plans and its search; a plan applied to a controller and swapped to on the simulator
   gives the planned motion; tutorial "Optimizing a virtual mechanism".
-- [ ] **Structure optimization:** element gates g between 0 and 1 with a sparsity cost (which
-  springs to keep and where to attach them).
+- [x] **Structure optimization:** element gates g between 0 and 1 with a sparsity cost (which
+  springs to keep and where to attach them). Done (6 October 2026): `vmc.Gated` puts a live gate
+  on any element, `optimization.Sparsity` adds the sum of the free gates to the cost; candidate
+  elements at several places keep only the ones that pay. The result depends on the weight and,
+  on the arm, on the start and the scales; the tutorial says so.
 - [ ] **Gradient-free tuning:** an ask-and-tell interface (grid, CMA-ES, Bayesian
   optimization, extremum seeking) for episodes run in simulation or on the robot by its own
   node. Done so far: `Grid`, `Random`, `CMAES` and `ExtremumSeeking` with `tune`; Bayesian
