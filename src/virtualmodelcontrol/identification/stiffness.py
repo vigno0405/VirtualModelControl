@@ -25,7 +25,8 @@ def fit_stiffness_damping(
     """Diagonal stiffness K and damping D that best explain logged runs, with K, D ≥ 0.
 
     ``robot`` holds the known parts (masses, gravity), not the stiffness and damping. Each run
-    has ``t`` [s], ``q``, ``v`` and the motor torques ``u``, one row per sample, and optionally
+    is a ``RunLog``, or has ``t`` [s], ``q``, ``v`` and the motor torques (``motor_torque`` or
+    ``u``), one row per sample, and optionally
     ``train``, the samples to fit, and ``p``, its values of the Params matching ``runtime`` (its
     gravity, say). Everything is relative to the run's first ``baseline``
     samples, at rest, so constant offsets drop out; in motor torques,
@@ -46,8 +47,10 @@ def fit_stiffness_damping(
     allocation = ca.Function("allocation", [q_s], [ca.jacobian(allocated, tau_s)])
     rows, rhs = [], []
     for run in runs:
+        run = run.arrays() if hasattr(run, "arrays") else run  # a RunLog, or a mapping
         t = np.asarray(run["t"], dtype=float).ravel()
-        q, v, u = (np.asarray(run[k], dtype=float) for k in ("q", "v", "u"))
+        torque = run["motor_torque"] if "motor_torque" in run else run["u"]
+        q, v, u = (np.asarray(x, dtype=float) for x in (run["q"], run["v"], torque))
         p = np.asarray(run.get("p", dyn.live_values()), dtype=float)
         dt = float(np.median(np.diff(t)))
         v = savgol_filter(v, min(smoothing, len(t) - (1 - len(t) % 2)), 3, axis=0)

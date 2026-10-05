@@ -25,3 +25,32 @@ def test_stiffness_and_damping_are_recovered_from_a_simulated_run():
     K_fit, D_fit = fit_stiffness_damping(known, [dict(t=t, q=q, v=v, u=u)], smoothing=11)
     np.testing.assert_allclose(K_fit, K, rtol=0.05)
     np.testing.assert_allclose(D_fit, D, rtol=0.03)
+
+
+def test_a_run_log_can_be_handed_to_the_fit_as_it_is():
+    K, D = 0.6 * helyx.SIM_STIFFNESS, 0.8 * helyx.SIM_DAMPING
+    plant = vmc.sim.ModelPlant(helyx.add_dynamics(helyx.arm("145-145-145"), stiffness=K, damping=D))
+    dt, rng = 1 / 330, np.random.default_rng(1)
+    plant.advance(1.0)  # settle under gravity: the run starts at rest
+
+    class Steps:
+        """Torque steps every 100 steps, after 50 steps at rest."""
+
+        def __init__(self):
+            self.n, self.torque = 0, np.zeros(9)
+
+        def reset(self, t, meas=None, z0=None):
+            pass
+
+        def step(self, t, meas):
+            if self.n >= 50 and self.n % 100 == 0:
+                self.torque = rng.uniform(-0.05, 0.15, 9)
+            self.n += 1
+            return vmc.Signals(t, motor_torque=self.torque)
+
+    log = vmc.sim.run(plant, Steps(), vmc.sim.SimClock(dt), T=1200 * dt)
+    known = helyx.arm("145-145-145")
+    known.add("gravity", vmc.Gravity(known))
+    K_fit, D_fit = fit_stiffness_damping(known, [log], smoothing=11)
+    np.testing.assert_allclose(K_fit, K, rtol=0.05)
+    np.testing.assert_allclose(D_fit, D, rtol=0.03)
