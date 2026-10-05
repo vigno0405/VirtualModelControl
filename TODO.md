@@ -51,11 +51,12 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   0.3.0 (hardware profiles, the Dynamixel plant, the real-time run loop, the ROS 2 bridge).
 - **On `main`, for 0.3.0** (see `CHANGELOG.md`, "Unreleased"): the repository review and its
   fixes; experiments in YAML files (`vmc.config`); run logs that save, load, export, replay and
-  compare; the ROS controller node and live element swaps; every robot's efficiency is 1 by
-  default, and `vmc.Efficiency` gives a polynomial one per motor; `vmc.identification` fits
-  efficiencies and stiffness and damping from data; the constrained springs and dampers are
-  components of their own; the two single-arm examples run their own arm's experiments; concepts
-  pages on Virtual Model Control, passivity, finger and hand kinematics and efficiency.
+  compare; control by hand that records itself as a schedule (`vmc.interactive`); the ROS
+  controller node and live element swaps; every robot's efficiency is 1 by default, and
+  `vmc.Efficiency` gives a polynomial one per motor; `vmc.identification` fits efficiencies and
+  stiffness and damping from data; the constrained springs and dampers are components of their
+  own; the two single-arm examples run their own arm's experiments; concepts pages on Virtual
+  Model Control, passivity, finger and hand kinematics and efficiency.
 - **Decided on 5 October 2026:** the library is communication-agnostic, so `vmc.ros` and the
   direct Dynamixel path (the motor plant, homing, the bus check) are deprecated in 0.3.0 and
   removed in 0.4.0. After 0.3.0 the releases follow the research: optimization of virtual
@@ -247,11 +248,14 @@ How the commands reach the robot stays outside the library.
   `vmc.sim.RunLog`, `replay` and `compare`, `record=` on `vmc.sim.run`, and the `run` settings of
   a configuration, tested (a replay on the true model gives the run back to rounding error),
   and the tutorial "Run logs".
-- [ ] **Interactive tools:** a matplotlib window (no new dependency) to drag goals, set gains and
+- [x] **Interactive tools:** a matplotlib window (no new dependency) to drag goals, set gains and
   swap elements of a running controller in the same process (a simulation, or inside the
   robot's own node); keyboard teleoperation of a goal; joystick teleoperation (pygame, an
   opt-in extra); what was set by hand recorded and repeated as a schedule in a configuration.
-  Done when each is tested offscreen and a documentation page shows them on the soft arm.
+  Done: `vmc.interactive` (a mailbox and a wrapper controller that work in a simulation and
+  inside a node, the energy the changes give the controller, the recorder, the window, keys, the
+  joystick, the session) and a real-time factor on `SimClock`, tested offscreen (a recorded
+  session runs again exactly), and the tutorial "Interactive control" on the soft arm.
 - [x] **Deprecations:** `vmc.ros` and the direct Dynamixel path (`DynamixelPlant`, `home`,
   `scan`, `latency_timer`, the buses) warn when used, and leave in 0.4.0 with dynamixel-sdk and
   pyserial: the library is communication-agnostic, and the lab drives its robots through its

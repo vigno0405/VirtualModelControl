@@ -72,6 +72,13 @@ class VMCController:
         """Energy of the controller at the last step [J] (stored plus virtual kinetic)."""
         return 0.0 if self._x is None else self._energy(self.params)
 
+    def live_params(self) -> dict[str, np.ndarray]:
+        """The controller's own values of its live Params, each in the Param's shape."""
+        return {
+            name: np.reshape(self.params[where], self.compiled.params[name].shape, order="F")
+            for name, where in self.compiled.live_slices().items()
+        }
+
     def balance(self) -> dict[str, float]:
         """The controller's energies [J] and powers [W] at the last step: ``stored`` (V),
         ``kinetic`` (T), ``port`` (τᵀv), ``dissipation`` and ``source``."""

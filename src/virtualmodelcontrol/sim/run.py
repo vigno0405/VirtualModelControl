@@ -22,9 +22,15 @@ coordinate, rate, force and share of the motor torques, and the controller's ene
 
 @dataclass
 class SimClock:
-    """Simulated time: each step advances the plant by ``dt`` [s]."""
+    """Simulated time: each step advances the plant by ``dt`` [s]. With ``speed``, simulated
+    seconds per second of the computer's clock, the run waits to follow it (a real-time
+    simulation): it may run until stopped (``T=None``), and Ctrl-C ends it with the log so far.
+    ``now`` and ``sleep`` are the computer's clock (replaceable in tests)."""
 
     dt: float
+    speed: float | None = None
+    now: Callable[[], float] = time.monotonic
+    sleep: Callable[[float], None] = time.sleep
 
 
 @dataclass
@@ -66,35 +72,57 @@ def run(
 
     Each step reads the plant, asks the controller for a command (zero torque if the guard
     trips), writes it, then advances a simulated plant by ``clock.dt`` or, with a ``WallClock``,
-    waits for the next step. On real time, ``T=None`` runs until Ctrl-C, and Ctrl-C ends any run
-    with the log so far. ``z0`` sets the controller's initial virtual state, or is a function of
-    the first reading that returns it. The log holds, at every step, the measurements, the
-    command (and the law's torque before any output stage), the virtual state ``z`` when the
-    controller has one, and what ``record`` asks for (see ``RECORDS``); a value the step did not
-    compute is NaN. Its ``meta`` holds the Params at the start and the plant's hardware profile.
+    waits for the next step. On real time, and in a simulation with a ``speed``, ``T=None`` runs
+    until Ctrl-C, and Ctrl-C ends the run with the log so far. ``z0`` sets the controller's initial
+    virtual state, or is a function of the first reading that returns it. The log holds, at every
+    step, the measurements, the command (and the law's torque before any output stage), the
+    virtual state ``z`` when the controller has one, and what ``record`` asks for (see
+    ``RECORDS``); a value the step did not compute is NaN. Its ``meta`` holds the Params at the
+    start and the plant's hardware profile.
     """
     guard = Guard() if guard is None else guard
     extras = _extras(record)
     if isinstance(clock, WallClock):
         return _run_wall(plant, controller, clock, T, guard, z0, extras)
-    if T is None:
-        raise ValueError("a simulated run needs its duration T")
+    if T is None and clock.speed is None:
+        raise ValueError("a simulated run needs its duration T (or a real-time speed)")
     log = RunLog()
     meas = plant.read()
     motors = _motors(meas)
     _reset(controller, plant.t, meas, z0)
     _describe(log, plant, controller)
-    for _ in range(round(T / clock.dt)):
-        meas = plant.read()
-        good = guard.ok(meas)
-        if good:
-            cmd = controller.step(plant.t, meas)
-        else:
-            cmd = Signals(plant.t, motor_torque=np.zeros(motors))
-        plant.write(cmd)
-        log.step(**_values(plant.t, cmd, meas, controller, extras if good else None))
-        plant.advance(clock.dt)
+    limit, steps, tick = None if T is None else round(T / clock.dt), 0, clock.now()
+    try:
+        while limit is None or steps < limit:
+            meas = plant.read()
+            good = guard.ok(meas)
+            if good:
+                cmd = controller.step(plant.t, meas)
+            else:
+                cmd = Signals(plant.t, motor_torque=np.zeros(motors))
+            plant.write(cmd)
+            log.step(**_values(plant.t, cmd, meas, controller, extras if good else None))
+            plant.advance(clock.dt)
+            steps += 1
+            if clock.speed is not None:
+                tick = _pace(clock, tick)
+    except KeyboardInterrupt:  # a real-time simulation, like a real robot, ends with the log so far
+        if clock.speed is None:
+            raise
+        log.rows = {name: rows[:steps] for name, rows in log.rows.items()}
     return log
+
+
+def _pace(clock: SimClock, tick: float) -> float:
+    """Wait until one more step of the computer's clock has passed since ``tick``; a step that
+    is late starts again from now rather than catching up in a burst."""
+    assert clock.speed is not None
+    tick += clock.dt / clock.speed
+    wait = tick - clock.now()
+    if wait > 0:
+        clock.sleep(wait)
+        return tick
+    return clock.now()
 
 
 def _values(
@@ -124,7 +152,7 @@ def _extras(record: Iterable[str] | str) -> Callable[[Any], dict[str, Any]]:
     def extras(controller: Any) -> dict[str, Any]:
         out: dict[str, Any] = {}
         if "params" in record:
-            out.update({f"param/{name}": v for name, v in _live(controller).items()})
+            out.update({f"param/{name}": v for name, v in controller.live_params().items()})
         if "elements" in record:
             for element, quantities in controller.elements().items():
                 out.update({f"element/{element}/{k}": v for k, v in quantities.items()})
@@ -138,15 +166,6 @@ def _extras(record: Iterable[str] | str) -> Callable[[Any], dict[str, Any]]:
     return extras
 
 
-def _live(controller: Any) -> dict[str, np.ndarray]:
-    """The controller's own values of its live Params, each in the Param's shape."""
-    compiled = controller.compiled
-    return {
-        name: np.reshape(controller.params[where], compiled.params[name].shape, order="F")
-        for name, where in compiled.live_slices().items()
-    }
-
-
 def _describe(log: RunLog, plant: Any, controller: Any) -> None:
     """What the run is: the library, the start, the Params at the start, the hardware."""
     log.meta.update(
@@ -154,7 +173,7 @@ def _describe(log: RunLog, plant: Any, controller: Any) -> None:
     )
     compiled = getattr(controller, "compiled", None)
     if compiled is not None:
-        live = _live(controller)  # the controller's own values, which `set` may have changed
+        live = controller.live_params()  # the controller's own values, which `set` may have changed
         log.meta["params"] = {
             name: {"value": live.get(name, param.value).tolist(), "unit": param.unit}
             for name, param in compiled.params.items()

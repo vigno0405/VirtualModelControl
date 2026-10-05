@@ -118,7 +118,7 @@ class Experiment:
         self.plant.reset()
         clock = SimClock(1.0 / self.settings["rate"])
         record = self.run_settings.get("record", ())
-        log = run(self.plant, self.controller, clock, duration, z0=self._z0(), record=record)
+        log = run(self.plant, self.controller, clock, duration, z0=self.z0(), record=record)
         log.meta["configuration"] = configuration
         if path is not None:
             log.save(path, overwrite=overwrite)
@@ -191,7 +191,8 @@ class Experiment:
         except KeyError as exc:
             raise KeyError(f"experiment.schedule: {exc.args[0]}") from None
 
-    def _z0(self) -> Any:
+    def z0(self) -> Any:
+        """The initial virtual state: a list, a function of the first reading, or None."""
         z0 = self.settings.get("z0")
         if z0 is None or isinstance(z0, list):
             return z0

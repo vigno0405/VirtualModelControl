@@ -37,6 +37,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+joystick = ["pygame>=2.5"]
 docs = [
     "sphinx>=7.2",
     "myst-nb>=1.1",
@@ -151,6 +152,7 @@ source_modules = [
     "virtualmodelcontrol.identification",
     "virtualmodelcontrol.hardware",
     "virtualmodelcontrol.viz",
+    "virtualmodelcontrol.interactive",
     "virtualmodelcontrol.robots",
 ]
 forbidden_modules = ["rclpy", "std_msgs"]
@@ -175,5 +177,7 @@ forbidden_modules = [
     "virtualmodelcontrol.ros",
     "virtualmodelcontrol.viz",
     "virtualmodelcontrol.config",
+    "virtualmodelcontrol.interactive",
     "matplotlib",
+    "pygame",
 ]

@@ -42,6 +42,20 @@ versions, with one minor version of deprecation before a removal).
 - Configurations: `experiment.run` settings (`name`, `folder`, `overwrite`, `record`) save each
   run beside the file and refuse a name already taken before the run starts.
 - Docs: tutorial "Run logs".
+- `vmc.interactive`: change a running controller by hand. `Controls` is a thread-safe mailbox
+  for new values of live Params and for swaps. `Interactive` wraps any controller and applies
+  what the mailbox holds just before each step, in a simulation or inside a robot's own node;
+  the changes act exactly as `controller.set` before the step, and it counts the energy they give
+  the running controller (`injected`). `Recorder` turns what was applied into `schedule` entries
+  with `step` interpolation and saves them into a configuration, which repeats the session
+  exactly. `Window` (matplotlib, no new dependency) draws the robot live, with goals to drag,
+  sliders, buttons to swap controllers, record and pause; `Keyboard` and `Joystick` (pygame, the
+  extra `virtualmodelcontrol[joystick]`) move a goal; `Session` runs a simulation in real time
+  in a worker thread with its window.
+- `vmc.sim.SimClock(dt, speed=...)` paces a simulation to the computer's clock: with `speed`,
+  `run(T=None)` runs until stopped and Ctrl-C ends it with the log so far. Other simulations are
+  unchanged. `VMCController.live_params()` and `Experiment.z0()`.
+- Docs: tutorial "Interactive control".
 - `vmc.ros.control`: the controller node. It runs a controller at the profile's rate on the
   robot behind the driver's topics, with its live Params as ROS parameters, for a duration or
   until Ctrl-C, and ends with zero torque.
