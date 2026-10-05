@@ -28,7 +28,7 @@ versions, with one minor version of deprecation before a removal).
 - Docs: tutorial "Optimizing a virtual mechanism".
 - `vmc.sim.rollout(system, q0, T, dt)`: the closed loop simulated in one compiled call
   (`mapaccum`), differentiable with respect to the controller's live Params, with the robot
-  integrated by `"implicit"` (the default, as `ModelPlant`), `"rk4"`, `"cvodes"` or `"idas"`;
+  integrated by `"implicit"` (the default, as `ModelPlant`), `"rk4"` or `"cvodes"`;
   it reproduces `vmc.sim.run` to rounding error. `vmc.sim.ode(system)` is the closed loop in
   continuous time, f(t, x) for SciPy's `solve_ivp`.
 - `vmc.optimization.Grid`, `Random` and `CMAES`: gradient-free tuning by ask and tell (`ask()`

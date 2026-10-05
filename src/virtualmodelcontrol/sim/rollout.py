@@ -14,8 +14,8 @@ from ..compiler import compile as compile_system
 from ..dynamics import compile_dynamics
 from ..system import VirtualMechanismSystem
 
-INTEGRATORS = ("implicit", "rk4", "cvodes", "idas")
-TOLERANCE = 1e-8  # relative and absolute, of CVODES and IDAS
+INTEGRATORS = ("implicit", "rk4", "cvodes")
+TOLERANCE = 1e-8  # relative and absolute, of CVODES
 
 
 def rollout(
@@ -32,8 +32,7 @@ def rollout(
     z0: ArrayLike | None = None,
 ) -> dict[str, Any]:
     """Simulate the closed loop for ``T`` [s]: the controller every ``dt``, held, and the robot
-    in steps of at most ``max_step`` of ``integrator`` (``implicit``, ``rk4``, ``cvodes``,
-    ``idas``).
+    in steps of at most ``max_step`` of ``integrator`` (``implicit``, ``rk4``, ``cvodes``).
 
     Row k of ``t``, ``q``, ``v``, ``z`` (if the controller has virtual states) and ``u`` (motor
     torques) is the state at the start of step k and the command computed from it, like
@@ -143,11 +142,6 @@ def _advance(
         uw, pw, tw = w[:nu], w[nu:-1], w[-1] + tau
         dae = {"x": x, "p": w, "t": tau, "ode": rhs(x, uw, pw, tw)}
         args = {"x0": x, "p": ca.vertcat(u, p, t)}
-        if integrator == "idas":  # the dynamics' residual M a − f = 0 as the algebraic equation
-            a = ca.MX.sym("a", space.nv)
-            dae.update(z=a, alg=dynamics.residual(x[:nq], x[nq:], a, uw, pw, tw))
-            dae["ode"] = ca.vertcat(ca.mtimes(space.velocity_map(x[:nq]), x[nq:]), a)
-            args["z0"] = dynamics.forward(x[:nq], x[nq:], u, p, t)
         opts = {"abstol": TOLERANCE, "reltol": TOLERANCE, "max_step_size": max_step}
         xf = ca.integrator("integrator", integrator, dae, 0.0, dt, opts)(**args)["xf"]
     return ca.Function("advance", [x, u, p, t], [xf])

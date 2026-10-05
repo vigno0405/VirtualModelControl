@@ -103,11 +103,10 @@ def test_rk4_is_fourth_order():
     np.testing.assert_allclose(fast, exact_position(1e-3 * np.arange(2000)), atol=2e-3)
 
 
-@pytest.mark.parametrize("integrator", ["cvodes", "idas"])
-def test_sundials_agree_with_a_very_small_implicit_step(integrator):
+def test_cvodes_agrees_with_a_very_small_implicit_step():
     system, _, _ = mass_spring()
     small = vmc.sim.rollout(system, [0.0], 2.0, 0.01, max_step=1e-5)["q"][:, 0]
-    q = vmc.sim.rollout(system, [0.0], 2.0, 0.01, integrator=integrator)["q"][:, 0]
+    q = vmc.sim.rollout(system, [0.0], 2.0, 0.01, integrator="cvodes")["q"][:, 0]
     np.testing.assert_allclose(q, small, atol=1e-4)  # the implicit step is first order
     np.testing.assert_allclose(q, sampled_position(0.01, 200), atol=1e-6)
 

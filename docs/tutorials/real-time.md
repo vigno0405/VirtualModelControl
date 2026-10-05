@@ -197,7 +197,7 @@ np.abs(r["q"] - sim.arrays()["q"]).max()  # [m]
 
 `integrator` chooses how the robot is integrated between control steps: `"implicit"` (the
 default, stable for stiff robots such as the soft arm), `"rk4"` for robots that are not stiff,
-and `"cvodes"` or `"idas"` (CasADi's integrators) when accuracy matters more than speed. `p`
+and `"cvodes"` (CasADi's integrator) when accuracy matters more than speed. `p`
 takes a CasADi symbol for the controller's live Params, so that the result can be differentiated
 with respect to them. For SciPy, `vmc.sim.ode(system)` is the closed loop in continuous time, a
 function `f(t, x)` for `solve_ivp`:

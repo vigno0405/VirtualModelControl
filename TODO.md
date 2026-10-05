@@ -293,11 +293,11 @@ the soft arm among obstacles.
   the automatic scales need as few iterations as the best hand-tuned ones on the soft arm's
   problems and no number is given for the other robots. If no simple derivation holds up,
   `(1, 1, 1)` stays the default and the scales stay an option.
-- [x] **Integrators and rollouts:** RK4, the linearly implicit step, CVODES and IDAS through
+- [x] **Integrators and rollouts:** RK4, the linearly implicit step and CVODES through
   CasADi, an `ode()` that returns f(t, x) for SciPy's `solve_ivp`; closed-loop rollouts
   compiled with `mapaccum`, fast and differentiable. Done (6 October 2026): `vmc.sim.rollout`
-  reproduces `vmc.sim.run` to rounding error; RK4 needs a robot that is not stiff, and CVODES and
-  IDAS are slow on the soft arm.
+  reproduces `vmc.sim.run` to rounding error; RK4 needs a robot that is not stiff, and CVODES is
+  slow on the soft arm. IDAS was dropped.
 - [x] **The lab's offline optimization, ported:** stiffness, reference and combined
   optimization of the soft arm's virtual mechanism with its dynamics; task terms (reaching,
   obstacle avoidance, effort); grid search over references; planning of element swaps with
