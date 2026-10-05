@@ -38,6 +38,8 @@ change, including that nothing in the library imports ROS.
 | get positions, Jacobians, Hessians | `vmc.Kinematics` |
 | get the robot's equations of motion | `vmc.compile_dynamics` |
 | simulate a closed loop | `vmc.sim`: `ModelPlant`, `run`, `SimClock` |
+| fit stiffness, damping and efficiencies to data | `vmc.identification` |
+| plan a motion and optimize a controller's Params | `vmc.optimization`: `Problem`, `Collocation`, `Effort`, `Cost`, `Bound` |
 | record, save, replay and compare runs | `vmc.sim`: `RunLog`, `replay`, `compare` |
 | change a running controller by hand | `vmc.interactive`: `Session`, `Window`, `Interactive`, `Recorder` |
 | describe an experiment in a file | `vmc.config`: `load`, `Experiment` |

@@ -1,0 +1,326 @@
+{
+ "common": {
+  "delta0": [
+   0.006,
+   -0.004,
+   0.002,
+   -0.008,
+   0.005,
+   0.003,
+   0.004,
+   0.006,
+   -0.002
+  ],
+  "drag": {
+   "stiffness": 10.0,
+   "damping": 2.0,
+   "s": 1.0,
+   "reference": [
+    0.03421344570799215,
+    0.0138576653154492,
+    0.7311292211824563
+   ]
+  },
+  "target": [
+   0.1,
+   0.04,
+   0.68
+  ],
+  "tanh": {
+   "k_init": 10.0,
+   "k_bounds": [
+    1.0,
+    150.0
+   ],
+   "max_force": 2.0,
+   "damping": 2.0
+  },
+  "s_bounds": [
+   0.1,
+   1.0
+  ],
+  "gauss": {
+   "s": [
+    0.6,
+    1.0
+   ],
+   "strength": 140.0,
+   "strength_bounds": [
+    0.0,
+    300.0
+   ],
+   "sigma": 0.06,
+   "damping": 2.0
+  },
+  "nodes": 20,
+  "transition": 2.0,
+  "settle": 3.0,
+  "w_reach": 1.0,
+  "max_bend_deg": 90.0,
+  "clearance": 0.02,
+  "backbone_samples": 15,
+  "scales": [
+   0.05,
+   0.3,
+   20.0
+  ]
+ },
+ "scenarios": {
+  "reach_gain": {
+   "case": "A",
+   "w_effort": 0.1,
+   "obstacles": [],
+   "sol": {
+    "cost": 0.0032337012879452374,
+    "status": "Solve_Succeeded",
+    "iterations": 16
+   },
+   "solution_theta": {
+    "tanh": {
+     "s": 1.0,
+     "stiffness": 137.00552469182003,
+     "max_force": 2.0
+    }
+   },
+   "probe_theta": {
+    "tanh": {
+     "s": 1.0,
+     "stiffness": 145.99615727364952,
+     "max_force": 2.0
+    }
+   },
+   "free": [
+    [
+     "tanh",
+     "stiffness"
+    ]
+   ]
+  },
+  "reach_both": {
+   "case": "C",
+   "w_effort": 0.0001,
+   "obstacles": [],
+   "sol": {
+    "cost": 0.0030754754354749016,
+    "status": "Solve_Succeeded",
+    "iterations": 19
+   },
+   "solution_theta": {
+    "tanh": {
+     "s": 0.989653738483354,
+     "stiffness": 149.9999747279861,
+     "max_force": 2.0
+    }
+   },
+   "probe_theta": {
+    "tanh": {
+     "s": 0.9188870468112822,
+     "stiffness": 150.0,
+     "max_force": 2.0
+    }
+   },
+   "free": [
+    [
+     "tanh",
+     "s"
+    ],
+    [
+     "tanh",
+     "stiffness"
+    ]
+   ]
+  },
+  "avoid_both": {
+   "case": "C",
+   "w_effort": 0.0001,
+   "obstacles": [
+    {
+     "center": [
+      0.075,
+      0.04,
+      0.62
+     ],
+     "radius": 0.03
+    }
+   ],
+   "sol": {
+    "cost": 0.014122603399402694,
+    "status": "Solve_Succeeded",
+    "iterations": 29
+   },
+   "solution_theta": {
+    "tanh": {
+     "s": 0.11696611177079538,
+     "stiffness": 20.916025486757974,
+     "max_force": 2.0
+    },
+    "gauss1_1": {
+     "s": 0.10000075903874014,
+     "strength": 140.00068635399026,
+     "sigma": 0.06
+    },
+    "gauss1_2": {
+     "s": 0.10000001987514223,
+     "strength": 139.9941141740917,
+     "sigma": 0.06
+    }
+   },
+   "probe_theta": {
+    "tanh": {
+     "s": 0.1092367246590716,
+     "stiffness": 20.64943521710302,
+     "max_force": 2.0
+    },
+    "gauss1_1": {
+     "s": 0.1,
+     "strength": 128.55658544066446,
+     "sigma": 0.06
+    },
+    "gauss1_2": {
+     "s": 0.1,
+     "strength": 123.74719983032135,
+     "sigma": 0.06
+    }
+   },
+   "free": [
+    [
+     "tanh",
+     "s"
+    ],
+    [
+     "tanh",
+     "stiffness"
+    ],
+    [
+     "gauss1_1",
+     "s"
+    ],
+    [
+     "gauss1_1",
+     "strength"
+    ],
+    [
+     "gauss1_2",
+     "s"
+    ],
+    [
+     "gauss1_2",
+     "strength"
+    ]
+   ]
+  }
+ },
+ "search": {
+  "scenario": "reach_gain",
+  "radius": 0.05,
+  "step": 0.05,
+  "candidates": [
+   {
+    "references": [
+     [
+      0.1,
+      0.04,
+      0.68
+     ]
+    ],
+    "status": "Solve_Succeeded",
+    "cost": 0.0032337012879452374,
+    "iterations": 16,
+    "seconds": 0.06
+   },
+   {
+    "references": [
+     [
+      0.05,
+      0.04,
+      0.68
+     ]
+    ],
+    "status": "Solve_Succeeded",
+    "cost": 0.011592040739736801,
+    "iterations": 23,
+    "seconds": 0.06
+   },
+   {
+    "references": [
+     [
+      0.1,
+      -0.010000000000000002,
+      0.68
+     ]
+    ],
+    "status": "Solved_To_Acceptable_Level",
+    "cost": 0.011034555672419635,
+    "iterations": 21,
+    "seconds": 0.06
+   },
+   {
+    "references": [
+     [
+      0.1,
+      0.04,
+      0.63
+     ]
+    ],
+    "status": "Solve_Succeeded",
+    "cost": 0.003203760234002038,
+    "iterations": 23,
+    "seconds": 0.07
+   },
+   {
+    "references": [
+     [
+      0.1,
+      0.04,
+      0.7300000000000001
+     ]
+    ],
+    "status": "Solve_Succeeded",
+    "cost": 0.003946956010586989,
+    "iterations": 9,
+    "seconds": 0.03
+   },
+   {
+    "references": [
+     [
+      0.1,
+      0.09,
+      0.68
+     ]
+    ],
+    "status": "Solved_To_Acceptable_Level",
+    "cost": 0.00981920220661309,
+    "iterations": 13,
+    "seconds": 0.04
+   },
+   {
+    "references": [
+     [
+      0.15000000000000002,
+      0.04,
+      0.68
+     ]
+    ],
+    "status": "Solved_To_Acceptable_Level",
+    "cost": 0.00900445337505845,
+    "iterations": 13,
+    "seconds": 0.04
+   }
+  ],
+  "best": {
+   "references": [
+    [
+     0.1,
+     0.04,
+     0.63
+    ]
+   ],
+   "status": "Solve_Succeeded",
+   "cost": 0.003203760234002038,
+   "iterations": 23,
+   "seconds": 0.07
+  },
+  "result_cost": 0.003203760234002038,
+  "result_status": "Solve_Succeeded"
+ }
+}

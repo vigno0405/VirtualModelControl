@@ -109,6 +109,7 @@ tutorials/swaps
 tutorials/energy
 tutorials/kinematics
 tutorials/tuning
+tutorials/optimize
 tutorials/contact
 tutorials/build-a-robot
 tutorials/extend

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import casadi as ca
 import numpy as np
+import pytest
 
 import virtualmodelcontrol as vmc
 from helpers import Rod  # noqa: F401  (keeps the helpers path import consistent)
@@ -92,3 +93,20 @@ def test_free_body_keeps_momentum_on_the_manifold():
     p_lin = lambda M, v: (M @ v)[:2]  # noqa: E731
     M1 = np.array(dyn.mass(plant.q, plant.p))
     np.testing.assert_allclose(p_lin(M1, plant.v), p_lin(M0, v0), atol=1e-3)
+
+
+def test_a_given_actuation_is_the_one_the_dynamics_read():
+    robot = vmc.Mechanism("robot", model=vmc.models.JointSpace(1, unit="m"))
+    robot.add("mass", vmc.Inertance(robot.joint(0), 1.0))
+    actuation = vmc.models.Direct(0.5)
+    dyn = vmc.compile_dynamics(robot, actuation=actuation)
+    assert dyn.params["robot.efficiency.c1"] is actuation.params["efficiency.c1"]
+    # the torque delivered is half the command: M a - eta u = 0 at a = eta u
+    a = np.array(dyn.forward([0.0], [0.0], [2.0], dyn.live_values(), 0.0)).ravel()
+    assert a == pytest.approx([1.0])
+    own = vmc.models.Direct(0.25)
+    explicit = vmc.Mechanism("robot", model=robot.model, actuation=own)
+    assert (
+        vmc.compile_dynamics(explicit, actuation=actuation).params["robot.efficiency.c1"]
+        is (own.params["efficiency.c1"])
+    )  # the robot's own actuation wins

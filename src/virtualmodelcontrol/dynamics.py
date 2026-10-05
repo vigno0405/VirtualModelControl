@@ -47,15 +47,22 @@ class Dynamics:
         return self.params.vector(self.live)
 
 
-def compile_dynamics(robot: Mechanism, runtime: Iterable[str] = ()) -> Dynamics:
+def compile_dynamics(
+    robot: Mechanism, runtime: Iterable[str] = (), actuation: Any = None
+) -> Dynamics:
     """Compile the dynamics of ``robot`` from its components.
 
     Valid for spaces whose velocity coordinates commute (Euclidean, SO2 and their products).
-    ``stage`` Params and those matching ``runtime`` stay live; the rest are folded in.
+    ``stage`` Params and those matching ``runtime`` stay live; the rest are folded in. A robot
+    without an actuation gets ``actuation`` (a new ``Direct()`` by default), which a system
+    passes so that its Params are the ones the dynamics read.
     """
     if robot.model is None:
         raise ValueError(f"robot {robot.name!r} needs a kinematic model")
-    actuation = robot.actuation if robot.actuation is not None else Direct()
+    if robot.actuation is not None:
+        actuation = robot.actuation
+    elif actuation is None:
+        actuation = Direct()
     params = ParamSet()
     params.merge(robot.params, robot.name)
     if robot.actuation is None:

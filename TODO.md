@@ -279,18 +279,36 @@ the soft arm among obstacles.
   homing and bus modules, their tests and the CI job are gone, the two dependencies leave the
   install, and the real-time test runs on a plain plant. Hardware profiles stay.
 - [ ] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
-  new language: trajectories (trapezoidal and Hermite-Simpson collocation, multiple shooting,
-  free final time, periodic), equilibria, data fits (identification, moving-horizon
-  estimation); automatic variable scaling; solver presets that work on these problems (IPOPT
-  with L-BFGS and `expand=True`, FATROP, SQP and QP solvers; acados optional).
+  new language: trajectories (trapezoidal collocation is done, in `vmc.optimization`;
+  Hermite-Simpson collocation, multiple shooting, free final time, periodic), equilibria, data
+  fits (identification, moving-horizon estimation); solver presets that work on these problems
+  (IPOPT with L-BFGS and `expand=True` is done; FATROP, SQP and QP solvers; acados optional).
+- [ ] **Automatic scales:** the trajectory problem derives the typical sizes of q, v and a
+  itself, so that the solver works on variables of order one on any robot. Today they are given
+  by hand (`Collocation(scales=...)`, `(1, 1, 1)` when omitted). Measured on the soft arm (20
+  nodes): on the reaching problems every choice reaches the same plan in 14 to 34 iterations.
+  On the avoidance problem with free placement, the lab's hand-tuned scales `(0.05, 0.3, 20)`
+  take 29 iterations and stop at a poor local optimum (the spring near the base); no scaling
+  takes 123 iterations and finds another optimum with less than a quarter of the cost; the
+  motion's typical sizes `(0.003, 0.02, 12)` take 92. So the scales also decide which optimum is
+  found, and a derivation (from a simulation of the closed loop under the starting design, or by
+  equilibrating the Jacobian columns) has to be judged on many problems and robots. Done when
+  the automatic scales need as few iterations as the best hand-tuned ones on the soft arm's
+  problems and no number is given for the other robots. If no simple derivation holds up,
+  `(1, 1, 1)` stays the default and the scales stay an option.
 - [ ] **Integrators and rollouts:** RK4, the linearly implicit step, CVODES and IDAS through
   CasADi, an `ode()` that returns f(t, x) for SciPy's `solve_ivp`; closed-loop rollouts
   compiled with `mapaccum`, fast and differentiable.
-- [ ] **The lab's offline optimization, ported:** stiffness, reference and combined
+- [x] **The lab's offline optimization, ported:** stiffness, reference and combined
   optimization of the soft arm's virtual mechanism with its dynamics; task terms (reaching,
   obstacle avoidance, effort); grid search over references; planning of element swaps with
   the controller's own blend; the results applied to the controller and checked in
-  simulation; regression tests against the lab's results.
+  simulation; regression tests against the lab's results. Done (5 October 2026):
+  `vmc.optimization` (`Problem`, `Collocation`, `Effort`, `Cost`, `Bound`, `Result.apply`,
+  `search_references`) plans the closed loop on the robot's full dynamics, and agrees with the
+  lab's optimizer to rounding error in its cost and constraints and to solver tolerance in its
+  solved plans and its search; a plan applied to a controller and swapped to on the simulator
+  gives the planned motion; tutorial "Optimizing a virtual mechanism".
 - [ ] **Structure optimization:** element gates g between 0 and 1 with a sparsity cost (which
   springs to keep and where to attach them).
 - [ ] **Gradient-free tuning:** an ask-and-tell interface (grid, CMA-ES, Bayesian
@@ -308,8 +326,8 @@ the soft arm among obstacles.
   components (coils for springs, dashpots for dampers); frame labels; 3D animations to MP4 or
   GIF; an interactive viewer in the browser that updates during a run; a distinct colour for
   the virtual mechanism.
-- [ ] **Docs:** optimizing a virtual mechanism (the soft arm among obstacles); the energy
-  tank; tuning without gradients; the step experiment; 3D views.
+- [ ] **Docs:** optimizing a virtual mechanism (the tutorial is written; the soft arm among
+  obstacles remains); the energy tank; tuning without gradients; the step experiment; 3D views.
 
 ---
 

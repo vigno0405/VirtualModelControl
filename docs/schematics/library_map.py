@@ -15,17 +15,27 @@ LAYERS = [
     ("compiler, dynamics", "control law, equations of motion"),
     ("control", "controller, output stages"),
     ("sim", "plants, run loop, log"),
+    ("identification, optimization", "fit a robot, plan a motion"),
 ]
 
 
 def figure() -> Any:
     """Each layer imports only the ones below it; the edges may use all of them."""
-    fig, ax = canvas(6.4, 8.35)
+    fig, ax = canvas(6.4, 9.4)
     x, w, h, gap = 2.55, 3.9, 0.78, 0.25
     tops = []
     for k, (name, what) in enumerate(LAYERS):
         y = 0.6 + k * (h + gap)
-        box(ax, x, y, w, h, code(name) + "\n" + what, TEAL if name == "sim" else NAVY, size=16)
+        box(
+            ax,
+            x,
+            y,
+            w,
+            h,
+            code(name) + "\n" + what,
+            TEAL if name == "sim" else NAVY,
+            size=16 if len(name) < 20 else 14,
+        )
         tops.append(y)
     planned = tops[-1] + h + gap
     box(
@@ -34,7 +44,7 @@ def figure() -> Any:
         planned,
         w,
         h,
-        "estimation, optimization,\nlearning (planned)",
+        "estimation, learning\n(planned)",
         GREY,
         dashed=True,
         size=16,

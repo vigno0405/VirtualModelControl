@@ -7,6 +7,28 @@ versions, with one minor version of deprecation before a removal).
 
 ## [Unreleased]
 
+### Added
+
+- `vmc.optimization`: plan the motion of a controller on a robot and optimize its Params.
+  `Problem(system)` is built once and solved many times. `free` chooses the Params to optimize
+  and `parameter` the ones set at every solve (references, say), by name or glob; bounds and
+  scale come from the Param. `Collocation(q0, horizon, nodes, initial=, transition=, scales=)` is
+  trapezoidal collocation of the closed loop on the robot's full dynamics, without inverting the
+  mass matrix. With an `initial` controller, its torques fade out as the new ones fade in with the
+  blend of `SwapController`, so the plan is what the swap executes, and the model starts at rest
+  where the robot is whatever it gets wrong there. `Effort`, `Cost` (a library coordinate brought
+  to zero from a time on) and `Bound` (a coordinate kept within limits) are the terms, `Term`
+  the base to write your own. `Result` holds the motion, the Params found, the cost by term and
+  the solver's status, and `apply` puts the values into a running controller (returning the exact
+  energy jump) or into a system. `search_references` searches a reference on a grid, one at a
+  time, keeping the best converged plan. `Problem.build` returns the `NLP` for any other solver.
+  The program agrees with the lab's own optimization code to rounding error, and its solved plans
+  to solver tolerance. Controllers with virtual states and non-flat configuration spaces are not
+  supported yet.
+- Docs: tutorial "Optimizing a virtual mechanism".
+- `compile_dynamics(robot, runtime, actuation)` takes the actuation of a robot that has none, so a
+  system's efficiency Params (`robot.efficiency.c1`) are the ones the dynamics read.
+
 ### Removed
 
 - `vmc.ros` (`RosPlant`, `control`, `serve`, `LiveParams`, `JointIO`, `TOPICS`) and the direct
