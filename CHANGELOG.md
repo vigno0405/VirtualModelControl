@@ -38,6 +38,10 @@ All notable changes to this project are documented here. The format follows
   gives the jump `set` would give, without applying it.
 - `identification.fit_stiffness_damping` takes a run log (`RunLog`) as it is, or a mapping whose motor
   torques are `motor_torque` or `u`.
+- `identification.Steps(baseline, pulls, held_out, hold, rest)`: the step experiment as a controller
+  that runs on any plant. Every motor gets the baseline torque, and each pull adds a torque to some
+  motors for `hold` seconds, with `rest` seconds at the baseline between them. Its log marks the
+  training steps (`train`), which the fit uses as they are; the held-out ones are for validation.
 - `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation

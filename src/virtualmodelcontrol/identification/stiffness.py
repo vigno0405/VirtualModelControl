@@ -55,7 +55,7 @@ def fit_stiffness_damping(
         dt = float(np.median(np.diff(t)))
         v = savgol_filter(v, min(smoothing, len(t) - (1 - len(t) % 2)), 3, axis=0)
         a = np.gradient(v, dt, axis=0)
-        keep = np.asarray(run.get("train", np.ones(len(t), dtype=bool)), dtype=bool)
+        keep = np.asarray(run.get("train", np.ones(len(t))), dtype=bool).ravel()
         idx = np.flatnonzero(keep & (np.arange(len(t)) % stride == 0))
         q0, u0 = q[:baseline].mean(axis=0), u[:baseline].mean(axis=0)
         zero, no_torque = np.zeros(space.nv), np.zeros(u.shape[1])
