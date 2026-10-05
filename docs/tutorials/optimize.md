@@ -36,7 +36,7 @@ hold = vmc.Mechanism("hold")  # the controller in place
 hold.add("drag", vmc.LinearSpring(tip - [0.01, 0.0, 0.70], 10.0))
 hold.add("damp", vmc.LinearDamper(tip, 2.0))
 hold.add("gravity", vmc.GravityCompensation(arm))
-hold_system = vmc.VirtualMechanismSystem(arm, hold)
+held = vmc.VirtualMechanismSystem(arm, hold)
 
 stiffness = vmc.Param("stiffness", 20.0, bounds=(1.0, 300.0), scope="stage")
 reference = vmc.Ref("reference", 3, target)  # where the spring pulls to
@@ -54,7 +54,7 @@ starts at rest, so we first let the arm settle under the controller in place:
 
 ```{code-cell} python
 plant = vmc.sim.ModelPlant(arm)
-settle = vmc.VMCController(vmc.compile(hold_system))
+settle = vmc.VMCController(vmc.compile(held))
 vmc.sim.run(plant, settle, vmc.sim.SimClock(1 / 330), T=12.0)
 q0 = plant.q.copy()  # the arm at rest under the spring in place
 ```
@@ -65,17 +65,17 @@ A `Problem` is a system whose Params we optimize, plus blocks. The `Collocation`
 motion of the closed loop from `q0`:
 
 ```{code-cell} python
-HORIZON, TRANSITION, NODES = 5.0, 2.0, 21  # [s], [s]
+HORIZON, SWAP, NODES = 5.0, 2.0, 21  # [s], [s]
 
 
 def build(free=(), parameters=(), terms=()):
     problem = opt.Problem(system)
-    problem.add(opt.Collocation(q0, HORIZON, NODES, initial=hold_system,
-                                transition=TRANSITION))
+    problem.add(opt.Collocation(q0, HORIZON, NODES, initial=held,
+                                transition=SWAP))
     problem.free(*free)
     problem.parameter(*parameters)
     problem.add(opt.Effort(0.2))
-    problem.add(opt.Cost(tip - target, t_from=TRANSITION, name="reach"))
+    problem.add(opt.Cost(tip - target, t_from=SWAP, name="reach"))
     for term in terms:
         problem.add(term)
     return problem
@@ -99,7 +99,7 @@ element and the Param. It takes glob patterns, such as `new.*.stiffness`. Every 
 stays at its value when the program is built. Two terms make the cost:
 
 - `Effort(0.2)`: 0.2 times the integral of the squared motor torques over the horizon;
-- `Cost(tip - target, t_from=TRANSITION)`: the integral of the squared distance of the tip to
+- `Cost(tip - target, t_from=SWAP)`: the integral of the squared distance of the tip to
   the target, from the end of the transition on: arrive, and stay.
 
 Any library coordinate can stand where `tip - target` stands, and `Bound` keeps a coordinate
@@ -132,12 +132,12 @@ is only the solver running again:
 
 ```{code-cell} python
 sweep = build(parameters=["new.pull.stiffness"])
-stiffnesses = np.geomspace(5.0, 300.0, 25)
+ks = np.geomspace(5.0, 300.0, 25)
 costs = np.array([sweep.solve({"new.pull.stiffness": k}).cost
-                  for k in stiffnesses])
+                  for k in ks])
 
 fig, ax = plt.subplots()
-ax.semilogx(stiffnesses, 1e3 * costs, ".-", label="fixed stiffness")
+ax.semilogx(ks, 1e3 * costs, ".-", label="fixed stiffness")
 ax.plot([k_found], [1e3 * plan.cost], "o", ms=10, label="optimized")
 ax.set_xlabel("stiffness [N/m]")
 ax.set_ylabel(r"cost [$10^{-3}$]")
@@ -146,11 +146,11 @@ ax.legend(loc="upper right", fontsize=18);
 
 ```{code-cell} python
 :tags: [remove-cell]
-best = stiffnesses[np.argmin(costs)]
+best = ks[np.argmin(costs)]
 assert abs(np.log(best / k_found)) < 0.3, (best, k_found)
 assert plan.cost <= costs.min() * (1 + 1e-3)
 glue("best", float(best), display=False)
-glue("flat", float(100 * (costs[stiffnesses > 40].max() / plan.cost - 1)),
+glue("flat", float(100 * (costs[ks > 40].max() / plan.cost - 1)),
      display=False)
 ```
 
@@ -169,8 +169,8 @@ planned transition:
 controller = vmc.VMCController(vmc.compile(system))
 plan.apply(controller)  # the exact energy jump [J], 0 before its first step
 swap = vmc.control.SwapController(
-    vmc.VMCController(vmc.compile(hold_system)))
-swap.swap(controller, TRANSITION)
+    vmc.VMCController(vmc.compile(held)))
+swap.swap(controller, SWAP)
 
 sim = vmc.sim.ModelPlant(arm, q0=q0)
 log = vmc.sim.run(sim, swap, vmc.sim.SimClock(1 / 330), T=HORIZON)
@@ -193,7 +193,7 @@ at_nodes = np.interp(plan.t, t, simulated)
 fig, ax = plt.subplots()
 ax.plot(t, simulated, label="simulated swap")
 ax.plot(plan.t, planned, "o", label="plan")
-ax.axvline(TRANSITION, color="gray", linestyle=":")
+ax.axvline(SWAP, color="gray", linestyle=":")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("tip to target [mm]")
 ax.legend(loc="upper right", fontsize=18);
