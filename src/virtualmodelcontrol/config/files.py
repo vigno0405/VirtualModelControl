@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import yaml
 
 
@@ -36,12 +37,23 @@ def read(path: str | os.PathLike[str]) -> dict[str, Any]:
     return data
 
 
+def plain(value: Any) -> Any:
+    """``value`` with tuples as lists and numpy arrays and numbers as Python's, for YAML."""
+    if isinstance(value, dict):
+        return {key: plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [plain(item) for item in value]
+    if isinstance(value, (np.ndarray, np.generic)):
+        return value.tolist()
+    return value
+
+
 def write(data: dict[str, Any], path: str | os.PathLike[str]) -> Path:
     """Write a configuration as YAML (short lists on one line); returns the path."""
     path = Path(path)
     path.write_text(
         yaml.dump(
-            data,
+            plain(data),
             Dumper=yaml.SafeDumper,
             sort_keys=False,
             default_flow_style=None,

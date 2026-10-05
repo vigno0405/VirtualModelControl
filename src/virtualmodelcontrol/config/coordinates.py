@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from ..core.params import Param
 from ..core.registry import get, register
 from ..mechanisms import (
@@ -54,7 +56,7 @@ class Scope:
 
     def operand(self, spec: Any, path: Path, like: Coordinate) -> Coordinate:
         """A coordinate, or a plain list: a live reference named ``ref`` shaped like ``like``."""
-        if isinstance(spec, (list, tuple, int, float)):
+        if _plain(spec):
             ref = as_coordinate(spec, like)
             if not isinstance(ref, Ref):
                 raise TypeError(f"{where(path)}: expected a reference, got {ref!r}")
@@ -68,7 +70,7 @@ class Scope:
 
 
 def _plain(spec: Any) -> bool:
-    return isinstance(spec, (list, tuple, int, float))
+    return isinstance(spec, (list, tuple, int, float, np.ndarray))
 
 
 @register("coordinate", "point")

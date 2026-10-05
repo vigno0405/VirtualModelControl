@@ -49,7 +49,8 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   polynomial one per motor; `vmc.identification` fits efficiencies and stiffness and damping
   from data; the constrained springs and dampers are components of their own; the two
   single-arm examples run their own arm's experiments; concepts pages on Virtual Model Control,
-  passivity, finger and hand kinematics and efficiency; the repository review and its fixes.
+  passivity, finger and hand kinematics and efficiency; the repository review and its fixes;
+  experiments in YAML files (`vmc.config`).
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -61,8 +62,8 @@ Everything still to do, in order. Each step is done when its items below are tic
 1. **Review the repository** before building anything new: every package, the tests, the
    documentation, the packaging and CI, for bugs, mistakes and improvements, each finding
    verified before it is fixed (0.3.0, first item).
-2. **Finish 0.3.0**, in this order: configurations in YAML; interactive tools; run logs and the
-   ROS recorder node; the documentation for real robots (and the sections still missing for
+2. **Finish 0.3.0**, in this order: configurations in YAML; run logs and the ROS recorder node;
+   interactive tools; the documentation for real robots (and the sections still missing for
    hardware profiles, the Dynamixel plant, the real-time loop, the ROS bridge and element
    swaps); one supervised run of the Dynamixel plant on a real robot; then the release, with
    the owner's go.
@@ -254,13 +255,16 @@ runs in simulation and on the robot.
   delivered torque as a polynomial of the commanded one, motor by motor, to tune and identify;
   `identification.plateaus` and `fit_efficiency`, checked against the lab's calibration code
   and the finger's recorded data; a concepts page.
-- [ ] **Configurations:** robots, controllers and experiments in YAML through the registry,
-  round-trip tested.
-- [ ] **Interactive tools:** a small GUI (matplotlib widgets or Qt) to drag goals, change gains
-  and swap elements while running; keyboard or joystick teleoperation; teleoperate and repeat.
+- [x] **Configurations:** robots, controllers and experiments in YAML through the registry,
+  round-trip tested. Done: `vmc.config` (robot templates, named coordinates, elements, swaps,
+  simulation, Dynamixel and ROS plants, output stages, schedules), files for every robot in
+  `tests/data/configs/`, the same runs as in Python, the tutorial "Experiments in files". The
+  run settings (a run's name and folder) come with the run logs.
 - [ ] **Run logs:** atomic save and load (`.npz` with a schema version and metadata: library
   version, git hash, parameters, hardware profile), CSV export, replay of a log in simulation,
-  comparison of runs.
+  comparison of runs; a configuration's `run` settings (name, folder) save each run.
+- [ ] **Interactive tools:** a small GUI (matplotlib widgets or Qt) to drag goals, change gains
+  and swap elements while running; keyboard or joystick teleoperation; teleoperate and repeat.
 - [ ] **Docs:** "Run on the real robot" for each robot, a ROS topics reference, a safety
   checklist.
 - [ ] **Release 0.3.0:** one supervised run of the Dynamixel plant on a real robot (with its
@@ -491,6 +495,7 @@ new designs against these themes, so nothing they need is made hard:
 | plant nodes simulating the arm | `ModelPlant`, `vmc.sim.run` | done |
 | homing scripts, bus checks | `hardware` homing and bus check | 0.3.0 |
 | degree, sign and current conversions in every node | hardware profiles, joint I/O | 0.3.0 |
+| experiment configs (a Python module per experiment) | `vmc.config` YAML files | done |
 | controller nodes with GUIs, live gain changes | controller node, GUI, `controller.set` | 0.3.0 |
 | swapping springs live, blended | element swaps with a quintic blend | 0.3.0 |
 | digital twin with simulated sensors | `serve(ModelPlant)` and realism wrappers | 0.3.0, 0.5.0 |

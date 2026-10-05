@@ -187,4 +187,7 @@ my_project = "my_project.vmc_plugins"
 
 Importing `my_project.vmc_plugins` must run its `register(...)` decorators. The library loads
 the plugins the first time a name is looked up and not found, so configuration files can use
-the plugins' names.
+the plugins' names: a robot template as `"robot"`, a simulation's dynamics as `"dynamics"`, a
+hardware profile as `"hardware"`, an output stage as `"output"`, a controller template as
+`"controller"`, a component as `"component"`, and a coordinate kind as `"coordinate"`, a
+function `(args, scope, path)` that builds it ([Experiments in files](configurations.md)).

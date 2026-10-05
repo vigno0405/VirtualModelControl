@@ -9,6 +9,20 @@ versions, with one minor version of deprecation before a removal).
 
 ### Added
 
+- `vmc.config`: experiments in YAML files. `vmc.config.load` reads the robot (a template and its
+  arguments), named coordinates, the controller's elements (a registered component `type`, the
+  `coordinate` it acts on, its gains), controllers to swap to, and how to run them: a simulation
+  (with the robot's dynamics and simulated elements such as contacts), a Dynamixel or a ROS
+  plant, the rate, the duration, output stages, schedules and the initial virtual state.
+  `Experiment.run` runs it, `save` writes it back with the Params' current values. Robot
+  templates, output stages and coordinate kinds are registry entries, so a project adds its own.
+  An experiment from a file gives the same run as the same experiment written in Python.
+- `vmc.control.Schedule` and `ScheduledController`: live Params that follow values over time
+  (in straight lines or steps) and swaps at given times; a new run starts afresh. The lab's
+  linear ramps are two-point schedules.
+- `vmc.sim.run(..., z0=...)` also takes a function of the first reading, such as
+  `turtle.initial_state`.
+- Docs: tutorial "Experiments in files".
 - `vmc.ros.control`: the controller node. It runs a controller at the profile's rate on the
   robot behind the driver's topics, with its live Params as ROS parameters, for a duration or
   until Ctrl-C, and ends with zero torque.

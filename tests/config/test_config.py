@@ -300,3 +300,13 @@ def test_a_simulation_needs_its_rate_and_duration():
     experiment = vmc.config.load(broken(lambda s: s["experiment"].pop("rate")))
     with pytest.raises(ValueError, match="rate"):
         experiment.run()
+
+
+def test_a_configuration_written_in_python_saves_too(tmp_path):
+    spec = files.read(CONFIGS / "finger.yaml")
+    spec["controller"]["elements"]["press"]["coordinate"] = {
+        "difference": ["tip", np.array([0.0, 0.05, 0.065])]
+    }
+    spec["experiment"]["plant"]["q0"] = (0.8, 0.8)
+    saved = vmc.config.load(spec).save(tmp_path / "finger.yaml")
+    assert files.read(saved) == files.read(CONFIGS / "finger.yaml")
