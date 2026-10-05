@@ -63,9 +63,16 @@ versions, with one minor version of deprecation before a removal).
   `adapt.HAND_MOTOR_EFFICIENCY` stay as calibrations, never as defaults.
 - A transmission's efficiency Param is now `efficiency.c1` (and `c2`, … for a polynomial);
   transmissions saved by 0.2.0 still load.
+- `import virtualmodelcontrol` no longer loads SciPy, which took about three quarters of its
+  import time; `identification.fit_stiffness_damping` loads it when called.
 
 ### Fixed
 
+- `vmc.sim.run` needs only the plant's documented methods: when its guard trips, it sends zero
+  torque without reading the plant's last command `u`, which a plant of one's own may not have.
+  The zero command has one torque per motor rate, also on real time.
+- `vmc.ros` is available after `import virtualmodelcontrol as vmc`, like `vmc.viz` and
+  `vmc.hardware`; it imports ROS only when a ROS class is first used.
 - The hand example grasps the ball with the pads of the thumb, index and middle fingers: the
   ball sits where the thumb opposes the fingers, and the grasp takes the thumb's tip at the end
   of its last phalanx. Before, the thumb pressed on the ball with its side. The template's

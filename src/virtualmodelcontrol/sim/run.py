@@ -89,19 +89,25 @@ def run(
         raise ValueError("a simulated run needs its duration T")
     log = RunLog()
     meas = plant.read()
+    motors = _motors(meas)
     _reset(controller, plant.t, meas, z0)
     for _ in range(round(T / clock.dt)):
         meas = plant.read()
         if guard.ok(meas):
             cmd = controller.step(plant.t, meas)
         else:
-            cmd = Signals(plant.t, motor_torque=np.zeros_like(plant.u))
+            cmd = Signals(plant.t, motor_torque=np.zeros(motors))
         plant.write(cmd)
         log.append(t=plant.t, motor_torque=cmd["motor_torque"], **{n: meas[n] for n in meas.names})
         if getattr(controller, "z", None) is not None and np.size(controller.z):
             log.append(z=controller.z)
         plant.advance(clock.dt)
     return log
+
+
+def _motors(meas: Signals) -> int:
+    """Number of motor torques: one per motor rate of a reading."""
+    return int(np.size(meas["motor_velocity"]))
 
 
 def _reset(controller: Any, t: float, meas: Signals, z0: Any) -> None:
@@ -117,7 +123,7 @@ def _run_wall(
     """The run loop on real time: measured steps, stale readings refused, rate statistics."""
     log, limit = RunLog(), None if T is None else round(T / clock.dt)
     meas = plant.read()
-    motors = len(meas["motor_position"])
+    motors = _motors(meas)
     t0 = previous = tick = clock.now()
     _reset(controller, 0.0, meas, z0)
     steps = overruns = stale = 0

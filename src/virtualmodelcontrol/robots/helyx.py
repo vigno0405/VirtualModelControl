@@ -130,7 +130,8 @@ SIM_DAMPING = np.array([
     139.28436710395044, 148.1129490938869, 284.33900221754124,
     135.3243281016147, 141.08179561149416, 280.464403371687,
 ]) / 0.12  # fmt: skip
-"""Diagonal damping in Δ of the simulated 145-290-290 arm [N·s/m], referred like the stiffness."""
+"""Diagonal damping in Δ of the simulated arm [N·s/m], identified with the stiffness and used
+for every three-segment arm; referred like the stiffness."""
 
 
 def add_dynamics(robot: Mechanism, stiffness: Any = None, damping: Any = None) -> Mechanism:

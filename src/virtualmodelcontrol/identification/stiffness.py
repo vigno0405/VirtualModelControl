@@ -7,8 +7,6 @@ from typing import Any
 
 import casadi as ca
 import numpy as np
-from scipy.optimize import lsq_linear
-from scipy.signal import savgol_filter
 
 from ..core.params import constants
 from ..dynamics import compile_dynamics
@@ -37,6 +35,9 @@ def fit_stiffness_damping(
     with A the allocation of generalized forces to motors. v is smoothed (Savitzky-Golay,
     ``smoothing`` samples); ``stride`` keeps every stride-th sample.
     """
+    from scipy.optimize import lsq_linear
+    from scipy.signal import savgol_filter
+
     dyn = compile_dynamics(robot, runtime)
     actuation = robot.actuation if robot.actuation is not None else Direct()
     space = robot.model.space

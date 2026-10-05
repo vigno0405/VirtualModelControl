@@ -5,9 +5,12 @@ import numpy as np
 import pytest
 from scipy.integrate import quad as scipy_quad
 
+import virtualmodelcontrol as vmc
 from helpers import Rod, component_function, component_params, evaluate, make_context
 from virtualmodelcontrol.core import Param
 from virtualmodelcontrol.mechanisms import (
+    ConstrainedLinearSpring,
+    ConstrainedTanhDamper,
     GaussianSpring,
     GravityCompensation,
     Inertance,
@@ -133,3 +136,15 @@ def test_gravity_compensation_needs_masses_and_gravity():
     with pytest.raises(ValueError, match="gravity"):
         GravityCompensation(robot)
     assert GravityCompensation(robot, gravity=[0, 0, -9.81]).gravity.unit == "m/s^2"
+
+
+def test_constrained_elements_name_their_direction_normal():
+    bar = Mechanism("bar", model=vmc.models.JointSpace(3, unit="m"))
+    ctrl = Mechanism("ctrl")
+    ctrl.add("line", ConstrainedLinearSpring(Y3, 100.0, normal=[0.0, 0.0, 1.0]))
+    ctrl.add("drag", ConstrainedTanhDamper(Y3, 1.0, 0.5, normal=[1.0, 0.0, 0.0]))
+    names = ["line.stiffness", "line.normal", "drag.damping", "drag.max_force", "drag.normal"]
+    assert list(ctrl.params) == names
+    assert ctrl.params["line.normal"].scope == "episode"
+    system = vmc.VirtualMechanismSystem(bar, ctrl)
+    assert "ctrl.line.normal" in vmc.compile(system, runtime=["ctrl.*.normal"]).live

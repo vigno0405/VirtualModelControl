@@ -1,6 +1,7 @@
 """The run loop: closed-loop simulation of the soft arm, the guard and the recorder."""
 
 import numpy as np
+import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.models import evaluate_frame
@@ -57,6 +58,37 @@ def test_guard_sends_zero_torque_on_bad_measurements():
     log = vmc.sim.run(BrokenSensor(), Never(), vmc.sim.SimClock(0.01), T=0.05, guard=guard)
     assert guard.trips == 5
     assert np.all(log.arrays()["motor_torque"] == 0.0)
+
+
+class Unreadable:
+    """A plant with only the documented methods, whose angles are never valid; four angles and
+    three rates, as on a curved configuration space."""
+
+    def __init__(self):
+        self.t, self.sent = 0.0, []
+
+    def read(self):
+        return vmc.Signals(self.t, motor_position=np.full(4, np.nan), motor_velocity=np.zeros(3))
+
+    def write(self, cmd):
+        self.sent.append(np.array(cmd["motor_torque"]))
+
+    def advance(self, dt):
+        self.t += dt
+
+    def close(self):
+        pass
+
+
+@pytest.mark.parametrize("real_time", [False, True])
+def test_the_guard_needs_only_the_plants_documented_methods(real_time):
+    plant = Unreadable()
+    if real_time:  # a wall clock that moves only when the loop waits
+        clock = vmc.sim.WallClock(0.01, now=lambda: plant.t, sleep=plant.advance)
+    else:
+        clock = vmc.sim.SimClock(0.01)
+    vmc.sim.run(plant, Never(), clock, T=0.03)
+    assert [u.tolist() for u in plant.sent] == [[0.0, 0.0, 0.0]] * 3  # one per motor rate
 
 
 def test_virtual_states_start_from_z0_and_are_logged():

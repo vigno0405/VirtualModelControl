@@ -38,7 +38,7 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   documentation page or section with at least one figure, a `CHANGELOG.md` line, green CI, and
   the box ticked here.
 
-## Where things stand (4 October 2026, evening)
+## Where things stand (5 October 2026)
 
 - **0.2.0 is on PyPI** (see `CHANGELOG.md`): the bimanual, hand, turtle and UR5 templates;
   Jacobians and Hessians of every site; mounting parts on frames; opt-in output stages; virtual
@@ -49,7 +49,7 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   polynomial one per motor; `vmc.identification` fits efficiencies and stiffness and damping
   from data; the constrained springs and dampers are components of their own; the two
   single-arm examples run their own arm's experiments; concepts pages on Virtual Model Control,
-  passivity, finger and hand kinematics and efficiency.
+  passivity, finger and hand kinematics and efficiency; the repository review and its fixes.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -207,11 +207,15 @@ Everything done by hand around an experiment must become one library call: homin
 bus, running the controller at rate, recording, and stopping safely. The same controller object
 runs in simulation and on the robot.
 
-- [ ] **Review the repository:** read every package (core, mechanisms, models, compiler,
+- [x] **Review the repository:** read every package (core, mechanisms, models, compiler,
   dynamics, control, sim, identification, hardware, ros, robots, viz), the tests, every
   documentation page, the README, the packaging and CI, looking for bugs, mistakes, unclear
   text and improvements. Done when every finding is verified (a failing test or a measured
-  wrong number) and fixed, or listed here with the reason it stays.
+  wrong number) and fixed, or listed here with the reason it stays. Done (5 October 2026): six
+  findings, all fixed. Four have a test that fails without the fix: the run loop's guard read
+  the plant's `u`, which the plant contract does not require; the constrained elements named
+  their `normal` Param `direction`; `vmc.ros` was not reachable as documented; SciPy made up
+  three quarters of the import time. Two were texts: a docstring and the README's SciPy row.
 - [ ] **Hardware profiles** (`hardware/profile.py`): motor IDs and order, encoder signs, zero
   offsets, motor constant per motor model, baud rate, control rate, operating mode per motor
   (torque, position, velocity), limits; loaded from YAML; one per robot template. Done when the

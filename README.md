@@ -43,7 +43,7 @@ pip installs them with the library:
 | --- | --- | --- |
 | [numpy](https://numpy.org) | 1.26 or newer, 2.x included | arrays |
 | [CasADi](https://web.casadi.org) | 3.6 or newer | the symbolic models, their derivatives and the compiled controllers |
-| [SciPy](https://scipy.org) | 1.11 or newer | rotations of chains built from DH tables |
+| [SciPy](https://scipy.org) | 1.11 or newer | rotations of chains built from DH tables; fitting stiffness and damping |
 | [matplotlib](https://matplotlib.org) | 3.8 or newer | figures and animations |
 | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | 0.5 or newer | MP4 videos of the animations |
 | [PyYAML](https://pyyaml.org) | 6 or newer | robot and hardware files |
