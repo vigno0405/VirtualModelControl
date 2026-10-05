@@ -1,5 +1,6 @@
 """Simulation and the run loop: plants, a model-based simulator, guard and recorder."""
 
+from .balance import energy_balance
 from .model_plant import ModelPlant
 from .plant import Plant, SimPlant
 from .replay import replay
@@ -17,6 +18,7 @@ __all__ = [
     "SimPlant",
     "WallClock",
     "compare",
+    "energy_balance",
     "ode",
     "replay",
     "rollout",

@@ -60,6 +60,10 @@ All notable changes to this project are documented here. The format follows
   that earn their place: structure optimization, tested on a mass with three springs and on the
   soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
   keep").
+- `vmc.sim.energy_balance(log)`: the controller's energy over a run recorded with
+  `record=["energy"]`: its energy, the work given through its port, what its dampers took and its
+  sources gave, `injected` (what changes of live Params put in, plus the error of the steps) and
+  the `margin` it can still give, which stays above 0 while the controller is passive.
 - `vmc.optimization.Grid`, `Random`, `CMAES`, `ExtremumSeeking` and `Bayes`: gradient-free tuning by ask and tell
   (`ask()` gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. `Bayes` fits a Gaussian process to the
