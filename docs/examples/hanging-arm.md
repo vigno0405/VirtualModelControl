@@ -71,41 +71,37 @@ template. The nine motors and their bus are in `helyx.hardware("145-290-290")`.
 
 The step experiment holds every motor at a baseline tension of 0.03 N·m, so the tendons stay
 taut. Each motor in turn then pulls 0.04 N·m harder for 2 s, followed by each segment's three
-motors together, with 2 s back at the baseline after each pull. The angles, rates and torques
-of the run go to `identification.fit_stiffness_damping`, which knows the arm's masses and
-gravity and fits its diagonal stiffness and damping by least squares, relative to the resting
-baseline. Here the simulator plays the arm, so the fit can be checked against the values it
-was given.
+motors together, with 2 s back at the baseline after every pull. Three more pulls, of another
+size, are held out: the fit never sees them.
+
+`Steps` is this experiment as a controller. It runs on any plant, here the simulated arm, and
+its log goes straight to `identification.fit_stiffness_damping`. The fit knows the arm's
+masses and gravity, and fits its diagonal stiffness and damping by least squares, relative to
+the resting baseline. The masses are never fitted. Here the simulator plays the arm, so the
+result can be checked against the values it was given.
 
 ```{code-cell} python
 import numpy as np
 import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol import viz
-from virtualmodelcontrol.identification import fit_stiffness_damping
+from virtualmodelcontrol.identification import (
+    Steps, fit_stiffness_damping, validate)
+
+base = 0.03  # [N·m], on every motor
+pulls = [([m], 0.04) for m in range(9)]  # [motors], [N·m] more
+pulls += [([0, 1, 2], 0.04), ([3, 4, 5], 0.04), ([6, 7, 8], 0.04)]
+held_out = [([0], 0.06), ([4], 0.06), ([8], 0.06)]
+steps = Steps(base, pulls, held_out, hold=2.0, rest=2.0)
 
 plant = vmc.sim.ModelPlant(arm)
-dt, baseline, pull = 1 / 330, np.full(9, 0.03), 0.04  # [s], [N·m]
-log = vmc.sim.RunLog()
-
-def hold(torque, seconds, record=True):
-    for _ in range(round(seconds / dt)):
-        if record:
-            log.step(t=plant.t, q=plant.q, v=plant.v, u=torque)
-        plant.write(vmc.Signals(plant.t, motor_torque=torque))
-        plant.advance(dt)
-
-hold(baseline, 3.0, record=False)  # settle under the baseline
-hold(baseline, 0.5)  # the resting baseline
-for motors in [[m] for m in range(9)] + [[0, 1, 2], [3, 4, 5], [6, 7, 8]]:
-    u = baseline.copy()
-    u[motors] += pull
-    hold(u, 2.0)
-    hold(baseline, 2.0)
+clock = vmc.sim.SimClock(dt=1 / 330)
+vmc.sim.run(plant, Steps(base), clock, T=3.0)  # settle under the baseline
+log = vmc.sim.run(plant, steps, clock, T=steps.duration)
 
 known = helyx.arm("145-290-290")  # masses and gravity, no stiffness
 known.add("gravity", vmc.Gravity(known))
-K, D = fit_stiffness_damping(known, [log.arrays()], smoothing=11)
+K, D = fit_stiffness_damping(known, [log], smoothing=11)
 ```
 
 ```{code-cell} python
@@ -126,16 +122,72 @@ bottom.set_xticks(x, names);
 :tags: [remove-cell]
 from myst_nb import glue
 
+rows = log.arrays()
+trained = rows["train"].ravel() > 0
 glue("k_err", 100 * float(np.abs(K / helyx.SIM_STIFFNESS - 1).max()), display=False)
 glue("d_err", 100 * float(np.abs(D / helyx.SIM_DAMPING - 1).max()), display=False)
-t = log.arrays()["t"].ravel()
-glue("duration", float(t[-1] - t[0]), display=False)
+glue("duration", float(rows["t"][trained][-1, 0] - rows["t"][0, 0]), display=False)
 ```
 
 From {glue:text}`duration:.0f` s of steps, the fit recovers every stiffness within
-{glue:text}`k_err:.1f` % and every damping within {glue:text}`d_err:.1f` %. On the real arm the
-same call fits the logged experiment; the pulls must keep every tendon taut, since a slack
-tendon transmits nothing and the model would no longer hold.
+{glue:text}`k_err:.1f` % and every damping within {glue:text}`d_err:.1f` %. On the real arm,
+run the same `Steps` through the arm's plant ([Real-time runs](../tutorials/real-time.md)); the
+pulls must keep every tendon taut, since a slack tendon transmits nothing and the model would
+no longer hold.
+
+### Check it on the held-out steps
+
+`validate` simulates the identified arm, a robot with the fitted stiffness and damping, under
+the torques of the held-out steps. It starts where the run is when they begin, and returns the
+simulated motion and its error against the logged one.
+
+```{code-cell} python
+model = helyx.add_dynamics(helyx.arm("145-290-290"), stiffness=K, damping=D)
+check = validate(model, log)
+
+rows = log.arrays()  # the logged motion over the same time
+inside = (rows["t"] >= check["t"][0]) & (rows["t"] <= check["t"][-1])
+real = rows["q"][inside.ravel()]
+t, sim = check["t"] - check["t"][0], check["q"]
+moved = np.sort(np.argsort(np.ptp(real, axis=0))[-3:])  # the biggest three
+
+fig, ax = plt.subplots(figsize=(6.4, 4.4))
+for color, i in zip(viz.PALETTE, moved):
+    ax.plot(t, 1e3 * (real[:, i] - real[0, i]), color=color, label=names[i])
+    ax.plot(t, 1e3 * (sim[:, i] - real[0, i]), "--", color="k")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("change of configuration [mm]")
+ax.legend(fontsize=14);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("rms", 1e3 * float(check["rms"].max()), display=False)
+glue("vaf", float(check["vaf"][moved].min()), display=False)
+```
+
+The solid lines are the logged motion of the three coordinates that move most, and the dashed
+lines the identified arm's. Over the three held-out steps the arm stays within
+{glue:text}`rms:.2f` mm (root mean square) of the logged motion on every coordinate, and
+explains at least {glue:text}`vaf:.4f` of the variance of these three (`check["vaf"]`).
+
+### Friction
+
+Static friction in the motors passes for damping. With `friction=True` the fit finds it too,
+one torque per motor that opposes its motion, and returns it after `K` and `D`:
+
+```{code-cell} python
+K, D, F = fit_stiffness_damping(known, [log], smoothing=11, friction=True)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("friction", float(F.max()), display=False)
+```
+
+The simulated arm has no friction, and the fit finds at most {glue:text}`friction:.1e` N·m.
+A motor that stands still has no friction in the model, so a run that stops after every step
+shows it little. On a real arm, add a run that keeps the motors moving.
 
 ## Reach around an obstacle
 

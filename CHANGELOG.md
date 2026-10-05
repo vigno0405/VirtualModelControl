@@ -50,6 +50,8 @@ All notable changes to this project are documented here. The format follows
   logged torques of the held-out steps of a run, from the state the run is in at the first of them,
   and returns the root-mean-square error and the variance accounted for of each coordinate.
   `vmc.sim.rollout` takes `u`, motor torques with a row per step, to simulate open loop.
+- Docs: the hanging arm's page identifies its stiffness and damping with `Steps`, checks them on
+  held-out steps and shows the friction option.
 - `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation

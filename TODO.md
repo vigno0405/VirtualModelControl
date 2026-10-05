@@ -321,14 +321,18 @@ the soft arm among obstacles.
   release is applied whole and refills the tank, and `result.apply(tank)` passes an optimizer's
   result through it; `controller.jump` gives the jump without applying it; section "A budget
   for changes" of the energy tutorial.
-- [ ] **Step experiment:** the experiment as a library tool; the stiffness and damping fit with
+- [x] **Step experiment:** the experiment as a library tool; the stiffness and damping fit with
   a friction column, validated by simulating held-out steps; masses stay fixed. The arm mounted
-  on its side needs it: its closed-loop runs cannot identify it.
+  on its side needs it: its closed-loop runs cannot identify it. Done (6 October 2026):
+  `identification.Steps` runs the torque steps on any plant and marks the training ones, the
+  fit takes its log as it is, `friction=True` adds a static friction torque per motor, and
+  `validate` simulates the held-out steps with `vmc.sim.rollout`; the hanging arm's page shows
+  it. The arm on its side is still to be identified, on the arm.
 - [ ] **Calibration:** transmission ratios, base transforms between arms, Stribeck friction for
   the compensation stage.
 - [ ] **Docs:** optimizing a virtual mechanism (the tutorial is written; the soft arm among
-  obstacles remains); the energy tank; the step experiment. Written: rollouts (Real-time runs)
-  and tuning with a search (Tuning stiffness and damping).
+  obstacles remains). Written: the energy tank, the step experiment (the hanging arm's page),
+  rollouts (Real-time runs) and tuning with a search (Tuning stiffness and damping).
 
 ---
 
