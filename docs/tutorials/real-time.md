@@ -17,11 +17,11 @@ import docs_setup
 
 ## Part 1: On a robot
 
-### The mechanism needs only kinematics
+### Describe the robot and the controller
 
 A real robot needs no dynamics in the library: the robot itself is the plant. The robot's
-mechanism holds its kinematics, its motors and the masses that gravity compensation uses, and
-the hardware profile holds the motors' order, signs and units:
+mechanism holds its kinematics, its motors and the masses that gravity compensation uses. The
+hardware profile holds the motors' order, signs and units:
 
 ```{code-cell} python
 import numpy as np
@@ -41,13 +41,13 @@ system = vmc.VirtualMechanismSystem(arm, ctrl)
 controller = vmc.VMCController(vmc.compile(system))
 ```
 
-### The plant is your driver, seen by the library
+### Wrap your driver in a plant
 
-The library does not talk to motors. A plant is the small object between it and your driver (a
-ROS node's last messages, a serial driver, anything) with three members: `t`, the time now [s];
-`read()`, which returns `motor_position` [rad] and `motor_velocity` [rad/s] with the time of
-the reading; and `write(cmd)`, which sends `cmd["motor_torque"]` [N·m]. The profile does the
-unit conversions:
+The library does not talk to motors. A plant is a small object between the library and your
+driver (a ROS node's last messages, a serial driver, anything). It has three members: `t`, the
+time now [s]; `read()`, which returns `motor_position` [rad] and `motor_velocity` [rad/s] with
+the time of the reading; and `write(cmd)`, which sends `cmd["motor_torque"]` [N·m]. The profile
+does the unit conversions:
 
 ```{code-cell} python
 class Plant:
@@ -97,7 +97,7 @@ class Driver:
 
 ### Run
 
-`WallClock` runs the loop on the computer's clock. On the robot it is just:
+`WallClock` runs the loop on the computer's clock. On the robot, it is:
 
 ```python
 clock = vmc.sim.WallClock(dt=1 / 330, stale=0.05)  # [s]
@@ -106,7 +106,7 @@ log = vmc.sim.run(Plant(driver), controller, clock, T=10.0)
 
 `T=None` runs until Ctrl-C.
 
-Here its `now` and `sleep` are the stand-in's, so that nothing waits for real:
+Here the clock takes its `now` and `sleep` from the stand-in, so nothing waits for real:
 
 ```{code-cell} python
 driver = Driver()
@@ -124,11 +124,10 @@ assert log.info["steps"] == 330 and log.info["overruns"] == 0
 glue("rate", log.info["rate"], display=False)
 ```
 
-At every step the loop reads the plant, checks the reading, asks the controller for the torques,
-writes them and waits for the next step. The controller gets the time it really is, not a
-nominal $k\,\Delta t$, so its virtual states integrate over the measured step. The run took
+The loop also checks every reading. The controller gets the time it really is, not a nominal
+$k\,\Delta t$, so its virtual states integrate over the measured step. The run took
 {glue:text}`rate:.0f` steps per second, as asked. `log` holds the signals and `dt`, the measured
-length of each step; `log.info` counts the `overruns` (steps longer than the period), the
+length of each step. `log.info` counts the `overruns` (steps longer than the period), the
 `stale` readings the loop refused as too old and the `guard_trips` (readings missing or not
 numbers). A refused reading means zero torque for that step.
 
@@ -158,7 +157,7 @@ Nothing touches a real robot without its owner's go-ahead. Check, in order:
 4. **Low gains, then more.** A small stiffness, a damping that holds, a goal close to where the
    robot is. Change gains live with `controller.set`, never by editing the file mid-run.
 5. **Limits.** Joint-limit springs, an output stage with a `TorqueLimit` for the first runs, a
-   goal inside the workspace. No torque limit is applied unless you ask for one.
+   goal inside the workspace. No torque limit applies unless you ask for one.
 6. **Stale and missing data.** Set `stale` to a few periods, and read `stale` and `guard_trips`
    at the end of every run.
 7. **A way out.** Your node stops the motors when the loop stops writing (a watchdog) and on
@@ -195,12 +194,12 @@ r = vmc.sim.rollout(system, np.zeros(9), T=3.0, dt=1 / 330)
 np.abs(r["q"] - sim.arrays()["q"]).max()  # [m]
 ```
 
-`integrator` chooses how the robot is integrated between control steps: `"implicit"` (the
-default, stable for stiff robots such as the soft arm), `"rk4"` for robots that are not stiff,
-and `"cvodes"` (CasADi's integrator) when accuracy matters more than speed. `p`
-takes a CasADi symbol for the controller's live Params, so that the result can be differentiated
-with respect to them. For SciPy, `vmc.sim.ode(system)` is the closed loop in continuous time, a
-function `f(t, x)` for `solve_ivp`:
+The `integrator` argument of `rollout` chooses how the robot is integrated between control
+steps: `"implicit"` (the default, stable for stiff robots such as the soft arm), `"rk4"` for
+robots that are not stiff, and `"cvodes"` (CasADi's integrator) when accuracy matters more than
+speed. The `p` argument takes a CasADi symbol for the controller's live Params, so that the
+result can be differentiated with respect to them. For SciPy, `vmc.sim.ode(system)` is the
+closed loop in continuous time: a function `f(t, x)` for `solve_ivp`:
 
 ```{code-cell} python
 from scipy.integrate import solve_ivp
@@ -223,8 +222,8 @@ sampling the controller at 330 Hz.
 
 ### The real-time loop under faults
 
-The loop also has to survive a robot that is late or silent. To see how, we run it with a fake
-clock, so that every run repeats, on a simulated arm with faults to switch on:
+The loop also has to survive a robot that is late or silent. To see how, we run it on a simulated
+arm with faults to switch on. A fake clock makes every run repeat:
 
 ```{code-cell} python
 dt = 1 / 330  # [s]
@@ -351,6 +350,3 @@ class Stop(Slow):
 plant = Faulty()
 len(go(plant, Stop(plant), T=None).arrays()["t"])
 ```
-
-The torque of the last step stays on the motors until something changes it, which is why a
-robot's node needs a watchdog and a zero torque on exit.

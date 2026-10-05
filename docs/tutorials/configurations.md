@@ -36,8 +36,8 @@ as `tip - [0.1, 0.0, 0.40]` is in Python.
 ## Run it
 
 `vmc.config.load` reads the file and builds the robot from its template, the controllers and
-the plant; `run` runs the experiment from its start and returns the log (with `run` settings in
-the file it also saves it, as [Run logs](run-logs.md) shows):
+the plant. `run` runs the experiment from its start and returns the log. With `run` settings in
+the file, it also saves the log, as [Run logs](run-logs.md) shows:
 
 ```{code-cell} python
 import numpy as np
@@ -50,28 +50,30 @@ sorted(rows)
 ```
 
 `experiment.robot`, `experiment.mechanism` and `experiment.controller` are the objects the file
-describes, the same as [your first controller](first-controller.md) builds in Python, so the
+describes, the same ones [your first controller](first-controller.md) builds in Python. So the
 other tutorials apply to them unchanged.
 
 ## Change values on a schedule
 
-The `experiment` section says how to run it: the plant, here a simulation with the arm's own
-stiffness, damping and gravity (`helyx.add_dynamics`), the control rate [Hz], the duration [s],
-and a schedule. An `output` list adds output stages to the controller, such as the real arm's
-pretension `{type: helyx.output_stage}`; this file has none:
+The `experiment` section says how to run it: the plant (here a simulation with the arm's own
+stiffness, damping and gravity from `helyx.add_dynamics`), the control rate [Hz], the duration
+[s] and a schedule. An `output` list adds output stages to the controller, such as the real
+arm's pretension `{type: helyx.output_stage}`. This file has none:
 
 ```{literalinclude} reach.yaml
 :language: yaml
 :start-at: "experiment:"
 ```
 
-A schedule entry moves one live Param through its `points`, pairs of a time [s] from the start
-and a value, named as for `controller.set` ([Parameters](parameters.md)). Between points the
-value moves in a straight line, or jumps with `interpolation: step`; before the first point the
-Param keeps its own value, after the last it holds the last one. Here the goal waits half a
-second, then walks to one side and to the other. A `swap` entry blends to another controller
-over its `duration`, with the quintic blend of `vmc.control.SwapController`. The controllers to
-swap to are listed under `swaps`, with the same elements as `controller`, each named by its key:
+A schedule entry moves one live Param through its `points`: pairs of a time [s] from the start
+and a value. The Param is named as in `controller.set` ([Parameters](parameters.md)). Between
+points the value moves in a straight line, or jumps with `interpolation: step`. Before the first
+point the Param keeps its own value, and after the last it holds the last one. Here the goal
+waits half a second, then walks to one side and to the other.
+
+A `swap` entry blends to another controller over its `duration`, with the quintic blend of
+`vmc.control.SwapController`. `swaps` lists the controllers to swap to, each named by its key and
+with the same elements as `controller`:
 
 ```{literalinclude} reach.yaml
 :language: yaml
@@ -143,11 +145,11 @@ for name, values in again.arrays().items():
     assert np.array_equal(values, rows[name]), name
 ```
 
-The tip follows the walking goal within {glue:text}`gap:.1f` cm along $x$; it stays above the
-goal along $z$, held by the arm's own stiffness, as in [your first
-controller](first-controller.md). From 4 s the gentle controller takes over within a second.
-Its spring brings the tip back to the middle along $x$, but with 0.5 N it cannot shorten the
-arm: the tip ends {glue:text}`z_end:.1f` cm above its goal.
+The tip follows the walking goal within {glue:text}`gap:.1f` cm along $x$. Along $z$ it stays
+above the goal, held by the arm's own stiffness, as in
+[your first controller](first-controller.md). From 4 s the gentle controller takes over within a
+second. Its spring brings the tip back to the middle along $x$, but with 0.5 N it cannot shorten
+the arm: the tip ends {glue:text}`z_end:.1f` cm above its goal.
 
 ```{code-cell} python
 :tags: [remove-output]
@@ -187,10 +189,10 @@ float(gap)
 assert gap < first_gap, "the stiffer spring does not follow closer: rewrite the text"
 ```
 
-The stiffer spring follows the goal more closely. The file is written anew, without the
-comments of the one it was loaded from. The robot is saved as its template call, and
-`controller.set` changes only the running controller's own copy of a value
-([Parameters](parameters.md)), so only the Params' values reach the file.
+The stiffer spring follows the goal more closely. `save` writes the file anew, without the
+comments of the original. It saves the robot as its template call. `controller.set` changes
+only the running controller's own copy of a value ([Parameters](parameters.md)), so only the
+values of the Params themselves reach the file.
 
 ## What a file can name
 
