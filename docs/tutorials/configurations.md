@@ -185,7 +185,8 @@ float(gap)
 assert gap < first_gap, "the stiffer spring does not follow closer: rewrite the text"
 ```
 
-The stiffer spring follows the goal more closely. The robot is saved as its template call, and
+The stiffer spring follows the goal more closely. The file is written anew, without the
+comments of the one it was loaded from. The robot is saved as its template call, and
 `controller.set` changes only the running controller's own copy of a value
 ([Parameters](parameters.md)), so only the Params' values reach the file.
 
