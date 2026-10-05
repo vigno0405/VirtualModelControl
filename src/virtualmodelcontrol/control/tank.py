@@ -15,12 +15,29 @@ class Tank:
     ``set`` applies a change of live Params as far as the tank can pay for the jump it gives the
     controller's energy: the largest fraction of the step whose exact jump is at most ``level``.
     A step that releases energy is always applied whole and refills the tank, up to ``capacity``.
-    ``fraction`` is what the last ``set`` applied; everything else is the controller's.
+    ``fraction`` is what the last ``set`` applied. Run the tank in place of the controller, and
+    ``step`` also refills it with what the controller's own dampers took since the last step;
+    everything else is the controller's.
     """
 
     def __init__(self, controller: Any, level: float = 0.0, capacity: float = np.inf) -> None:
         self.controller, self.level, self.capacity = controller, float(level), float(capacity)
         self.fraction = 1.0
+        self._t: float | None = None
+
+    def reset(self, t: float, meas: Any = None, z0: ArrayLike | None = None) -> None:
+        """Restart the controller. The tank keeps its level."""
+        self.controller.reset(t, meas, z0=z0)
+        self._t = None
+
+    def step(self, t: float, meas: Any) -> Any:
+        """One step of the controller; its dampers' work since the last step refills the tank."""
+        command = self.controller.step(t, meas)
+        if self._t is not None:
+            taken = -self.controller.balance()["dissipation"] * (t - self._t)  # [J]
+            self.level = min(self.level + taken, self.capacity)
+        self._t = t
+        return command
 
     def set(self, values: Mapping[str, ArrayLike] | None = None, **kwargs: ArrayLike) -> float:
         """Apply as much of the change as the tank pays for; returns the energy jump applied [J]."""

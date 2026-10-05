@@ -38,6 +38,8 @@ All notable changes to this project are documented here. The format follows
   a step that releases energy is applied whole, even with an empty tank, and refills it.
   `result.apply(tank)` passes an optimizer's result through it. `VMCController.jump(values)`
   gives the jump `set` would give, without applying it.
+  Run in place of the controller (`vmc.sim.run(plant, tank, ...)`), the tank also refills itself
+  with what the controller's own dampers take at every step.
 - `identification.fit_stiffness_damping` takes a run log (`RunLog`) as it is, or a mapping whose motor
   torques are `motor_torque` or `u`.
 - `identification.Steps(baseline, pulls, held_out, hold, rest)`: the step experiment as a controller
@@ -60,6 +62,8 @@ All notable changes to this project are documented here. The format follows
   that earn their place: structure optimization, tested on a mass with three springs and on the
   soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
   keep").
+- `vmc.control.project_psd(K)`: the symmetric positive semidefinite matrix nearest to a stiffness,
+  for an update that an adaptation law proposes, before it goes through `set` or a tank.
 - `vmc.sim.energy_balance(log)`: the controller's energy over a run recorded with
   `record=["energy"]`: its energy, the work given through its port, what its dampers took and its
   sources gave, `injected` (what changes of live Params put in, plus the error of the steps) and

@@ -7,6 +7,7 @@ import virtualmodelcontrol as vmc
 from small_plan import mass_spring, tanh_mass
 from virtualmodelcontrol import optimization as opt
 from virtualmodelcontrol.control import Tank
+from virtualmodelcontrol.robots import helyx
 
 K, G = "ctrl.spring.stiffness", "ctrl.spring.goal"
 X, GOAL, STIFFNESS = 0.3, 1.0, 4.0
@@ -103,3 +104,49 @@ def test_an_optimizers_result_passes_through_the_tank():
     result.apply(tank)
     assert result.params[K] > start and tank.fraction == pytest.approx(0.0, abs=1e-12)
     assert controller.live_params()[K] == pytest.approx(start)
+
+
+def soft_arm_run(tank_args=None, T=0.1, dt=1 / 5000):
+    """The soft arm held by a spring and a damper, run with the tank in place of the controller."""
+    arm = helyx.add_dynamics(helyx.arm("145-145-145"))
+    tip = arm.point(s=1.0)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("reach", vmc.LinearSpring(tip - [0.08, 0.0, 0.40], 300.0))
+    ctrl.add("damp", vmc.LinearDamper(tip, 5.0))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl)))
+    tank = Tank(controller, **(tank_args or {}))
+    log = vmc.sim.run(vmc.sim.ModelPlant(arm), tank, vmc.sim.SimClock(dt), T=T, record=["energy"])
+    return tank, log
+
+
+def test_a_tank_in_the_loop_fills_with_what_the_dampers_take():
+    tank, log = soft_arm_run()
+    taken = vmc.sim.energy_balance(log)["dissipated"][-1]
+    assert taken > 0.1
+    assert tank.level == pytest.approx(taken, rel=0.02)
+
+
+def test_the_tank_in_the_loop_never_holds_more_than_its_capacity():
+    tank, log = soft_arm_run({"capacity": 0.1})
+    assert vmc.sim.energy_balance(log)["dissipated"][-1] > 0.1
+    assert tank.level == 0.1
+
+
+def test_what_the_dampers_gave_pays_for_a_stiffer_spring():
+    tank, _ = soft_arm_run()
+    filled, stiffer = tank.level, {"ctrl.reach.stiffness": 3000.0}
+    assert tank.controller.jump(stiffer) > filled  # the whole step costs more than the tank holds
+    jump = tank.set(stiffer)
+    assert tank.fraction < 1.0 and jump == pytest.approx(filled, rel=1e-6)
+    assert tank.level == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_reset_keeps_the_level_and_the_first_step_after_it_adds_nothing():
+    tank, _ = soft_arm_run()
+    level = tank.level
+    meas = vmc.Signals(0.0, motor_position=np.zeros(9), motor_velocity=np.full(9, 0.5))
+    tank.reset(0.0, meas)
+    assert tank.level == level
+    tank.step(0.0, meas)
+    assert tank.level == level
