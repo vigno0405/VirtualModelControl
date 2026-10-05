@@ -13,8 +13,8 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   write down the differences, and add a regression test against its results (small fixtures in
   `tests/data/`).
 - **One symbolic source.** Every model is written once, with CasADi operations. The numpy,
-  sympy, C, JAX and PyTorch versions are generated from that graph (release 0.8.0), never
-  maintained by hand, so they can never disagree.
+  PyTorch versions are generated from that graph (release 0.7.0), never maintained by hand, so
+  they can never disagree.
 - **Everything is a parameter.** Gains and references, and also all geometry (lengths, radii,
   tendon angles, joint axes, mounting poses), masses, transmissions, motor constants and
   efficiencies: each is a `Param` with a unit, a default and bounds. Defaults live in `robots/`
@@ -55,8 +55,12 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 - **Decided on 5 October 2026:** the library is communication-agnostic, so `vmc.ros` and the
   direct Dynamixel path (the motor plant, homing, the bus check) are deprecated in 0.3.0 and
   removed in 0.4.0. After 0.3.0 the releases follow the research: optimization of virtual
-  mechanisms, then passivity, adaptation and estimation, MPC and underactuation, co-design,
-  learning. Every item has its release, up to 1.0.0.
+  mechanisms, then passivity, adaptation and estimation, MPC and underactuation, and models in
+  PyTorch and numpy. Every item has its release, up to 1.0.0.
+- **Rescoped on 5 October 2026:** after 0.5.0 the plan is short: MPC and underactuation (0.6.0),
+  models in PyTorch and numpy (0.7.0), then a full check and the 1.0.0 release. Co-design with
+  variable-stiffness actuators, URDF and MuJoCo, continuum models beyond PCC, inverse dynamics,
+  realism wrappers, learning from demonstrations and the other model backends are not planned.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -77,14 +81,11 @@ Everything still to do, in order. Each step is done when its items below are tic
    filters; grasp-force tracking on two arms and the hand's fingertip laws; Kalman filters and
    force, stiffness and shape estimates; trees, joints, floating bases, more coordinates and
    components, more contact; the turtle crawling; parity with VMRobotControl.jl.
-5. **0.6.0, MPC and underactuation:** MPC; underactuated VMC; continuum models beyond PCC;
-   bring your own dynamics; URDF import and export, serialization, a MuJoCo plant; realism
-   wrappers.
-6. **0.7.0, co-design:** actuator models; co-design structures and optimization across time
-   scales; grasp transitions with a variable-stiffness actuator.
-7. **0.8.0, learning:** every model in PyTorch, JAX, numpy, sympy and C; datasets; parameter
-   networks; imitation learning with diffusion models; learned residual dynamics.
-8. **1.0.0:** API review and freeze, with everything above in.
+5. **0.6.0, MPC and underactuation:** MPC; underactuated VMC and its templates; robots with
+   unmeasured coordinates; custom dynamics for a `FunctionModel`.
+6. **0.7.0, models in PyTorch and numpy:** every model as a numpy function and a PyTorch
+   function, generated from the CasADi graph.
+7. **1.0.0:** check everything, from a fresh clone, and publish.
 
 ---
 
@@ -156,7 +157,7 @@ docs build. Nothing is pasted as an image if it can be computed.
   build a robot (from DH or product-of-exponentials data, a continuum model, joint space only,
   actuation and couplings, masses, a template function, the tests); extend the library (new
   component, coordinate, model, plant; plugins through entry points). From simulation to the
-  real robot comes with 0.3.0, using a model outside CasADi with 0.8.0, a new solver with 0.4.0.
+  real robot comes with 0.3.0, using a model outside CasADi with 0.7.0, a new solver with 0.4.0.
 - [x] Examples: soft arm, two arms, finger, hand (and on the UR5), turtle; each opens with its
   robot: a schematic, a parameter table (name, value, unit, meaning), calibration constants, the
   output stage, the signs, and how to build it with other numbers.
@@ -383,17 +384,16 @@ turtle crawling.
   vocabulary of coordinates and components): virtual mechanisms with their own kinematics (a
   virtual cart on a rail along a path, a virtual tool); a table that maps its features to this
   library's; examples mirroring it (reaching with obstacle avoidance, compliant path
-  following, a pendulum on a spline rail; the seven-joint arm from its URDF comes with 0.6.0).
+  following, a pendulum on a spline rail).
 - [ ] **Docs:** adaptation and passivity filters; estimation; the turtle crawling; bring your
   own kinematics (a function, DH or product-of-exponentials data), each ending in a working
   controller without simulation or optimization imports.
 
 ---
 
-## 0.6.0: MPC, underactuation, URDF and MuJoCo
+## 0.6.0: MPC and underactuation
 
-Controllers that look ahead and robots with passive joints, continuum models beyond piecewise
-constant curvature, robots from URDF files, and a second simulator to check the first.
+Controllers that look ahead, and robots with passive joints or unmeasured coordinates.
 
 - [ ] **MPC:** initial state and references as parameters, shifted warm start, a horizon of
   stiffness and reference trajectories under passivity (tank) constraints; runs asynchronously
@@ -407,73 +407,31 @@ constant curvature, robots from URDF files, and a second simulator to check the 
   estimate of them.
 - [ ] **Underactuated templates:** a planar three-link arm with one passive joint, a five-link
   arm with three passive joints, a two-tendon continuum arm.
-- [ ] **Continuum models beyond PCC:** affine and polynomial curvature, piecewise-constant
-  strain (Cosserat), each tested against PCC where they coincide; the elongation offset as a
-  Param; a PyElastica plant to validate PCC and the strain models.
-- [ ] **Bring your own dynamics:** a custom residual r(q, v, a, u, f_ext, p) = 0 with an
-  optional energy, for black-box, learned or external models; inverse dynamics and
-  operational-space quantities (task-space inertia, operational-space force).
-- [ ] **URDF and serialization:** URDF import (joints, axes, origins, limits, masses, centres
-  of mass, inertia tensors, visual and collision meshes; every number a Param with the URDF
-  value as its default; checked numerically against pinocchio); export to URDF and MJCF, with
-  a rigid-link approximation of continuum segments; whole systems (robot and controller) to
-  YAML or JSON and back.
-- [ ] **MuJoCo plant** from URDF or MJCF: friction contacts, meshes, offscreen rendering to
-  video; cross-fidelity tests (`ModelPlant` against MuJoCo on the UR5 carrying the hand; PCC
-  against PyElastica).
-- [ ] **Realism wrappers:** delays, sensor rates, noise, quantization, spikes; actuator
-  friction, efficiency and torque limits.
-- [ ] **Example:** impedance control of a seven-joint arm loaded from its URDF.
-- [ ] **Docs:** MPC; underactuation; URDF and MuJoCo; bring your own dynamics.
+- [ ] **Custom dynamics:** a residual r(q, v, a, u, f_ext, p) = 0 with an optional energy,
+  attached to a `FunctionModel`, for black-box or external models. The passivity tools need the
+  energy and refuse without it.
+- [ ] **Docs:** MPC; underactuation; custom dynamics.
 
 ---
 
-## 0.7.0: co-design with variable-stiffness actuators
+## 0.7.0: models in PyTorch and numpy
 
-Mechanical design and control as one problem: the hardware's stiffness and rest state, the
-settings of variable-stiffness actuators (VSAs) and the virtual stiffness, across their time
-scales.
-
-- [ ] **Actuator models:** motor inertia; elastic transmissions (series and parallel elastic
-  elements, each grounded where the hardware grounds it); VSA potentials with slow motors;
-  allocation with positive tendon tensions.
-- [ ] **Co-design structures:** a series elastic transmission with a parallel elastic element
-  on the motor; slow, non-backdrivable motors that set stiffness and rest angle; power
-  reported for slow actuators.
-- [ ] **Co-design across time scales:** design variables (geometry, VSA settings, hardware
-  stiffness), episode variables and stage variables in one problem, through the Param scopes;
-  scenario sets that share design variables; bilevel problems.
-- [ ] **Example:** precision-to-power grasp transitions with a VSA.
-- [ ] **Docs:** co-design.
-
----
-
-## 0.8.0: learning
-
-- [ ] **Every model in PyTorch, JAX, numpy, sympy and C:** one translator from a CasADi
-  function's instruction list to numpy source (runs without CasADi installed), sympy
-  expressions (symbolic checks and LaTeX), JAX and PyTorch (differentiable); C from CasADi's
-  own code generator; one way to ask for any of them, such as
-  `vmc.Kinematics(robot).function("tip", backend="numpy")`, `compiled.export("sympy")`,
-  `dynamics.export("torch")`; every backend agrees with CasADi to 1e-12 on random inputs,
-  Jacobians and Hessians included; a CasADi and PyTorch autograd bridge for training through
-  compiled functions; docs "Use a model outside CasADi".
-- [ ] **Datasets** from run logs, data-glove recordings and kinesthetic demonstrations.
-- [ ] **Parameter networks:** networks that output VMC parameters, always passed through a
-  passivity-consistent projection; small networks exported back to CasADi for the control
-  loop.
-- [ ] **Imitation learning with diffusion models:** policies trained on demonstrations that
-  output VMC parameters (stiffness, references), through the same projection.
-- [ ] **Learned residual dynamics** as a custom-residual model.
-- [ ] **Examples:** grasp stiffness learned from demonstrations; a diffusion policy that
-  reproduces demonstrated stiffness and reference changes in simulation.
+- [ ] **Every model in PyTorch and numpy:** one translator from a CasADi function's instruction
+  list to numpy source (it runs without CasADi installed) and to PyTorch (differentiable); one
+  way to ask for either, such as `vmc.Kinematics(robot).function("tip", backend="numpy")` and
+  `dynamics.export("torch")`; both agree with CasADi to 1e-12 on random inputs, Jacobians and
+  Hessians included.
+- [ ] **Docs:** "Use a model outside CasADi".
 
 ---
 
 ## 1.0.0
 
-- [ ] API review and freeze; deprecated names removed; a support policy. Every item above is
-  done by then.
+- [ ] **Check everything and publish:** every page, example and documented command run from a
+  fresh clone on each supported Python and numpy; API review and freeze; deprecated names
+  removed; a support policy; the release.
+- [ ] **Review all the documentation** page by page, so that the final version is ready: text,
+  numbers, figures, animations and links, at desktop and phone width.
 
 ---
 
@@ -494,12 +452,8 @@ new designs against these themes, so nothing they need is made hard:
   online (within an energy budget) and structure (which elements, where) in 0.4.0; MPC in
   0.6.0.
 - **Underactuated and under-sensed compliant robots.** (0.6.0)
-- **Co-design across time scales with VSAs:** hardware rest state and stiffness, VSA settings and
-  virtual stiffness in one problem; precision-to-power grasp transitions; impact absorption with
-  a wrist VSA. (0.7.0)
 - **Locomotion with VMC instead of central pattern generators:** virtual flywheel, ground contact,
   gait tuning (turtle). (Flywheel done; crawling in 0.5.0.)
-- **Learning VMC parameters from demonstrations, with passivity guarantees.** (0.8.0)
 - **IMU proprioception of soft arms** as an estimator. (0.5.0)
 
 ## Everything done by hand in lab code, and where it lands
@@ -539,7 +493,7 @@ new designs against these themes, so nothing they need is made hard:
   it is fixed.
 - The arm mounted on its side (`145-145-145`) uses the stiffness and damping identified on
   another Helyx arm: its closed-loop runs cannot identify it, since its tendons go slack under
-  small torques. Identify it with the step experiment (0.6.0).
+  small torques. Identify it with the step experiment (0.4.0).
 - The hanging arm's bus (`helyx.hardware("145-290-290")`): IDs 1 to 9 at 4 Mbaud with the
   motor constant 0.001783, from its start script; its documentation says IDs 11 to 19. Confirm
   on the arm.
