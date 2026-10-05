@@ -6,8 +6,8 @@ kernelspec:
 
 # Tuning stiffness and damping
 
-In this tutorial we choose the stiffness and the damping of a fingertip spring from the
-finger's own mass, and find the damping beyond which the control loop itself turns unstable.
+In this tutorial we choose the stiffness and damping of a fingertip spring from the finger's
+mass, and find the damping beyond which the control loop turns unstable.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -16,10 +16,9 @@ import docs_setup
 
 ## The mass the spring moves
 
-A spring pulls the fingertip from its start to a goal. How the tip responds depends on the
-mass the spring feels along that motion, the effective mass
-$m = 1 / (u^\top J M^{-1} J^\top u)$, from the finger's mass matrix $M$, the tip's Jacobian $J$
-and the direction of motion $u$:
+A spring pulls the fingertip from its start to a goal. The tip responds according to the mass
+the spring feels along that motion, the effective mass $m = 1 / (u^\top J M^{-1} J^\top u)$.
+Here $M$ is the finger's mass matrix, $J$ the tip's Jacobian and $u$ the direction of motion:
 
 ```{code-cell} python
 import numpy as np
@@ -86,8 +85,7 @@ glue("D_c", float(D_c), display=False)
 ```
 
 With $K$ = 100 N/m and a {glue:text}`m:.1f` g tip, $D_c$ = {glue:text}`D_c:.2f` N·s/m. Below
-it the tip overshoots the goal and rings; at twice $D_c$ it takes longer to arrive without
-overshooting.
+it the tip overshoots the goal and rings. At twice $D_c$ it arrives later, without overshooting.
 
 ```{code-cell} python
 :tags: [remove-output]
@@ -100,13 +98,13 @@ viz.animate(finger, log, "tuning.mp4", plane="yz", invert=True,
 :caption: With half the critical damping, the fingertip overshoots its goal (red cross) and rings; ten times slower than real time.
 ```
 
-## Searching instead of guessing
+## Search for the damping
 
-The damping above came from a formula. A search finds it from the runs themselves: we write a
-cost, the distance of the tip to its goal summed over a run, and a searcher picks the dampings
-to try. `Grid`, `Random`, `CMAES` and `ExtremumSeeking` of `vmc.optimization` all work by asking
-for candidates and being told their costs, and the runs between are yours, in simulation as here
-or on a robot in your own loop:
+The damping above came from a formula. A search finds it from runs instead. We write a cost, the
+distance of the tip to its goal summed over a run, and a searcher picks the dampings to try.
+`Grid`, `Random`, `CMAES` and `ExtremumSeeking` of `vmc.optimization` all ask for candidates and
+are told their costs. The runs in between are yours, in simulation as here or on a robot in your
+own loop:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt
@@ -145,8 +143,8 @@ assert abs(grid.best[0] - search.best[0]) < 0.3 * D_c, (grid.best, search.best)
 The grid, with 25 runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, and CMA-ES, with
 {glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$: a little under the critical damping.
 When the whole motion can be planned, [Optimizing a virtual mechanism](optimize.md) finds Params
-with gradients; a search is for when a run is all you have. `opt.bounds_of(params, names)`
-gives the bounds and the current values of named Params as vectors to start from, and
+with gradients. A search is for when a run is all you have. `opt.bounds_of(params, names)` gives
+the bounds and the current values of named Params as vectors to start from, and
 `params.set_vector(x, names)` sets a candidate back.
 
 ## The loop limits the damping
@@ -160,7 +158,7 @@ We find the limits by simulation. The plant below applies each command one step 
 plant of [Extend the library](extend.md):
 
 ```{code-cell} python
-class OneStepLate:
+class Late:
     """The simulated finger, receiving each command one step late."""
 
     def __init__(self, plant):
@@ -189,7 +187,7 @@ first = {}
 for name, late in (("sampled", False), ("one step late", True)):
     for D in dampers:
         plant = vmc.sim.ModelPlant(finger, q0=q0)
-        if unstable(simulate(D, OneStepLate(plant) if late else plant)):
+        if unstable(simulate(D, Late(plant) if late else plant)):
             first[name] = float(D)
             break
 print(f"m/dt = {m / dt:.1f} N·s/m; first unstable damper: {first}")
@@ -206,8 +204,8 @@ glue("sampled", first["sampled"], display=False)
 The sampled loop turns unstable at {glue:text}`sampled:.1f` N·s/m against
 $2m/\Delta t$ = {glue:text}`limit2:.1f`, and the delayed loop at {glue:text}`late:.1f` N·s/m
 against $m/\Delta t$ = {glue:text}`limit:.1f`. Keep the damper well below the limit of your
-loop; a faster loop, or less delay, allows more damping. On the real soft arm, whose loop has
-more delay than one step, dampers above about 10 N·s/m at the tip were seen to oscillate.
+loop. A faster loop, or less delay, allows more damping. On the real soft arm, whose loop has
+more delay than one step, tip dampers above about 10 N·s/m oscillated.
 
 ## Reading the energies
 
@@ -245,7 +243,7 @@ glue("gone", float(rows["t"].ravel()[np.argmax(V < 0.01 * V[0])]), display=False
 glue("dissipated", float(1000 * dissipated[-1]), display=False)
 ```
 
-The spring starts with {glue:text}`V0:.0f` mJ, $\tfrac12 K d^2$, and has lost 99 % of it after
-{glue:text}`gone:.2f` s. The damper dissipates {glue:text}`dissipated:.0f` mJ, close to that:
-the difference is the work of the other forces on the finger, gravity and its compensation,
-which the [energy tutorial](energy.md) accounts for.
+The spring starts with {glue:text}`V0:.0f` mJ ($\tfrac12 K d^2$, for the start distance $d$ to
+the goal) and has lost 99 % of it after {glue:text}`gone:.2f` s. The damper dissipates
+{glue:text}`dissipated:.0f` mJ, close to that. The difference is the work of the other forces on
+the finger, gravity and its compensation, which the [energy tutorial](energy.md) accounts for.

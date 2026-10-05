@@ -18,9 +18,9 @@ import docs_setup
 
 A contact needs a signed distance $d$ from a robot point to a surface: positive outside, zero
 on the surface, negative inside. A `ContactSpring` on $d$ pushes the point out only while
-$d < 0$, with energy $\tfrac12 k \delta^2$ for a penetration $\delta = \max(0, -d)$, and a
+$d < 0$, with energy $\tfrac12 k \delta^2$ for a penetration $\delta = \max(0, -d)$. A
 `ContactDamper` damps only during contact. Added to the robot mechanism, they model the
-environment, which only the simulator feels; added to the controller, they make a virtual
+environment, which only the simulator feels. Added to the controller, they make a virtual
 wall.
 
 ## A finger above a table
@@ -40,15 +40,15 @@ finger = adapt.add_dynamics(adapt.finger())
 tip = finger.point("tip")
 gap = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.06])
 finger.add("table", vmc.ContactSpring(gap, k))
-finger.add("table_damping", vmc.ContactDamper(gap, 5.0))  # [N·s/m]
+finger.add("cushion", vmc.ContactDamper(gap, 5.0))  # [N·s/m]
 ```
 
 ## Press with a chosen force
 
 A spring pulls the fingertip towards a goal below the surface. The tip stops on the table, where
-the spring's pull balances the table's push, so the contact force is the spring's stiffness $K$
-times the goal's depth (a little less, because the table gives way: $K k / (K + k)$ times the
-depth).
+the spring's pull balances the table's push. The contact force is then about the spring's
+stiffness $K$ times the goal's depth, a little less because the table gives way: $K k / (K + k)$
+times the depth.
 
 ```{code-cell} python
 K = 100.0  # [N/m]
@@ -104,20 +104,20 @@ glue("eta_arm", helyx.EFFICIENCY, display=False)
 ```
 
 The first touch is an impact: the force peaks at {glue:text}`press_peak:.2f` N while the tip
-stops, then settles. Each deeper goal raises the force by one step; the last one settles at
+stops, then settles. Each deeper goal raises the force by one step. The last one settles at
 {glue:text}`press_end:.3f` N against {glue:text}`press_goal:.3f` N expected. To press more
 gently, lower $K$ or damp the tip more.
 
 This finger delivers the full torque of its motors. A real transmission can pass on less: the
 soft arm's tendons deliver a share $\eta$ = {glue:text}`eta_arm:.2f` of each motor torque. The
-arm's model does not need it, because its stiffness and damping were identified from the
-commanded torques, but its forces on the surroundings do: the spring presses with $\eta K$
+arm's model does not need $\eta$, because we identified its stiffness and damping from the
+commanded torques. Its forces on the surroundings do need it. The spring presses with $\eta K$
 times its stretch, so a chosen force needs $1/\eta$ times the stretch, corrected for the arm's
 own stiffness and weight. The [efficiency page](../concepts/efficiency.md) explains both.
 
 ```{code-cell} python
 :tags: [remove-output]
-def draw_table(ax, row):
+def draw(ax, row):
     ax.axhspan(0.06, 0.09, color="0.88", zorder=0)
     goal = [0.0, 0.05, 0.06 + row["depth"]]
     viz.draw_goal(ax, goal, plane="yz", markersize=10)
@@ -126,7 +126,7 @@ def draw_table(ax, row):
                    scale=0.015)
 
 viz.animate(finger, log, "contact.mp4", plane="yz", invert=True,
-            draw=draw_table, limits=((-0.01, 0.1), (-0.01, 0.085)))
+            draw=draw, limits=((-0.01, 0.1), (-0.01, 0.085)))
 ```
 
 ```{video} contact.mp4
@@ -150,7 +150,7 @@ ctrl = vmc.Mechanism("ctrl")
 ctrl.add("press", vmc.LinearSpring(tip - [0.0, 0.05, 0.06 + depth], K))
 ctrl.add("damp", vmc.LinearDamper(tip, 1.0))
 ctrl.add("floor", vmc.ContactSpring(floor, k_floor))
-ctrl.add("floor_damping", vmc.ContactDamper(floor, 5.0))
+ctrl.add("cushion", vmc.ContactDamper(floor, 5.0))
 ctrl.add("gravity", vmc.GravityCompensation(free))
 system = vmc.VirtualMechanismSystem(free, ctrl)
 controller = vmc.VMCController(vmc.compile(system))
@@ -169,9 +169,9 @@ or removes.
 
 ## Other surfaces
 
-`SphereDistance` gives the distance to a ball, for grasps and obstacles; a body that can touch
-along its length, such as a soft arm, takes a contact on several of its points; and any signed
-distance written with CasADi operations works through a `Custom` coordinate. Here a pole of
+`SphereDistance` gives the distance to a ball, for grasps and obstacles. A body that can touch
+along its length, such as a soft arm, takes a contact on several of its points. Any signed
+distance written with CasADi operations works through a `Custom` coordinate. Here is a pole of
 radius 2 cm along $z$, beside the soft arm's tip:
 
 ```{code-cell} python
@@ -189,9 +189,9 @@ vmc.compile_dynamics(arm).energy  # the pole is now part of the arm's world
 
 - Stiffness: the penetration at rest is $F / k$; 10³ to 10⁵ N/m model hard surfaces, and a soft
   object is a lower $k$.
-- Time step: `ModelPlant`'s implicit steps stay stable at any stiffness, but resolving the
-  impact needs `max_step` well below the contact period $2\pi\sqrt{m/k}$; a few grams on
-  10⁴ N/m give a few milliseconds, hence `max_step=1e-4` above.
+- Time step: `ModelPlant`'s implicit steps stay stable at any stiffness. Resolving the impact
+  needs `max_step` well below the contact period $2\pi\sqrt{m/k}$. A few grams on 10⁴ N/m give
+  a few milliseconds, hence `max_step=1e-4` above.
 - Damping: the damping ratio is $D / (2\sqrt{k m})$; without a contact damper the tip bounces.
 - Smoothing: `ContactSpring(d, k, smoothing=w)` and `ContactDamper(d, D, smoothing=w)` round the
   corner at the surface over a width $w$ [m], which optimization needs.
