@@ -31,6 +31,12 @@ versions, with one minor version of deprecation before a removal).
   integrated by `"implicit"` (the default, as `ModelPlant`), `"rk4"` or `"cvodes"`;
   it reproduces `vmc.sim.run` to rounding error. `vmc.sim.ode(system)` is the closed loop in
   continuous time, f(t, x) for SciPy's `solve_ivp`.
+- `vmc.control.Tank(controller, level, capacity)`: an energy budget for changing a running
+  controller. `tank.set(values)` applies a change of live Params as far as the tank can pay for
+  the exact jump it gives the controller's energy (the largest fraction of the step that fits);
+  a step that releases energy is applied whole, even with an empty tank, and refills it.
+  `result.apply(tank)` passes an optimizer's result through it. `VMCController.jump(values)`
+  gives the jump `set` would give, without applying it.
 - `vmc.optimization.Grid`, `Random` and `CMAES`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation

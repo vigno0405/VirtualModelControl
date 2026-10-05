@@ -56,17 +56,14 @@ class VMCController:
 
     def set(self, values: Mapping[str, ArrayLike] | None = None, **kwargs: ArrayLike) -> float:
         """Change live Params at once; returns the exact jump of the controller's energy [J]."""
-        new = self.params.copy()
-        for name, value in {**(values or {}), **kwargs}.items():
-            if name not in self._slices:
-                raise KeyError(
-                    f"{name!r} is not a live Param here; compile with runtime=[{name!r}] to change "
-                    "it while running"
-                )
-            new[self._slices[name]] = np.ravel(value, order="F")
-        jump = 0.0 if self._x is None else self._energy(new) - self._energy(self.params)
+        new = self._changed(values, kwargs)
+        jump = self._jump(new)
         self.params = new
         return jump
+
+    def jump(self, values: Mapping[str, ArrayLike] | None = None, **kwargs: ArrayLike) -> float:
+        """The jump of the controller's energy [J] that ``set`` would give, changing nothing."""
+        return self._jump(self._changed(values, kwargs))
 
     def energy(self) -> float:
         """Energy of the controller at the last step [J] (stored plus virtual kinetic)."""
@@ -99,6 +96,20 @@ class VMCController:
             name: dict(zip(quantities, values[4 * k : 4 * k + 4], strict=True))
             for k, name in enumerate(self.compiled.component_names)
         }
+
+    def _changed(self, values: Mapping[str, ArrayLike] | None, kwargs: Mapping[str, Any]) -> Any:
+        new = self.params.copy()
+        for name, value in {**(values or {}), **kwargs}.items():
+            if name not in self._slices:
+                raise KeyError(
+                    f"{name!r} is not a live Param here; compile with runtime=[{name!r}] to change "
+                    "it while running"
+                )
+            new[self._slices[name]] = np.ravel(value, order="F")
+        return new
+
+    def _jump(self, new: np.ndarray) -> float:
+        return 0.0 if self._x is None else self._energy(new) - self._energy(self.params)
 
     def _energy(self, params: np.ndarray) -> float:
         assert self._x is not None

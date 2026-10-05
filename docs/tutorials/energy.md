@@ -191,3 +191,36 @@ here it supplies nothing. The controller gave {glue:text}`work:.2f` J through it
 
 Changing a live parameter while running changes the controller's energy too, by the jump that
 `controller.set` returns ([Parameters](parameters.md)).
+
+## A budget for changes
+
+Raising a stiffness while the spring is deflected stores energy out of nothing, which is what
+breaks the passivity above. A `Tank` is a budget for such changes of a running controller. It
+applies a change only as far as the tank can pay for the energy jump it gives: the largest
+fraction of the step whose exact jump fits. A step that releases energy is always applied whole,
+and refills the tank:
+
+```{code-cell} python
+controller = vmc.VMCController(law)
+sim = vmc.sim.ModelPlant(arm)
+vmc.sim.run(sim, controller, vmc.sim.SimClock(1 / 330), T=0.05)
+
+tank = vmc.control.Tank(controller, level=0.02)  # [J]
+stiffer = {"ctrl.reach.stiffness": 1200.0}
+asked = controller.jump(stiffer)  # the whole step [J]
+paid = tank.set(stiffer)
+fraction = tank.fraction
+print(f"asked {asked:.3f} J, paid {paid:.3f} J: {fraction:.2f} of the step")
+released = -tank.set({"ctrl.reach.stiffness": 100.0})
+print(f"released {released:.3f} J, the tank holds {tank.level:.3f} J")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert fraction < 1.0 and abs(paid - 0.02) < 1e-9 and released > 0.0
+```
+
+`controller.jump(values)` is the jump `controller.set(values)` would give, without applying it.
+The tank is otherwise the controller: run it in place of the controller, and pass a
+[result of an optimization](optimize.md) to `result.apply(tank)`, so that an optimizer's new
+gains reach the robot only as fast as the budget allows.

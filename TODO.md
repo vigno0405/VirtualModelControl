@@ -314,9 +314,13 @@ the soft arm among obstacles.
   optimization, extremum seeking) for episodes run in simulation or on the robot by its own
   node. Done so far: `Grid`, `Random` and `CMAES` with `tune`; Bayesian optimization and
   extremum seeking remain.
-- [ ] **Energy tank:** exact bounds on parameter steps, including steps that release energy
+- [x] **Energy tank:** exact bounds on parameter steps, including steps that release energy
   when the tank is empty; online updates of a running controller, such as an optimizer's
-  result applied through `controller.set`, pass through it.
+  result applied through `controller.set`, pass through it. Done (6 October 2026):
+  `vmc.control.Tank` applies a change as far as the tank pays for its exact energy jump, a
+  release is applied whole and refills the tank, and `result.apply(tank)` passes an optimizer's
+  result through it; `controller.jump` gives the jump without applying it; section "A budget
+  for changes" of the energy tutorial.
 - [ ] **Step experiment:** the experiment as a library tool; the stiffness and damping fit with
   a friction column, validated by simulating held-out steps; masses stay fixed. The arm mounted
   on its side needs it: its closed-loop runs cannot identify it.

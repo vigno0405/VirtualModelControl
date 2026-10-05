@@ -4,6 +4,7 @@ from .blending import SwapController, blend_weight
 from .controller import VMCController
 from .output import FrictionCompensation, Pretension, TorqueLimit, TorqueOffset
 from .schedule import Schedule, ScheduledController
+from .tank import Tank
 
 __all__ = [
     "FrictionCompensation",
@@ -11,6 +12,7 @@ __all__ = [
     "Schedule",
     "ScheduledController",
     "SwapController",
+    "Tank",
     "TorqueLimit",
     "TorqueOffset",
     "VMCController",
