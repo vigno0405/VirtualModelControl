@@ -100,6 +100,55 @@ viz.animate(finger, log, "tuning.mp4", plane="yz", invert=True,
 :caption: With half the critical damping, the fingertip overshoots its goal (red cross) and rings; ten times slower than real time.
 ```
 
+## Searching instead of guessing
+
+The damping above came from a formula. A search finds it from the runs themselves: we write a
+cost, the distance of the tip to its goal summed over a run, and a searcher picks the dampings
+to try. `Grid`, `Random` and `CMAES` of `vmc.optimization` all work by asking for candidates and
+being told their costs, and the runs between are yours, in simulation as here or on a robot in
+your own loop:
+
+```{code-cell} python
+from virtualmodelcontrol import optimization as opt
+
+
+def cost(x):  # [mm s]
+    return float(distance(simulate(x[0], T=0.5)).sum() * dt)
+
+
+grid = opt.tune(opt.Grid([0.1 * D_c], [3 * D_c], 25), cost, rounds=1)
+
+search = opt.CMAES([2 * D_c], 0.5 * D_c, [0.1 * D_c], [3 * D_c], size=6)
+for _ in range(5):
+    candidates = search.ask()  # the dampings to try
+    costs = [cost(x) for x in candidates]  # one run each
+    search.tell(candidates, costs)
+
+fig, ax = plt.subplots()
+x, y = (np.array(h) for h in zip(*grid.history, strict=True))
+ax.plot(x[:, 0] / D_c, y, ".-", label="grid")
+x, y = (np.array(h) for h in zip(*search.history, strict=True))
+ax.plot(x[:, 0] / D_c, y, "o", label="CMA-ES")
+ax.set_xlabel("$D / D_c$")
+ax.set_ylabel("cost [mm s]")
+ax.legend(loc="upper right", fontsize=18);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("grid", float(grid.best[0] / D_c), display=False)
+glue("cma", float(search.best[0] / D_c), display=False)
+glue("runs", len(search.history), display=False)
+assert abs(grid.best[0] - search.best[0]) < 0.3 * D_c, (grid.best, search.best)
+```
+
+The grid, with 25 runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, and CMA-ES, with
+{glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$: a little under the critical damping.
+When the whole motion can be planned, [Optimizing a virtual mechanism](optimize.md) finds Params
+with gradients; a search is for when a run is all you have. `opt.bounds_of(params, names)`
+gives the bounds and the current values of named Params as vectors to start from, and
+`params.set_vector(x, names)` sets a candidate back.
+
 ## The loop limits the damping
 
 The controller computes the damper's force from velocities measured at the start of each

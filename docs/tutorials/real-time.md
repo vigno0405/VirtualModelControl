@@ -176,14 +176,50 @@ For a simulation the arm also needs its own stiffness, damping and gravity, whic
 simulated time:
 
 ```{code-cell} python
-sim_arm = helyx.add_dynamics(helyx.arm("145-290-290"))
-plant = vmc.sim.ModelPlant(sim_arm)
+helyx.add_dynamics(arm)
+plant = vmc.sim.ModelPlant(arm)
 sim = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 330), T=3.0)
 sim.arrays()["motor_torque"].shape
 ```
 
 Nothing else changes: the same `controller` and the same `run`. The simulation is the place to
 choose gains and to read the energies ([Parameters](parameters.md), [Energy](energy.md)).
+
+### A faster simulation
+
+`vmc.sim.rollout` simulates the same closed loop in one compiled call, without the plant and the
+loop in Python. Its rows are those of `run`:
+
+```{code-cell} python
+r = vmc.sim.rollout(system, np.zeros(9), T=3.0, dt=1 / 330)
+np.abs(r["q"] - sim.arrays()["q"]).max()  # [m]
+```
+
+`integrator` chooses how the robot is integrated between control steps: `"implicit"` (the
+default, stable for stiff robots such as the soft arm), `"rk4"` for robots that are not stiff,
+and `"cvodes"` or `"idas"` (CasADi's integrators) when accuracy matters more than speed. `p`
+takes a CasADi symbol for the controller's live Params, so that the result can be differentiated
+with respect to them. For SciPy, `vmc.sim.ode(system)` is the closed loop in continuous time, a
+function `f(t, x)` for `solve_ivp`:
+
+```{code-cell} python
+from scipy.integrate import solve_ivp
+
+f = vmc.sim.ode(system)
+sol = solve_ivp(f, (0.0, 1.0), np.zeros(18), method="Radau")
+np.abs(sol.y[:9, -1] - r["q"][330]).max()  # [m]
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("same", float(np.abs(r["q"] - sim.arrays()["q"]).max()), display=False)
+glue("cont", float(np.abs(sol.y[:9, -1] - r["q"][330]).max()), display=False)
+assert float(np.abs(r["q"] - sim.arrays()["q"]).max()) < 1e-10
+```
+
+The rollout differs from `run` by {glue:text}`same:.0e` m, rounding error. The continuous-time
+solution differs from the sampled loop by {glue:text}`cont:.0e` m after a second, the effect of
+sampling the controller at 330 Hz.
 
 ### The real-time loop under faults
 
@@ -198,7 +234,7 @@ class Faulty:
     """The simulated arm on the clock's time, with faults to switch on."""
 
     def __init__(self, lag=0.0, blind=(1.0, 0.0)):
-        self.sim = vmc.sim.ModelPlant(sim_arm)
+        self.sim = vmc.sim.ModelPlant(arm)
         self.lag, self.blind = lag, blind
 
     t = property(lambda self: self.sim.t)

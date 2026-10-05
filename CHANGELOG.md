@@ -26,6 +26,15 @@ versions, with one minor version of deprecation before a removal).
   to solver tolerance. Controllers with virtual states and non-flat configuration spaces are not
   supported yet.
 - Docs: tutorial "Optimizing a virtual mechanism".
+- `vmc.sim.rollout(system, q0, T, dt)`: the closed loop simulated in one compiled call
+  (`mapaccum`), differentiable with respect to the controller's live Params, with the robot
+  integrated by `"implicit"` (the default, as `ModelPlant`), `"rk4"`, `"cvodes"` or `"idas"`;
+  it reproduces `vmc.sim.run` to rounding error. `vmc.sim.ode(system)` is the closed loop in
+  continuous time, f(t, x) for SciPy's `solve_ivp`.
+- `vmc.optimization.Grid`, `Random` and `CMAES`: gradient-free tuning by ask and tell (`ask()`
+  gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
+  `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation
+  or on a robot in your own loop.
 - `compile_dynamics(robot, runtime, actuation)` takes the actuation of a robot that has none, so a
   system's efficiency Params (`robot.efficiency.c1`) are the ones the dynamics read.
 
