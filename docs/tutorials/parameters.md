@@ -14,7 +14,7 @@ ones the compiled controller keeps live, and move a goal while the arm runs.
 import docs_setup
 ```
 
-## A Param
+## Read and change a Param
 
 Every number of a robot or of a controller is a `Param`: a value with a unit, bounds and a
 scope. Here is the rest length of the arm's first segment:
@@ -32,7 +32,7 @@ length, length.bounds
 ```
 
 `vmc.Kinematics` evaluates at the current values, so lengthening the first segment moves the tip
-of the straight arm by as much:
+of the straight arm by the same amount:
 
 ```{code-cell} python
 kin = vmc.Kinematics(arm)
@@ -69,7 +69,7 @@ the first component that uses the point, `reach`. Gravity compensation shares th
 ## What compile keeps live
 
 `compile` keeps the `stage` Params as live inputs of the compiled function and folds every other
-Param in as a constant, at its current value. Constants make the function faster; to change
+Param in as a constant, at its current value. Constants make the function faster. To change
 one, change its Param and compile again.
 
 ```{code-cell} python
@@ -100,7 +100,7 @@ stored, jump
 ```
 
 Doubling the stiffness doubles the energy of the stretched spring, so the jump equals what it
-stored. Goals are live Params too. A plain list on either side of `-` becomes one named `ref`:
+stored. Goals are live Params too. A plain list on either side of `-` becomes a Param named `ref`:
 
 ```{code-cell} python
 other = vmc.Mechanism("ctrl")
@@ -113,7 +113,7 @@ name of its own, given by `vmc.Ref("goal", ...)` as above: `ctrl.reach.goal`.
 
 ## Move the goal
 
-The goal now swings from side to side while the arm runs. The loop is the one `vmc.sim.run`
+The goal swings from side to side while the arm runs. The loop is the one `vmc.sim.run`
 runs (read, step, write, advance; its guard is left out) with one `set` before each step. The
 log also records the goal, to draw it later.
 
@@ -161,7 +161,7 @@ glue("gap", 100 * float(gap.max()), display=False)
 ```
 
 The tip follows the goal about {glue:text}`lag:.0f` ms behind and stays within
-{glue:text}`gap:.1f` cm of it. The gap is mostly along $z$: the tip stays beyond the goal,
+{glue:text}`gap:.1f` cm of it. The gap is mostly along $z$: the tip stays short of the goal,
 where the spring balances the arm's own stiffness.
 
 ## Animate

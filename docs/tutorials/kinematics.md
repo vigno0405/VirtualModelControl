@@ -6,9 +6,9 @@ kernelspec:
 
 # Kinematics on the UR5
 
-In this tutorial we compute where a robot's points are and how they move: the position,
-rotation, Jacobians and Hessian of the UR5's tool, each checked against finite differences, and
-the joint stiffness that a spring at the tool produces.
+In this tutorial we compute the position and rotation of the UR5's tool, and its Jacobians and
+Hessian, which we check against finite differences. Then we compute the joint stiffness that a
+spring at the tool produces.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -75,8 +75,8 @@ print("Jw error:", np.abs(Jw - Jw_fd).max())
 ## Hessians
 
 The Hessian $H_k = \partial^2 p_k / \partial q^2$ is the second derivative of each coordinate
-of the position. It tells how the Jacobian changes, and makes a second-order prediction of the
-position exact up to third order in the step:
+of the position. It tells how the Jacobian changes, and gives a second-order prediction of the
+position:
 
 ```{code-cell} python
 H = kin.hessian(q, "tool")  # (3, 6, 6)
@@ -128,8 +128,8 @@ print("error without the Hessian term:", np.abs(geometric - fd).max())
 
 ## Moving the joints
 
-A log needs only the time and the configurations, so `viz.animate` also replays a motion that
-comes from no simulation at all, here a smooth sweep of three joints:
+A log needs only the time and the configurations, so `viz.animate` can replay any motion, even
+one that is not simulated. Here is a smooth sweep of three joints:
 
 ```{code-cell} python
 :tags: [remove-output]
