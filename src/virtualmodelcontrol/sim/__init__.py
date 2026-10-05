@@ -3,6 +3,7 @@
 from .model_plant import ModelPlant
 from .plant import Plant, SimPlant
 from .replay import replay
+from .rollout import ode, rollout
 from .run import RECORDS, Guard, SimClock, WallClock, run
 from .runlog import RunLog, compare
 
@@ -16,6 +17,8 @@ __all__ = [
     "SimPlant",
     "WallClock",
     "compare",
+    "ode",
     "replay",
+    "rollout",
     "run",
 ]

@@ -1,5 +1,6 @@
 """Optimization of virtual mechanisms: plan the closed loop's motion and tune the Params."""
 
+from .asktell import CMAES, Grid, Random, bounds_of, tune
 from .collocation import Collocation
 from .nlp import NLP
 from .problem import Problem
@@ -10,6 +11,7 @@ from .terms import Bound, Cost, Effort, Term
 from .trajectory import Trajectory
 
 __all__ = [
+    "CMAES",
     "CONVERGED",
     "IPOPT",
     "NLP",
@@ -17,11 +19,15 @@ __all__ = [
     "Collocation",
     "Cost",
     "Effort",
+    "Grid",
     "Problem",
+    "Random",
     "Result",
     "Search",
     "Term",
     "Trajectory",
+    "bounds_of",
     "search_references",
     "sphere_points",
+    "tune",
 ]
