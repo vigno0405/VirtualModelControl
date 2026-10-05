@@ -1,4 +1,5 @@
-"""A robot's Dynamixel motors as a plant: read angles and rates, write torques, stop safely."""
+"""A robot's Dynamixel motors as a plant: read angles and rates, write torques, stop safely.
+Deprecated: leaves in 0.4.0."""
 
 from __future__ import annotations
 

@@ -1,5 +1,6 @@
 """The Dynamixel bus: the motors' control tables, read and written through the Dynamixel SDK
-(protocol 2.0), or held in memory by ``FakeBus`` for tests and dry runs."""
+(protocol 2.0), or held in memory by ``FakeBus`` for tests and dry runs. Deprecated: leaves in
+0.4.0."""
 
 from __future__ import annotations
 

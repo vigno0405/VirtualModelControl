@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.hardware import DynamixelPlant, FakeBus
+from virtualmodelcontrol.hardware.bus import FakeBus
+from virtualmodelcontrol.hardware.dynamixel import DynamixelPlant
 from virtualmodelcontrol.robots import adapt
 
 

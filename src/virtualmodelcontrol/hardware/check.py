@@ -1,4 +1,5 @@
-"""Bus checks: which motors answer at which baud rate, and the USB latency timer on Linux."""
+"""Bus checks: which motors answer at which baud rate, and the USB latency timer on Linux.
+Deprecated: leaves in 0.4.0."""
 
 from __future__ import annotations
 

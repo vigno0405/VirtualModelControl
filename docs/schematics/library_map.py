@@ -57,6 +57,7 @@ def figure() -> Any:
     for y, label, kind in ((tops[6], "robots", BLUE), (tops[4], "viz", BLUE)):
         box(ax, ex, y, 1.1, h, code(label), kind, size=16)
         arrow(ax, (ex - 0.56, y), (x + w / 2, y), color=GREY)
-    box(ax, ex, tops[2], 1.1, h + 0.2, "hardware,\nROS\n(planned)", GREY, dashed=True, size=14)
+    box(ax, ex, tops[2], 1.1, h, "hardware\nprofiles", BLUE, size=14)
+    arrow(ax, (ex - 0.56, tops[2]), (x + w / 2, tops[2]), color=GREY)
     ax.text(ex, tops[6] + h / 2 + 0.25, "edges", ha="center", color=GREY, size=16)
     return fig

@@ -6,16 +6,7 @@ import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.hardware import (
-    DynamixelPlant,
-    FakeBus,
-    HardwareProfile,
-    Motor,
-    home,
-    latency_timer,
-    present_ticks,
-    scan,
-)
+from virtualmodelcontrol.hardware import HardwareProfile, Motor
 from virtualmodelcontrol.hardware.bus import (
     GOAL_CURRENT,
     GOAL_POSITION,
@@ -23,7 +14,11 @@ from virtualmodelcontrol.hardware.bus import (
     RETURN_DELAY_TIME,
     STATUS_RETURN_LEVEL,
     TORQUE_ENABLE,
+    FakeBus,
 )
+from virtualmodelcontrol.hardware.check import latency_timer, scan
+from virtualmodelcontrol.hardware.dynamixel import DynamixelPlant
+from virtualmodelcontrol.hardware.homing import home, present_ticks
 from virtualmodelcontrol.robots import adapt
 
 PROFILE = HardwareProfile((Motor(1), Motor(2, sign=-1.0), Motor(3, mode="hold")))

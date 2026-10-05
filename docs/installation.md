@@ -2,7 +2,7 @@
 
 The library needs Python 3.10 or newer and runs on Linux, macOS and Windows. pip installs
 everything it uses: numpy, SciPy, CasADi, matplotlib, imageio-ffmpeg (to write videos), PyYAML,
-the Dynamixel SDK and pyserial.
+the Dynamixel SDK and pyserial (the last two leave in 0.4.0).
 
 ## With pip
 

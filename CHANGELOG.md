@@ -99,6 +99,17 @@ versions, with one minor version of deprecation before a removal).
 - `import virtualmodelcontrol` no longer loads SciPy, which took about three quarters of its
   import time; `identification.fit_stiffness_damping` loads it when called.
 
+### Deprecated
+
+- `vmc.ros` (`RosPlant`, `control`, `serve`, `LiveParams`, `JointIO`, `TOPICS`) and the direct
+  Dynamixel path (`hardware.DynamixelPlant`, `home`, `present_ticks`, `scan`, `latency_timer`,
+  `Bus`, `SdkBus`, `FakeBus`) warn when used, and leave in 0.4.0 together with the Dynamixel SDK
+  and pyserial dependencies and the ROS CI job. The library is communication-agnostic: it turns
+  measurements into torques, and how they reach the robot stays outside it. Hardware profiles
+  (`HardwareProfile`, `Motor`, `KT`, `MODES` and each robot's `hardware` template) stay. Python
+  shows a `DeprecationWarning` only for code run as a script or in a notebook; run a node with
+  `python -W default` to see them there.
+
 ### Fixed
 
 - `vmc.sim.run` needs only the plant's documented methods: when its guard trips, it sends zero

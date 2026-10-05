@@ -252,11 +252,11 @@ How the commands reach the robot stays outside the library.
   robot's own node); keyboard teleoperation of a goal; joystick teleoperation (pygame, an
   opt-in extra); what was set by hand recorded and repeated as a schedule in a configuration.
   Done when each is tested offscreen and a documentation page shows them on the soft arm.
-- [ ] **Deprecations:** `vmc.ros` and the direct Dynamixel path (`DynamixelPlant`, `home`,
+- [x] **Deprecations:** `vmc.ros` and the direct Dynamixel path (`DynamixelPlant`, `home`,
   `scan`, `latency_timer`, the buses) warn when used, and leave in 0.4.0 with dynamixel-sdk and
   pyserial: the library is communication-agnostic, and the lab drives its robots through its
-  own ROS Dynamixel driver. Done when the warnings are tested and the CHANGELOG lists the
-  deprecations.
+  own ROS Dynamixel driver. Done: the names warn when used (a `DeprecationWarning` at the
+  user's line), tested, and the CHANGELOG lists them.
 - [ ] **Wall-clock run loop:** done in code (`vmc.sim.WallClock`, measured steps, stale
   readings, rate statistics, overrun warnings); its documentation remains (see Docs).
 - [ ] **Smooth element swaps and schedules:** done in code (`vmc.control.SwapController`,

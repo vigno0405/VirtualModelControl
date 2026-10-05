@@ -3,7 +3,7 @@
 import numpy as np
 
 from virtualmodelcontrol.hardware import HardwareProfile, Motor
-from virtualmodelcontrol.ros import JointIO
+from virtualmodelcontrol.ros.joint_io import JointIO
 
 PROFILE = HardwareProfile((Motor(5), Motor(4, sign=-1.0)), bus_order=(4, 5))
 

@@ -9,7 +9,10 @@ rclpy = pytest.importorskip("rclpy")
 
 import virtualmodelcontrol as vmc  # noqa: E402
 from virtualmodelcontrol.robots import adapt  # noqa: E402
-from virtualmodelcontrol.ros import LiveParams, RosPlant, control, serve  # noqa: E402
+from virtualmodelcontrol.ros.node import control  # noqa: E402
+from virtualmodelcontrol.ros.params import LiveParams  # noqa: E402
+from virtualmodelcontrol.ros.plant import RosPlant  # noqa: E402
+from virtualmodelcontrol.ros.twin import serve  # noqa: E402
 
 DT = 1 / 500
 

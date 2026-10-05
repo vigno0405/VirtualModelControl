@@ -1,5 +1,5 @@
 """Homing: drive the motors slowly to recorded absolute positions, then hand them over in torque
-mode with zero current."""
+mode with zero current. Deprecated: leaves in 0.4.0."""
 
 from __future__ import annotations
 

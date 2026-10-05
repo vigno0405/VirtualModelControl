@@ -36,7 +36,7 @@ def test_ros_is_reachable_without_loading_ros():
         "assert 'virtualmodelcontrol.ros' not in sys.modules; "
         "vmc.ros.TOPICS; assert 'rclpy' not in sys.modules"
     )
-    subprocess.run([sys.executable, "-c", code], check=True)
+    subprocess.run([sys.executable, "-W", "ignore::DeprecationWarning", "-c", code], check=True)
 
 
 def test_scipy_loads_only_for_the_fits_that_use_it():
