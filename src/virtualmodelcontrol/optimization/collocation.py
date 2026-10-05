@@ -1,4 +1,4 @@
-"""Trapezoidal collocation: the whole motion at once, with the closed loop as constraints."""
+"""Collocation: the whole motion at once, with the closed loop as constraints."""
 
 from __future__ import annotations
 
@@ -36,11 +36,16 @@ def _snapshot(initial: Any) -> tuple[Any, np.ndarray]:
     )
 
 
+SCHEMES = ("trapezoid", "hermite-simpson")
+
+
 class Collocation:
     """The closed loop's motion from ``q0`` over ``horizon`` [s] at ``nodes`` equally spaced nodes.
 
     q, v and a are unknowns at every node, tied by the robot's dynamics (without inverting the
-    mass matrix) and the trapezoid rule. The motion starts at rest (or at ``v0``).
+    mass matrix) and the ``scheme`` that integrates them: the trapezoid rule (second order), or
+    Hermite-Simpson (fourth order), which also has the acceleration at the middle of every
+    interval as an unknown. The motion starts at rest (or at ``v0``).
 
     ``initial`` is the controller in place, as it is now: a ``VirtualMechanismSystem`` or a
     running ``VMCController`` on the same robot. Its torques fade out as the new ones fade in over
@@ -62,7 +67,10 @@ class Collocation:
         initial: Any = None,
         transition: float = 0.0,
         scales: tuple[float, float, float] = (1.0, 1.0, 1.0),
+        scheme: str = "trapezoid",
     ) -> None:
+        if scheme not in SCHEMES:
+            raise ValueError(f"scheme takes one of {SCHEMES}, got {scheme!r}")
         if nodes < 2:
             raise ValueError("a collocation needs at least 2 nodes")
         if horizon <= 0.0:
@@ -75,7 +83,7 @@ class Collocation:
         self.v0 = None if v0 is None else np.asarray(v0, dtype=float).ravel()
         self.horizon, self.nodes = float(horizon), int(nodes)
         self.transition = float(transition)
-        self.scales = tuple(float(s) for s in scales)
+        self.scales, self.scheme = tuple(float(s) for s in scales), scheme
         self._hold = None if initial is None else _snapshot(initial)
 
     def coordinates(self) -> tuple[Any, ...]:
@@ -120,23 +128,43 @@ class Collocation:
             u_rest = hold_law(ca.DM(self.q0), rest, no_z, p_hold, 0.0)[0]
             bias = dynamics.residual(ca.DM(self.q0), rest, rest, u_rest, p_dyn, 0.0)
 
+        def law(q: Any, v: Any, tk: float, w: float) -> Any:
+            """The motor torques at (q, v, tk), blended with the controller in place."""
+            u = compiled.law(q, v, no_z, p_law, tk)[0]
+            return u if w >= 1.0 else w * u + (1.0 - w) * hold_law(q, v, no_z, p_hold, tk)[0]
+
         us, defects = [], []
         for k in range(n):
-            w, tk = float(blend[k]), float(t[k])
-            u = compiled.law(qs[k], vs[k], no_z, p_law, tk)[0]
-            if w < 1.0:
-                u = w * u + (1.0 - w) * hold_law(qs[k], vs[k], no_z, p_hold, tk)[0]
-            us.append(u)
-            defects.append(dynamics.residual(qs[k], vs[k], accel[k], u, p_dyn, tk) - bias)
-        positions = [
-            space.difference(qs[k + 1], qs[k]) - 0.5 * dt * (vs[k] + vs[k + 1])
-            for k in range(n - 1)
-        ]
-        velocities = [
-            vs[k + 1] - vs[k] - 0.5 * dt * (accel[k] + accel[k + 1]) for k in range(n - 1)
-        ]
+            us.append(law(qs[k], vs[k], float(t[k]), float(blend[k])))
+            defects.append(
+                dynamics.residual(qs[k], vs[k], accel[k], us[k], p_dyn, float(t[k])) - bias
+            )
+        if self.scheme == "trapezoid":
+            positions = [
+                space.difference(qs[k + 1], qs[k]) - 0.5 * dt * (vs[k] + vs[k + 1])
+                for k in range(n - 1)
+            ]
+            velocities = [
+                vs[k + 1] - vs[k] - 0.5 * dt * (accel[k] + accel[k + 1]) for k in range(n - 1)
+            ]
+        else:  # Hermite-Simpson: the middle of an interval from the cubic through its ends
+            Am = builder.variables.add("am", (n - 1) * nv, -inf, inf, np.zeros((n - 1) * nv), sa)
+            positions, velocities, middles = [], [], []
+            for k in range(n - 1):
+                a_c, tc = Am[k * nv : (k + 1) * nv], float(t[k] + 0.5 * dt)
+                q_c = 0.5 * (qs[k] + qs[k + 1]) + dt / 8 * (vs[k] - vs[k + 1])
+                v_c = 0.5 * (vs[k] + vs[k + 1]) + dt / 8 * (accel[k] - accel[k + 1])
+                w_c = blend_weight(tc, self.transition) if hold else 1.0
+                u_c = law(q_c, v_c, tc, w_c)
+                middles.append(dynamics.residual(q_c, v_c, a_c, u_c, p_dyn, tc) - bias)
+                positions.append(
+                    space.difference(qs[k + 1], qs[k]) - dt / 6 * (vs[k] + 4 * v_c + vs[k + 1])
+                )
+                velocities.append(vs[k + 1] - vs[k] - dt / 6 * (accel[k] + 4 * a_c + accel[k + 1]))
         builder.constrain("start", ca.vertcat(qs[0] - self.q0, vs[0] - v0), 0.0, 0.0)
         builder.constrain("dynamics", ca.vertcat(*defects), 0.0, 0.0)
+        if self.scheme != "trapezoid":
+            builder.constrain("middles", ca.vertcat(*middles), 0.0, 0.0)
         builder.constrain("position", ca.vertcat(*positions), 0.0, 0.0)
         builder.constrain("velocity", ca.vertcat(*velocities), 0.0, 0.0)
         builder.output("u", ca.horzcat(*us))

@@ -276,9 +276,9 @@ the soft arm among obstacles.
   homing and bus modules, their tests and the CI job are gone, the two dependencies leave the
   install, and the real-time test runs on a plain plant. Hardware profiles stay.
 - [ ] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
-  new language: trajectories (trapezoidal collocation is done, in `vmc.optimization`;
-  Hermite-Simpson collocation, multiple shooting, free final time, periodic), equilibria, data
-  fits (identification, moving-horizon estimation); solver presets that work on these problems
+  new language: trajectories (trapezoidal and Hermite-Simpson collocation are done, in
+  `vmc.optimization`; multiple shooting, free final time, periodic), equilibria, data fits
+  (identification, moving-horizon estimation); solver presets that work on these problems
   (IPOPT with L-BFGS and `expand=True` is done; FATROP, SQP and QP solvers; acados optional).
 - [ ] **Automatic scales:** the trajectory problem derives the typical sizes of q, v and a
   itself, so that the solver works on variables of order one on any robot. Today they are given

@@ -39,6 +39,44 @@ def test_collocation_is_second_order_accurate_against_the_exact_solution():
         assert coarse / fine == pytest.approx(4.0, rel=0.05)  # halving the step quarters the error
 
 
+def test_hermite_simpson_is_fourth_order_accurate_against_the_exact_solution():
+    errors = {"trapezoid": [], "hermite-simpson": []}
+    for scheme, nodes in itertools.product(errors, (7, 13, 25)):
+        problem, _, _ = plain(nodes, scheme=scheme)
+        result = problem.solve()
+        assert result.converged
+        errors[scheme].append(np.abs(result.q[:, 0] - exact_position(result.t)).max())
+    for coarse, fine in itertools.pairwise(errors["hermite-simpson"]):
+        assert coarse / fine == pytest.approx(16.0, rel=0.1)  # halving the step: a sixteenth
+    assert errors["hermite-simpson"][-1] < 1e-2 * errors["trapezoid"][-1]
+
+
+def test_hermite_simpson_has_the_middle_accelerations_as_unknowns_and_constraints():
+    nlps = {}
+    for scheme in ("trapezoid", "hermite-simpson"):
+        problem, _, _ = plain(11, scheme=scheme)
+        nlps[scheme] = problem.build()
+    assert nlps["hermite-simpson"].x.numel() == nlps["trapezoid"].x.numel() + 10  # one per interval
+    assert "middles" in nlps["hermite-simpson"].constraints
+    assert "middles" not in nlps["trapezoid"].constraints
+
+
+def test_hermite_simpson_blends_the_controllers_in_the_middle_of_the_intervals_too():
+    def plan(nodes, scheme):
+        system, x, _ = mass_spring(goal=1.0, stiffness=9.0)
+        hold = hold_controller(system, x, 4.0, 0.0)
+        problem = opt.Problem(system)
+        problem.add(opt.Collocation([0.0], 3.0, nodes, initial=hold, transition=2.0, scheme=scheme))
+        return problem.solve()
+
+    fine = plan(481, "trapezoid")  # the reference: a step of 6 ms
+    gap = {}
+    for scheme in ("trapezoid", "hermite-simpson"):
+        r = plan(13, scheme)
+        gap[scheme] = np.abs(r.q[:, 0] - np.interp(r.t, fine.t, fine.q[:, 0])).max()
+    assert gap["hermite-simpson"] < 1e-3 < 1e-2 < gap["trapezoid"]
+
+
 def test_velocities_and_accelerations_satisfy_the_trapezoid_rule():
     problem, _, _ = plain(51)
     r = problem.solve()
@@ -56,17 +94,18 @@ def test_the_motion_starts_at_rest_or_at_the_given_velocity():
     assert problem.solve().v[0, 0] == pytest.approx(0.5)
 
 
-def test_the_plan_starts_at_rest_where_the_robot_is_whatever_the_model_gets_wrong():
+@pytest.mark.parametrize("scheme", ["trapezoid", "hermite-simpson"])
+def test_the_plan_starts_at_rest_where_the_robot_is_whatever_the_model_gets_wrong(scheme):
     # At q0 = 0.3 the spring pulls towards 1.0, so the robot is not in equilibrium under it.
     # With the controller in place at the start, the model carries the force that balances it.
     system, x, _ = mass_spring()
     hold = hold_controller(system, x, 4.0, 1.0)
     problem = opt.Problem(system)
-    problem.add(opt.Collocation([0.3], 3.0, 31, initial=hold, transition=1.0))
+    problem.add(opt.Collocation([0.3], 3.0, 31, initial=hold, transition=1.0, scheme=scheme))
     held = problem.solve()
     np.testing.assert_allclose(held.q, 0.3, atol=1e-9)
     np.testing.assert_allclose(held.v, 0.0, atol=1e-9)
-    moving, _, _ = plain(31, q0=0.3)
+    moving, _, _ = plain(31, q0=0.3, scheme=scheme)
     assert moving.solve().q[-1, 0] > 0.6  # without it, the spring pulls the mass away
 
 
@@ -146,6 +185,8 @@ def test_the_arguments_are_checked():
         opt.Collocation([0.0], 1.0, 10, transition=-1.0)
     with pytest.raises(ValueError, match="scales"):
         opt.Collocation([0.0], 1.0, 10, scales=(1.0, 0.0, 1.0))
+    with pytest.raises(ValueError, match="scheme"):
+        opt.Collocation([0.0], 1.0, 10, scheme="euler")
     problem, _, _ = plain(11, q0=0.0)
     problem._blocks[0].q0 = np.zeros(2)
     with pytest.raises(ValueError, match="q0 and v0 need 1 and 1"):

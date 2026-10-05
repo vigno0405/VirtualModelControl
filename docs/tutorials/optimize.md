@@ -482,6 +482,9 @@ another structure, so solve a few and compare.
   the typical sizes of the three, `(1, 1, 1)` by default. Scaling does not change the problem,
   but it changes the solver's path, and a problem with several local optima can end in a
   different one: try other scales, or other starting values, when a plan looks poor.
+- **Schemes.** `Collocation(scheme="hermite-simpson")` integrates to fourth order instead of
+  second. It adds the acceleration at the middle of every interval to the unknowns, so each node
+  costs more, but far fewer nodes give the same agreement with a simulation.
 - **Starting values.** The free Params start at their current values, and the `warm_start`
   argument of `solve` takes a previous `Result` (or a dict of `q`, `v`, `a` and `params`) to
   start from its plan.

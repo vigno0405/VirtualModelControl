@@ -21,6 +21,9 @@ All notable changes to this project are documented here. The format follows
   the solver's status, and `apply` puts the values into a running controller (returning the exact
   energy jump) or into a system. `search_references` searches a reference on a grid, one at a
   time, keeping the best converged plan. `Problem.build` returns the `NLP` for any other solver.
+  `Collocation(scheme="hermite-simpson")` integrates to fourth order instead of second: it adds the
+  acceleration at the middle of every interval to the unknowns, and needs far fewer nodes for the
+  same agreement with a simulation.
   The program agrees with the lab's own optimization code to rounding error, and its solved plans
   to solver tolerance. Controllers with virtual states and non-flat configuration spaces are not
   supported yet.
