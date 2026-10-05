@@ -56,6 +56,10 @@ versions, with one minor version of deprecation before a removal).
   `run(T=None)` runs until stopped and Ctrl-C ends it with the log so far. Other simulations are
   unchanged. `VMCController.live_params()` and `Experiment.z0()`.
 - Docs: tutorial "Interactive control".
+- Docs: tutorials "Real-time runs" (the loop on the computer's clock: measured steps, late steps
+  never caught up in a burst, old and missing readings, Ctrl-C, and a checklist for the first run
+  on a robot) and "Swaps and schedules" (the quintic blend and its continuity, a swap on the soft
+  arm, the schedules' interpolation).
 - `vmc.ros.control`: the controller node. It runs a controller at the profile's rate on the
   robot behind the driver's topics, with its live Params as ROS parameters, for a duration or
   until Ctrl-C, and ends with zero torque.

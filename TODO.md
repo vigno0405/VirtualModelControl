@@ -261,15 +261,13 @@ How the commands reach the robot stays outside the library.
   pyserial: the library is communication-agnostic, and the lab drives its robots through its
   own ROS Dynamixel driver. Done: the names warn when used (a `DeprecationWarning` at the
   user's line), tested, and the CHANGELOG lists them.
-- [ ] **Wall-clock run loop:** done in code (`vmc.sim.WallClock`, measured steps, stale
-  readings, rate statistics, overrun warnings); its documentation remains (see Docs).
-- [ ] **Smooth element swaps and schedules:** done in code (`vmc.control.SwapController`,
-  `blend_weight`, `Schedule`, `ScheduledController`); the planner uses the same blend in 0.4.0;
-  the documentation remains (see Docs).
-- [ ] **Docs:** the real-time loop (`vmc.sim.run` with a `WallClock` on any plant: measured
-  steps, stale readings, the guard, Ctrl-C, rate statistics); a safety checklist for a first
-  run on a robot (signs, limits, a watchdog and zero torque on exit in the robot's node, stale
-  data); element swaps and schedules.
+- [x] **Wall-clock run loop:** `vmc.sim.WallClock` (measured steps, stale readings, rate
+  statistics, overrun warnings), documented in "Real-time runs" with a checklist for the first
+  run on a robot.
+- [x] **Smooth element swaps and schedules:** `vmc.control.SwapController`, `blend_weight`,
+  `Schedule`, `ScheduledController`, documented in "Swaps and schedules"; the planner uses the
+  same blend in 0.4.0.
+- [x] **Docs:** the real-time loop, the safety checklist, element swaps and schedules.
 - [ ] **Release 0.3.0:** a clean check from a fresh clone (in simulation), the CHANGELOG, then
   the tag with the owner's go.
 

@@ -104,6 +104,8 @@ tutorials/parameters
 tutorials/configurations
 tutorials/run-logs
 tutorials/interactive
+tutorials/real-time
+tutorials/swaps
 tutorials/energy
 tutorials/kinematics
 tutorials/tuning
