@@ -346,13 +346,19 @@ Controllers that change while they run without losing passivity, the estimates t
 the first floating robot: the two arms tracking a grasp force, the hand's fingertips, the
 turtle crawling.
 
-- [ ] **Energy accounting and passivity checks** from logs.
+- [x] **Energy accounting and passivity checks** from logs. Done (6 October 2026):
+  `vmc.sim.energy_balance(log)` gives a run's energy, the work given through the port, what the
+  dampers took and the sources gave, the energy injected by changes of live Params and the
+  margin that stays above 0 while the controller is passive; section "The balance from a log"
+  of the energy tutorial.
 - [ ] **Adaptation laws:** stiffness modulation, reference modulation, direct stiffness
   tracking, integral pose regulation, stiffness schedules K(F) and K(d), force tracking by
   reference or by stiffness gradient descent; every stiffness update symmetrized and projected
   onto positive semidefinite matrices.
-- [ ] **Passivity filters:** every online update can pass through the tank or a projection,
-  opt-in.
+- [x] **Passivity filters:** every online update can pass through the tank or a projection,
+  opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
+  dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
+  nearest symmetric positive semidefinite stiffness; the energy tutorial shows both.
 - [ ] **Grasp-force tracking on the two arms:** the lab's tank-based algorithm, open and
   closed loop, ported with a regression test.
 - [ ] **The hand's fingertip laws:** fingertip force and stiffness optimization (stiffness-

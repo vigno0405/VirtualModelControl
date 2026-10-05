@@ -70,7 +70,8 @@ controller = vmc.VMCController(law)
 
 plant = vmc.sim.ModelPlant(arm)
 clock = vmc.sim.SimClock(dt=1 / 5000)  # [s]
-rows = vmc.sim.run(plant, controller, clock, T=0.2).arrays()
+log = vmc.sim.run(plant, controller, clock, T=0.2, record=["energy"])
+rows = log.arrays()
 ```
 
 ```{code-cell} python
@@ -163,6 +164,59 @@ period, and we integrate the powers from the logged steps. In this run power flo
 controller to the arm at every step. When an arm swings back against its controller, the port
 carries energy the other way, and the balance still closes.
 
+## The balance from a log
+
+A log recorded with `record=["energy"]` holds the controller's side of the balance.
+`vmc.sim.energy_balance` turns it into the balance of the controller alone: its energy, the work
+it gave the robot through its port, what its dampers took and its sources gave, and `injected`,
+what is left over:
+
+```{code-cell} python
+b = vmc.sim.energy_balance(log)
+for name in ("given", "dissipated", "injected"):
+    print(name, round(float(b[name][-1]), 3), "J")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("given", float(b["given"][-1]), display=False)
+glue("taken", float(b["dissipated"][-1]), display=False)
+glue("inj", 1000 * float(np.abs(b["injected"]).max()), display=False)
+assert b["margin"].min() > 0
+```
+
+The controller gave the robot {glue:text}`given:.2f` J while its dampers took
+{glue:text}`taken:.2f` J, and `injected` stays within {glue:text}`inj:.1f` mJ: only the error of
+the steps. A change of a live Param shows up in it. Here a schedule raises the stiffness to
+1500 N/m at 0.1 s, in the middle of the motion:
+
+```{code-cell} python
+from virtualmodelcontrol.control import Schedule, ScheduledController
+
+raise_k = Schedule("ctrl.reach.stiffness", [(0.1, 1500.0)], "step")
+stiffer = ScheduledController(vmc.VMCController(law), [raise_k])
+log2 = vmc.sim.run(vmc.sim.ModelPlant(arm), stiffer, clock, T=0.3,
+                   record=["energy"])
+b2 = vmc.sim.energy_balance(log2)
+
+fig, ax = plt.subplots()
+ax.plot(1000 * b["t"], b["injected"], label="same stiffness")
+ax.plot(1000 * b2["t"], b2["injected"], label="stiffer from 0.1 s")
+ax.set_xlabel("time [ms]")
+ax.set_ylabel("injected energy [J]")
+ax.legend(loc="center right", fontsize=18);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("jump", float(b2["injected"][-1]), display=False)
+assert abs(b2["injected"][-1]) > 0.1 and abs(b["injected"]).max() < 0.01
+```
+
+The controller received {glue:text}`jump:.2f` J that no damper or source gave it. A stiffer spring
+stores more energy at the same deflection, and the energy comes from nowhere. It is the
+jump that `controller.set` returns.
+
 ## Passivity
 
 The balance bounds the work that a controller without sources does on the robot:
@@ -222,3 +276,30 @@ assert fraction < 1.0 and abs(paid - 0.02) < 1e-9 and released > 0.0
 The tank is otherwise the controller: run it in place of the controller. Pass a
 [result of an optimization](optimize.md) to `result.apply(tank)`, so that an optimizer's new
 gains reach the robot only as fast as the budget allows.
+
+The tank fills itself in a run. Run in place of the controller, it takes in at every step what
+the controller's own dampers took:
+
+```{code-cell} python
+tank = vmc.control.Tank(vmc.VMCController(law))  # empty
+vmc.sim.run(vmc.sim.ModelPlant(arm), tank, clock, T=0.2)
+print(f"{tank.level:.3f} J")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(tank.level - b["dissipated"][-1]) < 0.02 * b["dissipated"][-1]
+glue("level", float(tank.level), display=False)
+```
+
+The level is {glue:text}`level:.2f` J, the energy the dampers took in the balance above. A change
+that raises the controller's energy can now be paid from it.
+
+A stiffness that a law proposes can be indefinite or not symmetric, and then a spring with it
+can store negative energy. `project_psd` gives the nearest symmetric positive semidefinite
+matrix. Pass a proposed stiffness through it before it reaches `set` or a tank:
+
+```{code-cell} python
+K = np.array([[300.0, 450.0], [0.0, 100.0]])
+vmc.control.project_psd(K).round(1)
+```

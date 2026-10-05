@@ -102,8 +102,8 @@ viz.animate(finger, log, "tuning.mp4", plane="yz", invert=True,
 
 The damping above came from a formula. A search finds it from runs instead. We write a cost, the
 distance of the tip to its goal summed over a run, and a searcher picks the dampings to try.
-`Grid`, `Random`, `CMAES` and `ExtremumSeeking` of `vmc.optimization` all ask for candidates and
-are told their costs. The runs in between are yours, in simulation as here or on a robot in your
+`Grid`, `Random`, `CMAES`, `ExtremumSeeking` and `Bayes` of `vmc.optimization` all ask for
+candidates and are told their costs. The runs in between are yours, in simulation as here or on a robot in your
 own loop:
 
 ```{code-cell} python
@@ -122,11 +122,15 @@ for _ in range(5):
     costs = [cost(x) for x in candidates]  # one run each
     search.tell(candidates, costs)
 
+bayes = opt.tune(opt.Bayes([0.1 * D_c], [3 * D_c], initial=4), cost, 12)
+
 fig, ax = plt.subplots()
 x, y = (np.array(h) for h in zip(*grid.history, strict=True))
 ax.plot(x[:, 0] / D_c, y, ".-", label="grid")
 x, y = (np.array(h) for h in zip(*search.history, strict=True))
 ax.plot(x[:, 0] / D_c, y, "o", label="CMA-ES")
+x, y = (np.array(h) for h in zip(*bayes.history, strict=True))
+ax.plot(x[:, 0] / D_c, y, "s", label="Bayes")
 ax.set_xlabel("$D / D_c$")
 ax.set_ylabel("cost [mm s]")
 ax.legend(loc="upper right", fontsize=18);
@@ -137,11 +141,19 @@ ax.legend(loc="upper right", fontsize=18);
 glue("grid", float(grid.best[0] / D_c), display=False)
 glue("cma", float(search.best[0] / D_c), display=False)
 glue("runs", len(search.history), display=False)
+glue("bayes", float(bayes.best[0] / D_c), display=False)
+worst = max(search.best_cost, bayes.best_cost) / grid.best_cost - 1
 assert abs(grid.best[0] - search.best[0]) < 0.3 * D_c, (grid.best, search.best)
+assert worst < 0.01, (grid.best_cost, search.best_cost, bayes.best_cost)
+glue("flat", 100 * float(worst), display=False)
 ```
 
-The grid, with 25 runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, and CMA-ES, with
-{glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$: a little under the critical damping.
+The grid, with 25 runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, CMA-ES, with
+{glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$, and `Bayes`, with 12 runs, at
+{glue:text}`bayes:.2f` $D_c$. The cost is flat near its minimum: the three best costs are within
+{glue:text}`flat:.1f` % of each other, so the dampings differ more than the costs do. `Bayes`
+fits a Gaussian process to the costs it has seen and asks for the damping where it expects the
+most improvement, so it suits runs that are few and slow.
 When the whole motion can be planned, [Optimizing a virtual mechanism](optimize.md) finds Params
 with gradients. A search is for when a run is all you have. `opt.bounds_of(params, names)` gives
 the bounds and the current values of named Params as vectors to start from, and
