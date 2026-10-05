@@ -2,6 +2,7 @@
 file_format: mystnb
 kernelspec:
   name: python3
+hide-navigation: true
 ---
 
 # virtualmodelcontrol
@@ -73,6 +74,10 @@ up to building your own robot, and the examples apply it to complete tasks on re
 - [a finger](examples/finger.md) with a stiff fingertip and soft joint limits;
 - [a hand](examples/hand.md) that grasps, alone or mounted on a UR5 arm;
 - [a crawling turtle](examples/turtle.md) whose two cranks follow a virtual flywheel.
+
+The [concepts](concepts/library.md) explain the ideas behind the library: how it is organized,
+Virtual Model Control, passivity and the kinematics of the robots. The
+[reference](api/index.md) lists every function, the changelog and the roadmap.
 
 ## Authors
 

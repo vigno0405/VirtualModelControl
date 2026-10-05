@@ -53,10 +53,11 @@
   max-width: 68rem;
 }
 
-/* The home page belongs to no section: its sidebar lists all of them. */
-@media screen and (min-width: 76.25em) {
-  .md-nav--lifted > .md-nav__list:not(:has(> .md-nav__item--active)) > .md-nav__item {
-    display: block;
+/* The opening page belongs to no section and shows no index on a wide screen. Where the index
+   is a menu behind the button of the header, it stays there, listing all the sections. */
+@media screen and (max-width: 76.1875em) {
+  .md-sidebar--primary[hidden] {
+    display: block !important;
   }
 }
 

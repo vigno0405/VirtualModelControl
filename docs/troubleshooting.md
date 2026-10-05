@@ -16,6 +16,8 @@ for the commands that install or run the library:
 env -u PYTHONPATH ~/venvs/vmc/bin/python -c "import virtualmodelcontrol"
 ```
 
+For a conda environment, [Installation](installation.md) shows how to do it once and for all.
+
 ## No virtual environment on Ubuntu
 
 `python3 -m venv` fails with "ensurepip is not available" until the `python3-venv` package is

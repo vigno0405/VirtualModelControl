@@ -42,20 +42,40 @@ py -m venv $HOME\venvs\vmc
 ## With conda
 
 ```bash
-conda create -n vmc python=3.12 -y
+conda create -n vmc -c conda-forge --override-channels python=3.12 -y
 conda activate vmc
 pip install virtualmodelcontrol
+python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
 ```
+
+conda installs Python, and pip installs the library and everything it uses into the environment.
+The channel is conda-forge on purpose: on a new installation, conda's default channels refuse to
+create an environment (`CondaToSNonInteractiveError`) until you have accepted Anaconda's terms
+of service, and conda-forge asks for nothing. If ROS 2 is sourced in your shell, set the
+environment up as shown in the next section.
 
 ## With ROS 2 in the same shell
 
 The library never needs ROS. If ROS 2 is sourced in your shell, though, `PYTHONPATH` points at
-ROS's own Python packages, and they can shadow the versions in your environment. Unset it for
-the commands that install or run the library:
+ROS's own Python packages. pip then takes them for installed: it ends with an error about their
+dependencies (`generate-parameter-library-py requires jinja2`, say) and skips any package that
+ROS also ships, such as the Dynamixel SDK. They can also shadow the versions in your
+environment. Unset `PYTHONPATH` for the commands that install or run the library:
 
 ```bash
 env -u PYTHONPATH ~/venvs/vmc/bin/pip install virtualmodelcontrol
 env -u PYTHONPATH ~/venvs/vmc/bin/python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
+```
+
+In a conda environment, empty `PYTHONPATH` for the environment once, before you first activate
+it. conda gives ROS's value back when you leave the environment, and prints a warning each time
+you enter it: that is the line doing it.
+
+```bash
+conda create -n vmc -c conda-forge --override-channels python=3.12 -y
+conda env config vars set PYTHONPATH= -n vmc
+conda activate vmc
+pip install virtualmodelcontrol
 ```
 
 ## The development version

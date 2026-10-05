@@ -98,6 +98,11 @@ versions, with one minor version of deprecation before a removal).
   transmissions saved by 0.2.0 still load.
 - `import virtualmodelcontrol` no longer loads SciPy, which took about three quarters of its
   import time; `identification.fit_stiffness_damping` loads it when called.
+- Docs: the opening page has no left index (the pages of the five sections keep theirs) and
+  leads to the concepts and the reference. Installation: the conda recipe takes Python from
+  conda-forge, because conda's default channels stop a new installation until Anaconda's terms of
+  service are accepted, and shows how to keep ROS's `PYTHONPATH` out of a conda environment, where
+  pip otherwise ends with an error about ROS's packages and skips the ones ROS also ships.
 
 ### Deprecated
 
