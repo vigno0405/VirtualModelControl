@@ -24,7 +24,7 @@ import docs_setup
 
 ## A new component
 
-A storage component defines its energy $V(y)$; automatic differentiation gives the force
+A storage component defines its energy $V(y)$. Automatic differentiation gives the force
 $f = -\partial V / \partial y$. Its numbers are Params, created with `_param`.
 
 ```{code-cell} python
@@ -65,7 +65,7 @@ meas = vmc.Signals(0.0, motor_position=np.zeros(9),
 controller.step(0.0, meas)["motor_torque"].round(4)  # [N·m]
 ```
 
-A dissipation component defines `force(ctx, y, yd)` with $f \cdot \dot y \le 0$; a source
+A dissipation component defines `force(ctx, y, yd)` with $f \cdot \dot y \le 0$. A source
 defines `force`, and its power is metered.
 
 ## A new coordinate
@@ -77,7 +77,7 @@ the tip above the middle of the arm, held by a spring:
 height = vmc.Custom(lambda tip, mid: tip[2] - mid[2],
                     [arm.point(s=1.0), arm.point(s=0.5)], dim=1, unit="m")
 ctrl = vmc.Mechanism("ctrl")
-ctrl.add("keep_height", vmc.LinearSpring(height - [0.36], 50.0))
+ctrl.add("height", vmc.LinearSpring(height - [0.36], 50.0))
 vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl)).live  # its live Params
 ```
 
@@ -87,9 +87,10 @@ from `children()`.
 
 ## A new kind of model
 
-A model gives a configuration space, its Params, its named sites, and `frame(q, at, p)`, the
-rotation and position of a site written with CasADi operations. Everything else (coordinates,
-components, compile, simulation) then works unchanged. A pendulum swinging about $z$:
+A model gives a configuration space, its Params, its named sites and a function
+`frame(q, at, p)`. This returns the rotation and position of a site, written with CasADi
+operations. Everything else (coordinates, components, compile, simulation) then works
+unchanged. A pendulum swinging about $z$:
 
 ```{code-cell} python
 @vmc.register("model", "pendulum")
@@ -121,12 +122,12 @@ regularize singular poses. A new model then passes the tests of
 
 ## A new plant
 
-A plant is anything with `read`, `write` and `close`; a simulated one also has a time `t` and
+A plant is anything with `read`, `write` and `close`. A simulated one also has a time `t` and
 `advance(dt)`, and `vmc.sim.run` drives it. This wrapper applies each command one control
 period late, as a real loop with its communication delay does:
 
 ```{code-cell} python
-class OneStepLate:
+class Late:
     """A simulated plant that applies each command one step late."""
 
     def __init__(self, plant):
@@ -157,7 +158,7 @@ ctrl.add("reach", vmc.LinearSpring(arm.point(s=1.0) - goal, 300.0))
 ctrl.add("gravity", vmc.GravityCompensation(arm))
 system = vmc.VirtualMechanismSystem(arm, ctrl)
 controller = vmc.VMCController(vmc.compile(system))
-late = OneStepLate(vmc.sim.ModelPlant(arm))
+late = Late(vmc.sim.ModelPlant(arm))
 log = vmc.sim.run(late, controller, vmc.sim.SimClock(dt=1 / 330), T=0.5)
 log.arrays()["motor_torque"].shape  # one row per step
 ```
@@ -175,7 +176,7 @@ viz.animate(arm, log, "extend.mp4", springs=[(1.0, goal)], trace=1.0)
 
 [Tuning](tuning.md) uses the same idea to show how the delay limits damping.
 
-## From another project
+## Register from another project
 
 A project registers its own components, models or transmissions without changing the library,
 through an entry point in its `pyproject.toml`:
@@ -186,8 +187,8 @@ my_project = "my_project.vmc_plugins"
 ```
 
 Importing `my_project.vmc_plugins` must run its `register(...)` decorators. The library loads
-the plugins the first time a name is looked up and not found, so configuration files can use
-the plugins' names: a robot template as `"robot"`, a simulation's dynamics as `"dynamics"`, an
-output stage as `"output"`, a controller template as `"controller"`, a component as
-`"component"`, and a coordinate kind as `"coordinate"`, a function `(args, scope, path)` that
-builds it ([Experiments in files](configurations.md)).
+the plugins the first time a name is looked up and not found. So configuration files can use
+the plugins' names ([Experiments in files](configurations.md)). Register a robot template as
+`"robot"`, a simulation's dynamics as `"dynamics"`, an output stage as `"output"`, a controller
+template as `"controller"` and a component as `"component"`. Register a coordinate kind as
+`"coordinate"`: a function `(args, scope, path)` that builds the coordinate.

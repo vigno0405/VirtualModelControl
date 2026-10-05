@@ -6,8 +6,8 @@ kernelspec:
 
 # Build your own robot
 
-In this tutorial we describe a two-link arm from scratch, give it masses, simulate it, and pack
-it as a template whose geometry is a set of arguments; then we meet the other kinds of models.
+In this tutorial we describe a two-link arm from scratch, give it masses and simulate it. Then we
+pack it as a template whose geometry is a set of arguments, and meet the other kinds of models.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -53,7 +53,7 @@ np.abs(a - b).max()  # [m], the two descriptions agree
 ## Masses, gravity, simulation
 
 A robot is a mechanism around its model. Its physical components are point masses at sites,
-gravity, and here a little viscous friction in the joints; the simulator needs them, the
+gravity, and here a little viscous friction in the joints. The simulator needs them, the
 controller does not.
 
 ```{code-cell} python
@@ -143,7 +143,7 @@ drift = abs(plant.energy() - start) / abs(start)
 print(f"energy drift over 1 s: {drift:.1e}")
 ```
 
-The implicit steps of `ModelPlant` lose a little energy at each step; the drift shrinks with
+The implicit steps of `ModelPlant` lose a little energy at each step. The drift shrinks with
 `max_step`.
 
 ## Other kinds of robots
@@ -160,8 +160,8 @@ soft.actuation.motor_sizes(soft.space)  # motor angles, motor rates
 ```
 
 A robot known only by its joints, such as the turtle's cranks, is a `JointSpace` model: its
-controllers act on `robot.joint(i)`. A `LinearCoupling` lets one motor drive several joints,
-and an `Assembly` mounts parts on a base or on another part's frame, as the hand on the UR5's
+controllers act on `robot.joint(i)`. A `LinearCoupling` lets one motor drive several joints.
+An `Assembly` mounts parts on a base or on another part's frame, as the hand on the UR5's
 flange:
 
 ```{code-cell} python
