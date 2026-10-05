@@ -104,9 +104,9 @@ viz.animate(finger, log, "tuning.mp4", plane="yz", invert=True,
 
 The damping above came from a formula. A search finds it from the runs themselves: we write a
 cost, the distance of the tip to its goal summed over a run, and a searcher picks the dampings
-to try. `Grid`, `Random` and `CMAES` of `vmc.optimization` all work by asking for candidates and
-being told their costs, and the runs between are yours, in simulation as here or on a robot in
-your own loop:
+to try. `Grid`, `Random`, `CMAES` and `ExtremumSeeking` of `vmc.optimization` all work by asking
+for candidates and being told their costs, and the runs between are yours, in simulation as here
+or on a robot in your own loop:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt

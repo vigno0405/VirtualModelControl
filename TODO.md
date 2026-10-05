@@ -312,8 +312,8 @@ the soft arm among obstacles.
   springs to keep and where to attach them).
 - [ ] **Gradient-free tuning:** an ask-and-tell interface (grid, CMA-ES, Bayesian
   optimization, extremum seeking) for episodes run in simulation or on the robot by its own
-  node. Done so far: `Grid`, `Random` and `CMAES` with `tune`; Bayesian optimization and
-  extremum seeking remain.
+  node. Done so far: `Grid`, `Random`, `CMAES` and `ExtremumSeeking` with `tune`; Bayesian
+  optimization remains.
 - [x] **Energy tank:** exact bounds on parameter steps, including steps that release energy
   when the tank is empty; online updates of a running controller, such as an optimizer's
   result applied through `controller.set`, pass through it. Done (6 October 2026):
@@ -324,8 +324,8 @@ the soft arm among obstacles.
 - [ ] **Step experiment:** the experiment as a library tool; the stiffness and damping fit with
   a friction column, validated by simulating held-out steps; masses stay fixed. The arm mounted
   on its side needs it: its closed-loop runs cannot identify it.
-- [ ] **Calibration:** transmission ratios, motor constants, base transforms between arms,
-  Stribeck friction for the compensation stage.
+- [ ] **Calibration:** transmission ratios, base transforms between arms, Stribeck friction for
+  the compensation stage.
 - [ ] **Docs:** optimizing a virtual mechanism (the tutorial is written; the soft arm among
   obstacles remains); the energy tank; the step experiment. Written: rollouts (Real-time runs)
   and tuning with a search (Tuning stiffness and damping).

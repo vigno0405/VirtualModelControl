@@ -133,6 +133,49 @@ class CMAES(_Searcher):
         self.sigma *= np.exp(self._cs / self._damps * (np.linalg.norm(self._ps) / self._chi - 1))
 
 
+class ExtremumSeeking(_Searcher):
+    """Gradient descent from two runs per round: the point is perturbed by ``amplitude`` up and
+    down along a random direction, and moves ``gain`` times the slope those runs show, downhill.
+    Candidates are clipped into the bounds; ``x`` is the current point."""
+
+    def __init__(
+        self,
+        x0: ArrayLike,
+        amplitude: float,
+        gain: float,
+        lower: ArrayLike | None = None,
+        upper: ArrayLike | None = None,
+        seed: int = 0,
+    ) -> None:
+        super().__init__()
+        self.lower = -np.inf if lower is None else np.asarray(lower, dtype=float)
+        self.upper = np.inf if upper is None else np.asarray(upper, dtype=float)
+        self.x = np.clip(np.asarray(x0, dtype=float), self.lower, self.upper)
+        self.amplitude, self.gain, self._rng = (
+            float(amplitude),
+            float(gain),
+            np.random.default_rng(seed),
+        )
+        self._direction = np.ones_like(self.x)
+
+    def ask(self) -> list[np.ndarray]:
+        """The point perturbed up and down along a random direction."""
+        self._direction = self._rng.choice([-1.0, 1.0], self.x.size)
+        up, down = (
+            self.x + self.amplitude * self._direction,
+            self.x - self.amplitude * self._direction,
+        )
+        return [np.clip(up, self.lower, self.upper), np.clip(down, self.lower, self.upper)]
+
+    def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
+        """Record the two costs, then step against the slope between them."""
+        super().tell(candidates, costs)
+        up, down = (np.asarray(c, dtype=float) for c in candidates)
+        spread = up - down  # the perturbation, shortened where a bound clipped it
+        slope = (costs[0] - costs[1]) / np.where(spread != 0.0, spread, np.inf)
+        self.x = np.clip(self.x - self.gain * slope, self.lower, self.upper)
+
+
 S = TypeVar("S", bound=_Searcher)
 
 

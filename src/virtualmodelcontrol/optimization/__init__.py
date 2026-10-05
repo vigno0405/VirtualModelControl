@@ -1,6 +1,6 @@
 """Optimization of virtual mechanisms: plan the closed loop's motion and tune the Params."""
 
-from .asktell import CMAES, Grid, Random, bounds_of, tune
+from .asktell import CMAES, ExtremumSeeking, Grid, Random, bounds_of, tune
 from .collocation import Collocation
 from .nlp import NLP
 from .problem import Problem
@@ -19,6 +19,7 @@ __all__ = [
     "Collocation",
     "Cost",
     "Effort",
+    "ExtremumSeeking",
     "Grid",
     "Problem",
     "Random",

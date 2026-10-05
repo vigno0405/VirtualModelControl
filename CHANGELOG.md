@@ -39,7 +39,7 @@ versions, with one minor version of deprecation before a removal).
   gives the jump `set` would give, without applying it.
 - `identification.fit_stiffness_damping` takes a run log (`RunLog`) as it is, or a mapping whose motor
   torques are `motor_torque` or `u`.
-- `vmc.optimization.Grid`, `Random` and `CMAES`: gradient-free tuning by ask and tell (`ask()`
+- `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation
   or on a robot in your own loop.

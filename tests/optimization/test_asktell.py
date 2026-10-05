@@ -149,3 +149,38 @@ def test_tune_finds_a_stiffness_that_beats_the_start_and_agrees_with_a_grid():
     assert cmaes.best_cost <= grid.best_cost * 1.05
     assert lower[0] <= cmaes.best[0] <= upper[0]
     assert abs(cmaes.best[0] - grid.best[0]) < 30.0  # the cost is flat near its minimum
+
+
+def bowl(x):
+    return float(np.sum((np.asarray(x) - [1.0, -2.0]) ** 2))
+
+
+def test_extremum_seeking_walks_downhill_on_a_bowl_from_two_runs_a_round():
+    searcher = opt.ExtremumSeeking([3.0, 2.0], amplitude=0.1, gain=0.15, seed=2)
+    assert len(searcher.ask()) == 2
+    start = bowl(searcher.x)
+    opt.tune(searcher, bowl, rounds=150)
+    assert bowl(searcher.x) < 1e-2 * start and len(searcher.history) == 2 * 150
+    np.testing.assert_allclose(searcher.x, [1.0, -2.0], atol=0.1)
+
+
+def test_extremum_seeking_stays_in_the_bounds_and_is_reproducible():
+    def run():
+        searcher = opt.ExtremumSeeking(
+            [0.5, 0.5], 0.2, 0.3, lower=[0.0, 0.0], upper=[1.0, 1.0], seed=1
+        )
+        opt.tune(
+            searcher, lambda x: -float(np.sum(x)), rounds=60
+        )  # downhill is up and to the right
+        return searcher
+
+    first, again = run(), run()
+    assert all(np.all((c >= 0.0) & (c <= 1.0)) for c, _ in first.history)
+    np.testing.assert_allclose(first.x, [1.0, 1.0], atol=1e-6)  # pressed against the bounds
+    np.testing.assert_array_equal(first.x, again.x)
+
+
+def test_extremum_seeking_takes_two_costs_per_round():
+    searcher = opt.ExtremumSeeking([0.0, 0.0], 0.1, 0.1)
+    with pytest.raises(ValueError, match="2 candidates but 1 costs"):
+        searcher.tell(searcher.ask(), [1.0])
