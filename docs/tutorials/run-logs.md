@@ -44,8 +44,8 @@ rows = log.arrays()
 len(rows["t"])
 ```
 
-Without `record`, a log holds the signals down to `z`. `record` adds the others, each group
-on its own: `"params"`, `"elements"` and `"energy"`. These are the names of the signals:
+Without `record`, a log holds the signals down to `z` in this list. `record` adds the others,
+one group at a time: `"params"`, `"elements"` and `"energy"`. The signals are:
 
 - `t`: the time of the step [s].
 - `motor_position`, `motor_velocity`: the measured motor angles [rad] and rates [rad/s].
@@ -77,9 +77,9 @@ energy = {"energy/stored", "energy/kinetic", "power/port",
 assert set(rows) == named | elements | params | energy, "the table is out of date"
 ```
 
-The force of the spring is minus its stiffness times its coordinate `y`, the deflection, and
-the shares of the elements add up to the torque of the law. We follow the forces, and the
-torques on one motor:
+The spring's force is minus its stiffness times its coordinate `y`, the deflection. The shares
+of the elements add up to the torque of the law. We follow the forces, and the torques on one
+motor:
 
 ```{code-cell} python
 t = rows["t"].ravel()
@@ -149,12 +149,12 @@ for name, values in rows.items():
 assert again.meta == log.meta and list(again.meta) == ["library", "start", "params"]
 ```
 
-The file holds the signals and what the run was, `meta`: the library's version, the start
-time, and the value every Param had at the start (the controller's own, if `set` had changed
-it). A plant that has a hardware profile as `plant.profile` adds it. A real-time run also
-fills `info` with its statistics (steps, rate, overruns). The file is written whole or not at
-all: `save` writes a temporary file and renames it, so an interrupted run never leaves half a
-log. It refuses a name that is taken, unless you pass `overwrite=True`.
+The file holds the signals and `meta`, which says what the run was: the library's version, the
+start time, and the value every Param had at the start (the controller's own, if `set` had
+changed it). A plant that has a hardware profile as `plant.profile` adds it. A real-time run
+also fills `info` with its statistics (steps, rate, overruns). `save` writes a temporary file
+and renames it, so an interrupted save never leaves half a log. It refuses a name that is
+taken, unless you pass `overwrite=True`.
 
 A saved log is a plain NumPy archive, so `np.load("reach.npz")["q"]` reads a signal without the
 library.
@@ -176,7 +176,7 @@ The CSV holds the steps only; `meta` and `info` stay in the `.npz`.
 
 A log of the real arm holds the commands it received and what its motors measured. `replay`
 sends the same commands to a simulator, each held for as long as it was in the run, and returns
-what the simulator did; `compare` says how far the two runs are apart. Replayed on the model that
+what the simulator did. `compare` says how far apart the two runs are. Replayed on the model that
 made the log, the commands give the run back:
 
 ```{code-cell} python
@@ -185,8 +185,8 @@ check = vmc.sim.compare(log, same, names=["motor_position", "q"])
 max(entry["max"] for entry in check.values())
 ```
 
-Now the model is wrong: its joints are stiffer than the arm's by 30 %. We let the log play the
-real arm:
+Now the model is wrong: its joints are 30 % stiffer than the arm's. We treat the log as the real
+arm's:
 
 ```{code-cell} python
 stiff = helyx.add_dynamics(helyx.arm("145-145-145"),
@@ -196,7 +196,7 @@ vmc.sim.compare(log, replayed, names=["motor_position"])
 ```
 
 `compare` gives the largest (`max`) and the root-mean-square (`rms`) difference of each signal
-the two logs hold (`names` picks some), reading the second log at the first one's times. A
+the two logs hold (`names` picks some), reading the second log at the first log's times. A
 log of a real arm has no `q` and `v`; `replay` then starts the simulator from the first motor
 reading, through the transmission's exact inverse.
 
@@ -224,7 +224,7 @@ assert check["q"]["max"] < 1e-9 and gap["max"] > 1e3 * check["q"]["max"]
 ```
 
 On the true model the largest difference is {glue:text}`true_gap:.0e`. On the wrong one the
-stiffer joints hold the arm back, so under the same torques its motors turn up to
+stiffer joints hold the arm back. Under the same torques its motors turn up to
 {glue:text}`gap_max:.2f` rad less than the arm's ({glue:text}`gap_rms:.2f` rad RMS), against a
 travel of {glue:text}`travel:.1f` rad. The differences say what to correct in the model: the
 [hanging arm](../examples/hanging-arm.md) fits its stiffness and damping from logged runs.
@@ -240,7 +240,7 @@ A configuration ([Experiments in files](configurations.md)) saves each of its ru
 
 `name` is the file name (by default the start time of the run), `folder` is relative to the
 configuration file, and `record` lists what to add to the log. We add these lines to the file of
-the tutorial before and run it:
+that tutorial and run it:
 
 ```{code-cell} python
 from pathlib import Path
@@ -252,7 +252,7 @@ walk = experiment.run()
 sorted(path.name for path in Path("logs").iterdir())
 ```
 
-The run starts only if its name is free: a second `run` with the same `name` raises a
+The run starts only if its name is free. A second `run` with the same `name` raises a
 `FileExistsError` before anything moves, so a finished log is never replaced by mistake. With
 `overwrite: true` in the settings, it replaces the file instead.
 
@@ -300,7 +300,7 @@ glue("peak", float(np.linalg.norm(walked["element/ctrl.reach/force"][first],
                                   axis=1).max()), display=False)
 ```
 
-The first controller's goal and elements are logged until {glue:text}`handover:.1f` s, when
+The log holds the first controller's goal and elements until {glue:text}`handover:.1f` s, when
 the swap is done, and the gentle controller's from then on. The first spring pulls harder
 and harder as the swap goes on, up to {glue:text}`peak:.0f` N, because the gentle controller
 already draws the tip away from the walking goal.

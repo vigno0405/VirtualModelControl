@@ -25,9 +25,9 @@ u = (1 - w)\,u_\mathrm{old} + w\,u_\mathrm{new}, \qquad
 w = 10 s^3 - 15 s^4 + 6 s^5, \quad s = t / T .
 $$
 
-Both controllers run during the blend. The weight is the quintic whose value goes from 0 to 1
-and whose first and second derivatives are zero at both ends, so the torque and its first two
-derivatives are continuous at the start and at the end of a swap:
+Both controllers run during the blend. The weight is the quintic that goes from 0 to 1 with
+zero first and second derivatives at both ends. So the torque and its first two derivatives are
+continuous at the start and at the end of a swap:
 
 ```{code-cell} python
 import numpy as np
@@ -59,21 +59,20 @@ assert max(abs(x) for x in ends) < 1e-12, ends
 assert np.allclose(np.gradient(w, t)[1:-1], dw[1:-1], atol=1e-3)  # the derivatives are w's
 ```
 
-At both ends $w$ is 0 or 1 and its first two derivatives are zero. A planner uses the same
-`blend_weight`, so that it plans what the controller executes.
+A planner uses the same `blend_weight`, so that it plans what the controller executes.
 
 ## A swap on the soft arm
 
 The configuration of [Experiments in files](configurations.md) has a stiff controller and a
 gentle one, whose spring never pulls with more than 0.5 N. We run the stiff one towards a goal
-and swap to the gentle one at 1 s, once at once and once blended over 1 s:
+and swap to the gentle one at 1 s, first at once and then blended over 1 s:
 
 ```{code-cell} python
 spec = vmc.config.files.read("reach.yaml")
 del spec["experiment"]["schedule"]
 experiment = vmc.config.load(spec)
 stiff, gentle = (experiment.controllers[k] for k in ("ctrl", "gentle"))
-experiment.controllers["ctrl"].set({"ctrl.reach.goal": [0.08, 0.0, 0.40]})
+stiff.set({"ctrl.reach.goal": [0.08, 0.0, 0.40]})
 
 
 def run(duration):
@@ -111,21 +110,21 @@ glue("soft", jump["soft"], display=False)
 ```
 
 Swapped at once, the torques jump by {glue:text}`hard:.2f` N·m between two control steps, at the
-swap; blended, the largest change between two steps after the start is {glue:text}`soft:.3f` N·m.
+swap. Blended, the largest change between two steps after the start is {glue:text}`soft:.3f` N·m.
 
-`ScheduledController(controller, schedules, swaps)` is the controller that takes the swaps (a
-list of the time [s], the controller to swap to, and the duration [s]) and the schedules below.
-On its own, `vmc.control.SwapController(controller)` swaps when asked: `swap(other, duration)`.
-A swap asked for during a blend waits for it to end. Both controllers must be compiled for the
-same robot. The controllers' Params keep their own values, so a Param changed with
-`controller.set` stays changed when you swap away and back.
+`ScheduledController(controller, schedules, swaps)` runs the swaps and the schedules below. Each
+swap is a time [s], the controller to swap to and a duration [s]. On its own,
+`vmc.control.SwapController(controller)` swaps when asked: `swap(other, duration)`. A swap asked
+for during a blend waits for it to end. Both controllers must be compiled for the same robot.
+The controllers' Params keep their own values, so a Param changed with `controller.set` stays
+changed when you swap away and back.
 
 ## Schedules
 
-A `Schedule` holds the values of one live Param over time, as points of a time [s] from the
-start of the run and a value. Between points the value moves in a straight line (`linear`), or
-it jumps at each point and holds (`step`); before the first point the Param keeps its own
-value, and after the last it holds the last one:
+A `Schedule` holds the values of one live Param over time, as points: a time [s] from the start
+of the run and a value. Between points the value moves in a straight line (`linear`) or jumps at
+each point and holds (`step`). Before the first point the Param keeps its own value. After the
+last point it holds the last value:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import Schedule
@@ -146,7 +145,7 @@ ax.legend(loc="lower right", fontsize=18);
 ```
 
 `value` gives None before the first point, where the schedule leaves the Param alone. A
-schedule sets its Param on every controller that has it live, through `controller.set`, so a
+schedule sets its Param on every controller that has it live, through `controller.set`. So a
 schedule of a Param that is not live fails when the controller is built, not in the middle of
 a run. `reset` starts a run again from the controller's own values.
 
