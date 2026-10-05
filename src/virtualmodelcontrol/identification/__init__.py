@@ -3,6 +3,6 @@
 from .efficiency import fit_efficiency
 from .plateaus import plateaus
 from .steps import Steps
-from .stiffness import fit_stiffness_damping
+from .stiffness import fit_stiffness_damping, validate
 
-__all__ = ["Steps", "fit_efficiency", "fit_stiffness_damping", "plateaus"]
+__all__ = ["Steps", "fit_efficiency", "fit_stiffness_damping", "plateaus", "validate"]

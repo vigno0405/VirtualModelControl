@@ -1,7 +1,10 @@
+from functools import cache
+
 import numpy as np
+import pytest
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.identification import Steps, fit_stiffness_damping
+from virtualmodelcontrol.identification import Steps, fit_stiffness_damping, validate
 from virtualmodelcontrol.robots import helyx
 
 DT = 0.01
@@ -76,6 +79,7 @@ def test_the_script_starts_when_the_run_does():
 K, D = 0.6 * helyx.SIM_STIFFNESS, 0.8 * helyx.SIM_DAMPING
 
 
+@cache
 def experiment_on_the_arm():
     """Steps on the simulated arm: nine training pulls and two held-out ones."""
     plant = vmc.sim.ModelPlant(helyx.add_dynamics(helyx.arm("145-145-145"), stiffness=K, damping=D))
@@ -111,3 +115,60 @@ def test_the_fit_leaves_out_the_held_out_steps():
         np.testing.assert_allclose(x, y, rtol=1e-3)  # on the held-out steps, nothing changes
     spoilt = np.where(train[:, None], 1.0, rows["motor_torque"])
     assert abs(fit_with(spoilt)[0] / fit[0] - 1).max() > 0.5  # on the training ones, it follows
+
+
+def arm_with(K, D):
+    return helyx.add_dynamics(helyx.arm("145-145-145"), stiffness=K, damping=D)
+
+
+def test_the_true_model_reproduces_the_held_out_steps():
+    result = validate(arm_with(K, D), experiment_on_the_arm())
+    np.testing.assert_allclose(result["rms"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(result["vaf"], 1.0, atol=1e-9)
+    assert result["t"].shape == (len(result["q"]),) and result["q"].shape[1] == 9
+
+
+def test_the_model_runs_from_the_first_to_the_last_held_out_sample():
+    rows = experiment_on_the_arm().arrays()
+    train = rows["train"].ravel() > 0
+    train[-100:] = True  # the run ends with training samples
+    held = np.flatnonzero(~train)
+    result = validate(arm_with(1.2 * K, D), {**rows, "train": train})  # a model that soon leaves
+    np.testing.assert_array_equal(result["q"][0], rows["q"][held[0]])  # the run, where it starts
+    np.testing.assert_allclose(result["t"], rows["t"].ravel()[held[0] : held[-1] + 1])
+
+
+def test_a_stiffer_model_is_further_from_the_held_out_steps():
+    exact = validate(arm_with(K, D), experiment_on_the_arm())
+    stiffer = validate(arm_with(1.2 * K, D), experiment_on_the_arm())
+    assert stiffer["rms"].max() > 1e-3  # [m]
+    assert stiffer["vaf"].max() < 0.995  # and it explains less of every coordinate's motion
+    assert (stiffer["rms"] > 1e3 * exact["rms"]).all()
+
+
+def test_the_fitted_model_explains_the_held_out_steps():
+    log = experiment_on_the_arm()
+    known = known_arm()
+    K_fit, D_fit = fit_stiffness_damping(known, [log], smoothing=11)
+    result = validate(arm_with(K_fit, D_fit), log)
+    assert result["vaf"].min() > 0.95
+    assert result["rms"].max() < 1e-3  # [m]
+
+
+def test_only_the_held_out_samples_count():
+    rows = dict(experiment_on_the_arm().arrays())
+    train = rows["train"].ravel() > 0
+    held = np.flatnonzero(~train)
+    assert held.size > 20
+    marked = train.copy()
+    marked[held[10:20]] = True  # some samples inside the held-out span trained
+    q = rows["q"].copy()
+    q[held[10:20]] += 1.0  # and are far from what the model does
+    result = validate(arm_with(K, D), {**rows, "train": marked, "q": q})
+    np.testing.assert_allclose(result["rms"], 0.0, atol=1e-9)
+
+
+def test_a_run_without_held_out_steps_cannot_be_validated():
+    rows = experiment_on_the_arm().arrays()
+    with pytest.raises(ValueError, match="no held-out"):
+        validate(arm_with(K, D), {**rows, "train": np.ones(len(rows["t"]))})

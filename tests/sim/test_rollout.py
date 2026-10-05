@@ -151,6 +151,26 @@ def test_the_rollout_is_differentiable_in_the_live_params():
     assert gradient == pytest.approx(central, rel=1e-5)
 
 
+def test_given_torques_replace_the_controller_and_reproduce_a_logged_run():
+    system, q0 = soft_arm()
+    log = run_arrays(system, q0, 1.0, DT)
+    r = vmc.sim.rollout(system, q0, 1.0, DT, u=log["motor_torque"])
+    np.testing.assert_array_equal(
+        r["u"], log["motor_torque"]
+    )  # the controller's command is not used
+    np.testing.assert_allclose(r["q"], log["q"], atol=1e-8)
+    np.testing.assert_allclose(r["v"], log["v"], atol=1e-8)
+    assert np.abs(log["motor_torque"]).max() > 1e-3
+    passive = vmc.sim.rollout(system, q0, 1.0, DT, u=np.zeros((330, 9)))
+    assert np.abs(passive["q"] - log["q"]).max() > 1e-4  # whatever the controller would have done
+
+
+def test_given_torques_need_a_row_per_step():
+    system, _, _ = mass_spring()
+    with pytest.raises(ValueError, match="100 steps"):
+        vmc.sim.rollout(system, [0.0], 1.0, 0.01, u=np.zeros((99, 1)))
+
+
 def test_an_unknown_integrator_is_refused():
     system, _, _ = mass_spring()
     with pytest.raises(ValueError, match="integrator"):

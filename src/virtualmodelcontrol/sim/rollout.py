@@ -30,6 +30,7 @@ def rollout(
     runtime: Iterable[str] = (),
     p: Any = None,
     z0: ArrayLike | None = None,
+    u: ArrayLike | None = None,
 ) -> dict[str, Any]:
     """Simulate the closed loop for ``T`` [s]: the controller every ``dt``, held, and the robot
     in steps of at most ``max_step`` of ``integrator`` (``implicit``, ``rk4``, ``cvodes``).
@@ -37,7 +38,9 @@ def rollout(
     Row k of ``t``, ``q``, ``v``, ``z`` (if the controller has virtual states) and ``u`` (motor
     torques) is the state at the start of step k and the command computed from it, like
     ``run``. ``p`` replaces the live Params (as ``compiled.live_values()``); a CasADi MX symbol
-    gives the results as MX expressions to differentiate.
+    gives the results as MX expressions to differentiate. With ``u``, motor torques [N·m] with one
+    row per step, the robot gets them instead of the controller's command (open loop, as in a
+    logged run).
     """
     if integrator not in INTEGRATORS:
         raise ValueError(f"integrator takes one of {INTEGRATORS}, got {integrator!r}")
@@ -48,15 +51,21 @@ def rollout(
     rhs = _rhs(space, dynamics)
     advance = _advance(rhs, dynamics, space, integrator, dt, max_step)
 
-    x, tw = ca.MX.sym("x", nx + 2 * nz), ca.MX.sym("tw", 2)
+    nu = dynamics.n_u
+    given = None if u is None else np.asarray(u, dtype=float)
+    if given is not None and given.shape != (steps, nu):
+        raise ValueError(f"u needs a row of {nu} torques for each of {steps} steps")
+    x, tw = ca.MX.sym("x", nx + 2 * nz), ca.MX.sym("tw", 2 + (0 if given is None else nu))
     pp = ca.MX.sym("p", compiled.live_values().size)
     q, v, z, t, w = x[:nq], x[nq:nx], x[nx:], tw[0], tw[1]
-    u, zdot = compiled.law(q, v, z, pp, t)
+    command, zdot = compiled.law(q, v, z, pp, t)
+    if given is not None:
+        command = tw[2:]
     zvel = z[nz:] + w * zdot[nz:]  # the virtual state moves over the time since the last step
     zpos = z[:nz] + w * zvel
-    robot = advance(x[:nx], u, pp[where], t)
+    robot = advance(x[:nx], command, pp[where], t)
     control = ca.Function(
-        "control_step", [x, tw, pp], [ca.vertcat(robot, zpos, zvel), ca.vertcat(x, u)]
+        "control_step", [x, tw, pp], [ca.vertcat(robot, zpos, zvel), ca.vertcat(x, command)]
     )
 
     symbolic = isinstance(p, ca.MX)
@@ -68,6 +77,8 @@ def rollout(
     x0 = np.concatenate([np.asarray(q0, dtype=float), v_start, z_start])
     times = dt * np.arange(steps)
     tws = np.vstack([times, np.r_[0.0, np.full(steps - 1, dt)]])  # t_k, and dt (0 at the start)
+    if given is not None:
+        tws = np.vstack([tws, given.T])
     _, rows = control.mapaccum(steps)(x0, tws, ca.repmat(p, 1, steps))
     if not symbolic:
         rows = np.array(ca.evalf(rows))

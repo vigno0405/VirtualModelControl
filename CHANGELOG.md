@@ -46,6 +46,10 @@ All notable changes to this project are documented here. The format follows
   to the fit and returns it after K and D (`K, D, F`). Friction that is not in the fit passes for
   damping. A motor that stands still has none in the model, so a run that stops at the end of every
   step hardly shows it: use one that keeps the motors moving.
+- `identification.validate(model, run)`: simulates a robot with its stiffness and damping under the
+  logged torques of the held-out steps of a run, from the state the run is in at the first of them,
+  and returns the root-mean-square error and the variance accounted for of each coordinate.
+  `vmc.sim.rollout` takes `u`, motor torques with a row per step, to simulate open loop.
 - `vmc.optimization.Grid`, `Random`, `CMAES` and `ExtremumSeeking`: gradient-free tuning by ask and tell (`ask()`
   gives candidates, `tell(candidates, costs)` takes their costs), `tune` to run it, and
   `bounds_of` for the bounds and values of named Params. The episodes are yours, in simulation

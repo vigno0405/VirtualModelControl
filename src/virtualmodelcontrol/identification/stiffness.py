@@ -10,10 +10,24 @@ import numpy as np
 
 from ..core.params import constants
 from ..dynamics import compile_dynamics
+from ..mechanisms.mechanism import Mechanism
 from ..models.actuation import Direct
+from ..sim.rollout import rollout
+from ..system import VirtualMechanismSystem
 
 MOVING = 0.01
 """A motor moves, for the friction column, above this fraction of the fastest rate in the run."""
+
+
+def _read(run: Any) -> tuple[Any, ...]:
+    """A run (a ``RunLog``, or a mapping) as its arrays, ``t``, ``q``, ``v``, the motor torques,
+    and which samples train (all, unless the run says)."""
+    rows = run.arrays() if hasattr(run, "arrays") else run
+    t = np.asarray(rows["t"], dtype=float).ravel()
+    torque = rows["motor_torque"] if "motor_torque" in rows else rows["u"]
+    q, v, u = (np.asarray(x, dtype=float) for x in (rows["q"], rows["v"], torque))
+    train = np.asarray(rows.get("train", np.ones(len(t))), dtype=bool).ravel()
+    return rows, t, q, v, u, train
 
 
 def fit_stiffness_damping(
@@ -57,15 +71,11 @@ def fit_stiffness_damping(
     motor_rates = ca.Function("motor_rates", [q_s, v_s], [rates])
     rows, rhs = [], []
     for run in runs:
-        run = run.arrays() if hasattr(run, "arrays") else run  # a RunLog, or a mapping
-        t = np.asarray(run["t"], dtype=float).ravel()
-        torque = run["motor_torque"] if "motor_torque" in run else run["u"]
-        q, v, u = (np.asarray(x, dtype=float) for x in (run["q"], run["v"], torque))
+        run, t, q, v, u, keep = _read(run)
         p = np.asarray(run.get("p", dyn.live_values()), dtype=float)
         dt = float(np.median(np.diff(t)))
         v = savgol_filter(v, min(smoothing, len(t) - (1 - len(t) % 2)), 3, axis=0)
         a = np.gradient(v, dt, axis=0)
-        keep = np.asarray(run.get("train", np.ones(len(t))), dtype=bool).ravel()
         idx = np.flatnonzero(keep & (np.arange(len(t)) % stride == 0))
         q0, u0 = q[:baseline].mean(axis=0), u[:baseline].mean(axis=0)
         zero, no_torque = np.zeros(space.nv), np.zeros(u.shape[1])
@@ -87,3 +97,30 @@ def fit_stiffness_damping(
     x = lsq_linear(A_all, np.concatenate(rhs).ravel(), bounds=(0.0, np.inf), method="trf").x
     nv = space.nv
     return (x[:nv], x[nv : 2 * nv], x[2 * nv :]) if friction else (x[:nv], x[nv:])
+
+
+def validate(model: Any, run: Any) -> dict[str, np.ndarray]:
+    """How far ``model`` is from the steps of ``run`` that the fit did not use.
+
+    ``model`` is the robot with its stiffness and damping. It starts where the run is at its first
+    held-out sample (the samples with ``train`` off) and gets the logged torques until the last
+    one. Returns the simulated ``t`` and ``q`` over that span and, on the held-out samples, the
+    root-mean-square error ``rms`` of q and the share ``vaf`` of its variance that the model
+    explains (1 is exact), one value per coordinate.
+    """
+    _, t, q, v, u, train = _read(run)
+    held = np.flatnonzero(~train)
+    if not held.size:
+        raise ValueError("the run has no held-out samples: its train mask is on everywhere")
+    first, stop = held[0], held[-1] + 1
+    dt = float(np.median(np.diff(t)))
+    system = VirtualMechanismSystem(model, Mechanism("none"))
+    sim = rollout(system, q[first], (stop - first) * dt, dt, v0=v[first], u=u[first:stop])
+    out = ~train[first:stop]
+    error, real = sim["q"][out] - q[first:stop][out], q[first:stop][out]
+    return {
+        "t": t[first:stop],
+        "q": sim["q"],
+        "rms": np.sqrt((error**2).mean(axis=0)),
+        "vaf": 1.0 - error.var(axis=0) / np.maximum(real.var(axis=0), 1e-18),
+    }
