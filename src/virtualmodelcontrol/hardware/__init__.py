@@ -1,5 +1,5 @@
-"""Hardware profiles: each robot's motors, their IDs, signs and constants."""
+"""Hardware profiles: each robot's motors, their IDs, signs and the driver's order."""
 
-from .profile import KT, MODES, HardwareProfile, Motor
+from .profile import HardwareProfile, Motor
 
-__all__ = ["KT", "MODES", "HardwareProfile", "Motor"]
+__all__ = ["HardwareProfile", "Motor"]

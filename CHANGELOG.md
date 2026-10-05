@@ -42,6 +42,11 @@ versions, with one minor version of deprecation before a removal).
   and the recorder), the `joystick` extra and `SimClock`'s `speed`, `now` and `sleep`: the library
   is for control, not for interfaces. A running controller still changes through
   `controller.set`, schedules and swaps. A project that uses them keeps `virtualmodelcontrol==0.3.0`.
+- From the hardware profiles, the raw Dynamixel units (encoder ticks, velocity units, goal
+  currents, motor constants `kt` and the `KT` table, baud rate, serial port, velocity filter, home
+  ticks, per-motor torque limits and operating modes). A `Motor` is now `Motor(id, sign, hold)`
+  and a `HardwareProfile` `(motors, rate, bus_order)`, with the conversions between a driver's
+  degrees, bus order and signs and the library's SI units.
 
 ## [0.3.0] - 2026-10-05
 

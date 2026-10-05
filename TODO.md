@@ -224,10 +224,10 @@ How the commands reach the robot stays outside the library.
   does not require; the constrained elements named their `normal` Param `direction`; `vmc.ros`
   was not reachable as documented; SciPy made up three quarters of the import time. Two were
   texts: a docstring and the README's SciPy row.
-- [x] **Hardware profiles** (`hardware/profile.py`): motor IDs and order, encoder signs, motor
-  constants, operating modes, limits; YAML; one per robot template; the conversions (ticks and
-  radians, degrees and radians, current and torque) tested both ways. They stay when the direct
-  Dynamixel path leaves: any transport needs them.
+- [x] **Hardware profiles** (`hardware/profile.py`): motor IDs and order, signs, held motors and
+  the driver's bus order; YAML; one per robot template; the conversions (degrees and radians,
+  torque) tested both ways. They stay when the direct Dynamixel path leaves: any transport needs
+  them. The raw motor units (ticks, currents, motor constants, baud rate) were removed in 0.4.0.
 - [x] **Transmission efficiency:** 1 by default for every robot, because models identified
   from the commanded torques already include their transmission (the soft arm and the two arms
   back to stiffness and damping referred to the commanded torque); `vmc.Efficiency`, the

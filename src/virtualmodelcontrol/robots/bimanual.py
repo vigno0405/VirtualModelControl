@@ -67,16 +67,7 @@ ENCODER_SIGN = 1.0
 CONTROL_RATE = 500.0  # [Hz]
 
 MOTOR_IDS = (1, 3, 2, 5, 9, 7, 4, 8, 6, 10, 12, 11, 14, 18, 16, 13, 17, 15)
-"""Bus IDs of the 18 XL330-M288 motors in the motor order: the right arm's nine, then the left's."""
-
-HOME = {
-    1: 2024, 2: 2687, 3: 798, 4: 2248, 5: 2179, 6: 911, 7: 2828, 8: 2935, 9: 828,
-    10: 2789, 11: 2999, 12: 3593, 13: 2373, 14: 2068, 15: 2454, 16: 1395, 17: 2207, 18: 897,
-}  # fmt: skip
-"""Home pose of each motor [absolute ticks] by ID, recorded on the robot."""
-
-BAUDRATE = 3_000_000  # [bit/s]
-KT = 0.00115  # [N·m per unit of goal current], the constant the efficiency was calibrated with
+"""Bus IDs of the 18 motors in the motor order: the right arm's nine, then the left's."""
 
 TORQUE_OFFSET = 0.03  # [N·m] on every motor
 PRETENSION_WEIGHTS = 0.03  # [N·m/rad] per motor, only on tendons released past the threshold
@@ -86,9 +77,9 @@ TORQUE_LIMIT = 0.5  # [N·m]
 
 @register("hardware", "bimanual.hardware")
 def hardware() -> HardwareProfile:
-    """The two arms' motors and their bus."""
-    motors = tuple(Motor(i, "XL330-M288", ENCODER_SIGN, kt=KT, home=HOME[i]) for i in MOTOR_IDS)
-    return HardwareProfile(motors, baudrate=BAUDRATE, rate=CONTROL_RATE)
+    """The two arms' motors."""
+    motors = tuple(Motor(i, ENCODER_SIGN) for i in MOTOR_IDS)
+    return HardwareProfile(motors, rate=CONTROL_RATE)
 
 
 @register("output", "bimanual.output_stage")
