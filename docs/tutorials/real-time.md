@@ -190,8 +190,8 @@ assert not old.arrays()["motor_torque"].any() and blind.info["guard_trips"] > 20
 
 ## Ctrl-C
 
-Ctrl-C ends a real-time run with the log so far, and the same does `controls.stop()` of an
-[interactive session](interactive.md). Here the controller raises it at its 60th step:
+Ctrl-C ends a real-time run with the log so far. Here the controller raises it at its 60th
+step:
 
 ```{code-cell} python
 class Interrupted(Busy):

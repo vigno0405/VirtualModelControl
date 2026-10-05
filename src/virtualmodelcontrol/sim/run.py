@@ -22,15 +22,9 @@ coordinate, rate, force and share of the motor torques, and the controller's ene
 
 @dataclass
 class SimClock:
-    """Simulated time: each step advances the plant by ``dt`` [s]. With ``speed``, simulated
-    seconds per second of the computer's clock, the run waits to follow it (a real-time
-    simulation): it may run until stopped (``T=None``), and Ctrl-C ends it with the log so far.
-    ``now`` and ``sleep`` are the computer's clock (replaceable in tests)."""
+    """Simulated time: each step advances the plant by ``dt`` [s]."""
 
     dt: float
-    speed: float | None = None
-    now: Callable[[], float] = time.monotonic
-    sleep: Callable[[float], None] = time.sleep
 
 
 @dataclass
@@ -72,8 +66,8 @@ def run(
 
     Each step reads the plant, asks the controller for a command (zero torque if the guard
     trips), writes it, then advances a simulated plant by ``clock.dt`` or, with a ``WallClock``,
-    waits for the next step. On real time, and in a simulation with a ``speed``, ``T=None`` runs
-    until Ctrl-C, and Ctrl-C ends the run with the log so far. ``z0`` sets the controller's initial
+    waits for the next step. On real time, ``T=None`` runs until Ctrl-C, and Ctrl-C ends the run
+    with the log so far. ``z0`` sets the controller's initial
     virtual state, or is a function of the first reading that returns it. The log holds, at every
     step, the measurements, the command (and the law's torque before any output stage), the
     virtual state ``z`` when the controller has one, and what ``record`` asks for (see
@@ -84,45 +78,24 @@ def run(
     extras = _extras(record)
     if isinstance(clock, WallClock):
         return _run_wall(plant, controller, clock, T, guard, z0, extras)
-    if T is None and clock.speed is None:
-        raise ValueError("a simulated run needs its duration T (or a real-time speed)")
+    if T is None:
+        raise ValueError("a simulated run needs its duration T")
     log = RunLog()
     meas = plant.read()
     motors = _motors(meas)
     _reset(controller, plant.t, meas, z0)
     _describe(log, plant, controller)
-    limit, steps, tick = None if T is None else round(T / clock.dt), 0, clock.now()
-    try:
-        while limit is None or steps < limit:
-            meas = plant.read()
-            good = guard.ok(meas)
-            if good:
-                cmd = controller.step(plant.t, meas)
-            else:
-                cmd = Signals(plant.t, motor_torque=np.zeros(motors))
-            plant.write(cmd)
-            log.step(**_values(plant.t, cmd, meas, controller, extras if good else None))
-            plant.advance(clock.dt)
-            steps += 1
-            if clock.speed is not None:
-                tick = _pace(clock, tick)
-    except KeyboardInterrupt:  # a real-time simulation, like a real robot, ends with the log so far
-        if clock.speed is None:
-            raise
-        log.rows = {name: rows[:steps] for name, rows in log.rows.items()}
+    for _ in range(round(T / clock.dt)):
+        meas = plant.read()
+        good = guard.ok(meas)
+        if good:
+            cmd = controller.step(plant.t, meas)
+        else:
+            cmd = Signals(plant.t, motor_torque=np.zeros(motors))
+        plant.write(cmd)
+        log.step(**_values(plant.t, cmd, meas, controller, extras if good else None))
+        plant.advance(clock.dt)
     return log
-
-
-def _pace(clock: SimClock, tick: float) -> float:
-    """Wait until one more step of the computer's clock has passed since ``tick``; a step that
-    is late starts again from now rather than catching up in a burst."""
-    assert clock.speed is not None
-    tick += clock.dt / clock.speed
-    wait = tick - clock.now()
-    if wait > 0:
-        clock.sleep(wait)
-        return tick
-    return clock.now()
 
 
 def _values(

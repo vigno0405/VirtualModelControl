@@ -151,5 +151,4 @@ schedule of a Param that is not live fails when the controller is built, not in 
 a run. `reset` starts a run again from the controller's own values.
 
 The same swaps and schedules are the `swap` and `schedule` entries of a configuration
-([Experiments in files](configurations.md)), and the entries that
-[a session by hand](interactive.md) records.
+([Experiments in files](configurations.md)).

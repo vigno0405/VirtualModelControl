@@ -46,8 +46,8 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 
 - **0.3.0 is on PyPI** (see `CHANGELOG.md`): the bimanual, hand, turtle and UR5 templates;
   Jacobians and Hessians of every site; experiments in YAML files (`vmc.config`); run logs that
-  save, load, export, replay and compare; control by hand that records itself as a schedule
-  (`vmc.interactive`); the real-time loop and swaps with their documentation; hardware profiles;
+  save, load, export, replay and compare; the real-time loop and swaps with their
+  documentation; hardware profiles;
   every robot's efficiency is 1 by default, and `vmc.Efficiency` gives a polynomial one per
   motor; `vmc.identification` fits efficiencies and stiffness and damping from data; the
   constrained springs and dampers are components of their own; contact; figures and animations;
@@ -57,6 +57,10 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   removed in 0.4.0. After 0.3.0 the releases follow the research: optimization of virtual
   mechanisms, then passivity, adaptation and estimation, MPC and underactuation, and models in
   PyTorch and numpy. Every item has its release, up to 1.0.0.
+- **The library is for control only (5 October 2026):** the interface tools of 0.3.0 (the window, the
+  keyboard, the joystick, the session and their mailbox) and the real-time simulation clock are
+  removed, and the 3D views item is dropped. Changing a running controller stays possible through
+  `controller.set`, schedules and swaps.
 - **Rescoped on 5 October 2026:** after 0.5.0 the plan is short: MPC and underactuation (0.6.0),
   models in PyTorch and numpy (0.7.0), then a full check and the 1.0.0 release. Co-design with
   variable-stiffness actuators, URDF and MuJoCo, continuum models beyond PCC, inverse dynamics,
@@ -70,12 +74,12 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 Everything still to do, in order. Each step is done when its items below are ticked.
 
 1. **Review the repository** (done, 5 October 2026).
-2. **Finish 0.3.0** (done, 5 October 2026): configurations, run logs, interactive tools, the
+2. **Finish 0.3.0** (done, 5 October 2026): configurations, run logs, the
    deprecations, the documentation of the real-time loop, a safety checklist, element swaps and
    schedules, and the release.
 3. **0.4.0, optimization of virtual mechanisms:** problems, integrators and compiled rollouts;
    the lab's offline optimization; structure optimization; gradient-free tuning; the energy
-   tank for online updates; the step experiment and calibration; 3D views; the deprecated parts
+   tank for online updates; the step experiment and calibration; the deprecated parts
    removed.
 4. **0.5.0, passivity, adaptation, estimation and locomotion:** adaptation laws and passivity
    filters; grasp-force tracking on two arms and the hand's fingertip laws; Kalman filters and
@@ -206,10 +210,10 @@ example opens with its robot's schematic, and the build and the screenshots are 
 
 ---
 
-## 0.3.0: experiments in files, run logs, interactive tools
+## 0.3.0: experiments in files and run logs
 
 Everything done by hand around an experiment becomes a file or one library call: describing it,
-running it in simulation or in real time on any plant, recording it, changing it while it runs.
+running it in simulation or in real time on any plant, and recording it.
 How the commands reach the robot stays outside the library.
 
 - [x] **Review the repository:** read every package (core, mechanisms, models, compiler,
@@ -244,14 +248,6 @@ How the commands reach the robot stays outside the library.
   `vmc.sim.RunLog`, `replay` and `compare`, `record=` on `vmc.sim.run`, and the `run` settings of
   a configuration, tested (a replay on the true model gives the run back to rounding error),
   and the tutorial "Run logs".
-- [x] **Interactive tools:** a matplotlib window (no new dependency) to drag goals, set gains and
-  swap elements of a running controller in the same process (a simulation, or inside the
-  robot's own node); keyboard teleoperation of a goal; joystick teleoperation (pygame, an
-  opt-in extra); what was set by hand recorded and repeated as a schedule in a configuration.
-  Done: `vmc.interactive` (a mailbox and a wrapper controller that work in a simulation and
-  inside a node, the energy the changes give the controller, the recorder, the window, keys, the
-  joystick, the session) and a real-time factor on `SimClock`, tested offscreen (a recorded
-  session runs again exactly), and the tutorial "Interactive control" on the soft arm.
 - [x] **Deprecations:** `vmc.ros` and the direct Dynamixel path (`DynamixelPlant`, `home`,
   `scan`, `latency_timer`, the buses) warn when used, and leave in 0.4.0 with dynamixel-sdk and
   pyserial: the library is communication-agnostic, and the lab drives its robots through its
@@ -323,12 +319,8 @@ the soft arm among obstacles.
   on its side needs it: its closed-loop runs cannot identify it.
 - [ ] **Calibration:** transmission ratios, motor constants, base transforms between arms,
   Stribeck friction for the compensation stage.
-- [ ] **3D views:** 3D drawings with meshes; sketches of joints, frames, coordinates and
-  components (coils for springs, dashpots for dampers); frame labels; 3D animations to MP4 or
-  GIF; an interactive viewer in the browser that updates during a run; a distinct colour for
-  the virtual mechanism.
 - [ ] **Docs:** optimizing a virtual mechanism (the tutorial is written; the soft arm among
-  obstacles remains); the energy tank; tuning without gradients; the step experiment; 3D views.
+  obstacles remains); the energy tank; tuning without gradients; the step experiment.
 
 ---
 
@@ -470,7 +462,7 @@ new designs against these themes, so nothing they need is made hard:
 | swapping springs live, blended | element swaps with a quintic blend, schedules | done |
 | efficiency calibration against a load cell | `identification.fit_efficiency` | done |
 | the driver's topics, homing and bus checks in every project | the projects' own nodes and tools (communication stays outside) | none |
-| controller GUIs, live gain changes, teleoperation | interactive tools, `controller.set` | 0.3.0 |
+| live gain changes | `controller.set`, schedules and swaps | 0.3.0 |
 | logging runs to npz and CSV | run logs | 0.3.0 |
 | step experiments and K, D fits | step experiment, `identification.fit_stiffness_damping` | 0.4.0 |
 | offline optimization and reference search | optimization | 0.4.0 |

@@ -20,6 +20,5 @@ tutorials are available from there. The modules, from the bottom layer up:
    ~virtualmodelcontrol.optimization
    ~virtualmodelcontrol.hardware
    ~virtualmodelcontrol.viz
-   ~virtualmodelcontrol.interactive
    ~virtualmodelcontrol.robots
 ```

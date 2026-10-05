@@ -38,6 +38,10 @@ versions, with one minor version of deprecation before a removal).
   SDK and pyserial are no longer dependencies, and CI no longer runs the ROS tests. Hardware
   profiles (`HardwareProfile`, `Motor`, `KT`, `MODES` and each robot's `hardware` template) stay.
   A project that still uses a removed name keeps `virtualmodelcontrol==0.3.0`.
+- `vmc.interactive` (the window, the keyboard, the joystick, the session, the mailbox, the wrapper
+  and the recorder), the `joystick` extra and `SimClock`'s `speed`, `now` and `sleep`: the library
+  is for control, not for interfaces. A running controller still changes through
+  `controller.set`, schedules and swaps. A project that uses them keeps `virtualmodelcontrol==0.3.0`.
 
 ## [0.3.0] - 2026-10-05
 

@@ -50,13 +50,13 @@ except ImportError:  # a source tree that was never installed
     __version__ = "0.0.0+unknown"
 
 if TYPE_CHECKING:
-    from . import config, hardware, interactive, viz
+    from . import config, hardware, viz
 
 
 def __getattr__(name: str) -> Any:
-    # ``vmc.viz`` and ``vmc.interactive`` (matplotlib), ``vmc.hardware`` and ``vmc.config`` load
+    # ``vmc.viz`` (matplotlib), ``vmc.hardware`` and ``vmc.config`` load
     # only when first used.
-    if name in ("viz", "hardware", "config", "interactive"):
+    if name in ("viz", "hardware", "config"):
         return importlib.import_module(f".{name}", __name__)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -111,7 +111,6 @@ __all__ = [
     "config",
     "hardware",
     "identification",
-    "interactive",
     "optimization",
     "register",
     "sim",
