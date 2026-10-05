@@ -313,10 +313,10 @@ the soft arm among obstacles.
   on any element, `optimization.Sparsity` adds the sum of the free gates to the cost; candidate
   elements at several places keep only the ones that pay. The result depends on the weight and,
   on the arm, on the start and the scales; the tutorial says so.
-- [ ] **Gradient-free tuning:** an ask-and-tell interface (grid, CMA-ES, Bayesian
+- [x] **Gradient-free tuning:** an ask-and-tell interface (grid, CMA-ES, Bayesian
   optimization, extremum seeking) for episodes run in simulation or on the robot by its own
-  node. Done so far: `Grid`, `Random`, `CMAES` and `ExtremumSeeking` with `tune`; Bayesian
-  optimization remains.
+  node. Done (6 October 2026): `Grid`, `Random`, `CMAES`, `ExtremumSeeking` and `Bayes` with
+  `tune`; the tuning tutorial runs three of them on the fingertip's damping.
 - [x] **Energy tank:** exact bounds on parameter steps, including steps that release energy
   when the tank is empty; online updates of a running controller, such as an optimizer's
   result applied through `controller.set`, pass through it. Done (6 October 2026):
