@@ -45,18 +45,14 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 
 ## Where things stand (5 October 2026)
 
-- **0.2.0 is on PyPI** (see `CHANGELOG.md`): the bimanual, hand, turtle and UR5 templates;
-  Jacobians and Hessians of every site; mounting parts on frames; opt-in output stages; virtual
-  states; figures and animations; contact; the rebuilt documentation; and the first parts of
-  0.3.0 (hardware profiles, the Dynamixel plant, the real-time run loop, the ROS 2 bridge).
-- **On `main`, for 0.3.0** (see `CHANGELOG.md`, "Unreleased"): the repository review and its
-  fixes; experiments in YAML files (`vmc.config`); run logs that save, load, export, replay and
-  compare; control by hand that records itself as a schedule (`vmc.interactive`); the ROS
-  controller node and live element swaps; every robot's efficiency is 1 by default, and
-  `vmc.Efficiency` gives a polynomial one per motor; `vmc.identification` fits efficiencies and
-  stiffness and damping from data; the constrained springs and dampers are components of their
-  own; the two single-arm examples run their own arm's experiments; concepts pages on Virtual
-  Model Control, passivity, finger and hand kinematics and efficiency.
+- **0.3.0 is on PyPI** (see `CHANGELOG.md`): the bimanual, hand, turtle and UR5 templates;
+  Jacobians and Hessians of every site; experiments in YAML files (`vmc.config`); run logs that
+  save, load, export, replay and compare; control by hand that records itself as a schedule
+  (`vmc.interactive`); the real-time loop and swaps with their documentation; hardware profiles;
+  every robot's efficiency is 1 by default, and `vmc.Efficiency` gives a polynomial one per
+  motor; `vmc.identification` fits efficiencies and stiffness and damping from data; the
+  constrained springs and dampers are components of their own; contact; figures and animations;
+  and the rebuilt documentation.
 - **Decided on 5 October 2026:** the library is communication-agnostic, so `vmc.ros` and the
   direct Dynamixel path (the motor plant, homing, the bus check) are deprecated in 0.3.0 and
   removed in 0.4.0. After 0.3.0 the releases follow the research: optimization of virtual
@@ -71,9 +67,9 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
 Everything still to do, in order. Each step is done when its items below are ticked.
 
 1. **Review the repository** (done, 5 October 2026).
-2. **Finish 0.3.0:** configurations (done); run logs; interactive tools; the deprecations; the
-   documentation of the real-time loop, a safety checklist, element swaps and schedules; then
-   the release, checked in simulation, with the owner's go.
+2. **Finish 0.3.0** (done, 5 October 2026): configurations, run logs, interactive tools, the
+   deprecations, the documentation of the real-time loop, a safety checklist, element swaps and
+   schedules, and the release.
 3. **0.4.0, optimization of virtual mechanisms:** problems, integrators and compiled rollouts;
    the lab's offline optimization; structure optimization; gradient-free tuning; the energy
    tank for online updates; the step experiment and calibration; 3D views; the deprecated parts
@@ -268,8 +264,8 @@ How the commands reach the robot stays outside the library.
   `Schedule`, `ScheduledController`, documented in "Swaps and schedules"; the planner uses the
   same blend in 0.4.0.
 - [x] **Docs:** the real-time loop, the safety checklist, element swaps and schedules.
-- [ ] **Release 0.3.0:** a clean check from a fresh clone (in simulation), the CHANGELOG, then
-  the tag with the owner's go.
+- [x] **Release 0.3.0:** checked from a fresh clone in simulation, tagged and on PyPI (5 October
+  2026).
 
 ---
 
