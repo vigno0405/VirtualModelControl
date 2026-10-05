@@ -22,14 +22,13 @@ a motion, a damper. The controller computes the forces these elements would exer
 motors apply them.
 
 Every number of such a controller has a unit and a physical meaning, a stiffness in N/m or a
-damping in N·s/m, so we read and tune it like a mechanism. And since springs and dampers only
-store and dissipate energy, a controller made of them can only give the robot back the energy
-it stored.
+damping in N·s/m, so we read and tune it like a mechanism. Springs and dampers only store and
+dissipate energy. A controller made of them can only give the robot back the energy it stored.
 
 ## Two mechanisms
 
 The robot and its controller are two separate mechanisms, each a set of coordinates and of
-components acting on them. Here is the finger of the hand, twice:
+components acting on them. Here is a finger, once as the robot and once as its controller:
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -38,8 +37,8 @@ mechanism.figure();
 ```
 
 The robot mechanism describes the hardware. Its kinematics give the coordinates, here the joint
-angles $\theta_1$ to $\theta_3$ and any point such as the tip; its motors drive them; its
-components are physical: the masses of the phalanges, gravity, and on a soft robot its own
+angles $\theta_1$ to $\theta_3$ and any point such as the tip. Its motors drive them. Its
+components are physical: the masses of the phalanges, gravity and, on a soft robot, its own
 stiffness and damping.
 
 The controller is a virtual mechanism on the same coordinates. Here a spring pulls the tip to a
@@ -47,7 +46,7 @@ goal, a damper slows the tip, spiral springs keep each joint in its range and gr
 compensation cancels the weight of the phalanges. A controller can also have degrees of freedom
 of its own, its virtual states.
 
-The two never mix. A simulator moves the robot mechanism with its own components; the
+The two never mix. A simulator moves the robot mechanism with its own components. The
 controller's torques come from the controller's components alone, through the robot's
 kinematics and motors. On the real robot, the hardware takes the place of the simulator.
 
@@ -62,8 +61,8 @@ four_steps.figure();
 1. Describe the robot: a ready-made template from `virtualmodelcontrol.robots`, or a model of
    our own.
 2. Place the virtual elements: components on the robot's coordinates, in a `vmc.Mechanism`.
-3. Compile: `vmc.compile` turns the pair into one CasADi function from motor angles and rates
-   to motor torques, with exact derivatives.
+3. Compile: `vmc.compile` turns the two mechanisms into one CasADi function from motor angles
+   and rates to motor torques, with exact derivatives.
 4. Run on a plant: `vmc.VMCController` evaluates that function at every control step. The plant
    is a simulator built from the robot mechanism alone (`vmc.sim.ModelPlant`), or the real
    robot.

@@ -28,13 +28,13 @@ from virtualmodelcontrol.robots import helyx
 arm = helyx.arm("145-145-145")
 tip = arm.point(s=1.0)  # the tip, 3 entries [m]
 middle = arm.point(s=0.5)  # halfway along the arm
-segment1 = arm.joint(slice(0, 3))  # the first segment's Δ [m]
+segment1 = arm.joint(slice(0, 3))  # the first segment's q, 3 entries [m]
 tip, middle, segment1
 ```
 
 On a continuum robot, `s` runs from 0 at the base to 1 at the tip, uniformly in arc length.
 Rigid robots and hands name their points instead, as in `finger.point("tip")` or
-`hand.point("index/tip")`; `offset=` moves the point within that frame.
+`hand.point("index/tip")`. `offset=` moves the point within that frame.
 
 ## New coordinates from old ones
 
@@ -53,15 +53,17 @@ for c in (reach, height, distance, wall, reach[0], vmc.Stack(tip, middle)):
 
 A projection, a norm and a distance are one number each: a spring on `height` pulls along $z$
 only. The constrained elements, such as `vmc.ConstrainedLinearSpring(reach, k, normal=n)`, are
-springs and dampers on such a projection, ready-made. `PlaneDistance` and `SphereDistance` are signed distances to a surface, for
-[contacts](contact.md). A plain list works as a goal too (`tip - [0.1, 0.0, 0.40]`); it becomes
-a live parameter named `ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom`
-wraps a function written with CasADi operations ([Extend the library](extend.md)).
+ready-made springs and dampers on such a projection. `PlaneDistance` and `SphereDistance` are
+signed distances to a surface, for [contacts](contact.md).
+
+A plain list works as a goal too, as in `tip - [0.1, 0.0, 0.40]`. It becomes a live parameter
+named `ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom` wraps a function
+written with CasADi operations ([Extend the library](extend.md)).
 
 ## Virtual states
 
-A controller can have degrees of freedom of its own. `add_state` creates one; it needs an
-inertance, a virtual mass, and springs and dampers connect it to the robot. Here a virtual
+A controller can have degrees of freedom of its own. `add_state` creates one. It needs an
+inertance, which is a virtual mass. Springs and dampers connect it to the robot. Here a virtual
 point follows the tip on a spring:
 
 ```{code-cell} python
@@ -92,7 +94,7 @@ A component acts on one coordinate $y$, and it is one of four kinds:
 Each force reaches the robot through its coordinate's Jacobian: $\dot y = J v$ and
 $\tau = J^\top f$. The motors then receive the torques $u$ with $B(q)\,u = \tau$, where $B$
 comes from the robot's transmission. The [conventions](../concepts/conventions.md) give the
-signs; these are the components of the library:
+signs. These are the components of the library:
 
 | Component | Kind | Force on its coordinate |
 | --- | --- | --- |
@@ -155,7 +157,7 @@ for ax in axes[:, 0]:
     ax.set_ylabel("$f$ [N]")
 ```
 
-The tanh spring saturates at its maximum force, the Gaussian spring pushes away only near
-$y = 0$ (around an obstacle), the sigmoid and polynomial springs stiffen with distance, and
-the limit spring stays at zero inside its range. On a 3D coordinate the tanh spring saturates
-each axis on its own; put it on a `Projection` to bound the force along one direction.
+The tanh spring saturates at its maximum force. The Gaussian spring pushes away only near
+$y = 0$, around an obstacle. The sigmoid and polynomial springs stiffen with distance. The limit
+spring stays at zero inside its range. On a 3D coordinate the tanh spring saturates each axis on
+its own. To bound the force along one direction, put it on a `Projection`.

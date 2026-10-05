@@ -6,8 +6,8 @@ kernelspec:
 
 # Your first controller
 
-In this tutorial we build a controller for the soft arm, compute the torques it sends at one
-control step, then run it on a simulated arm, plot what happened and animate the run.
+In this tutorial we build a controller for the soft arm and compute the torques it sends at one
+control step. Then we run it on a simulated arm, plot the run and animate it.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -18,7 +18,7 @@ import docs_setup
 
 `helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
 kinematics, its nine tendon motors and the masses of its segments. A simulator also needs the
-arm's own stiffness and damping, and gravity; `helyx.add_dynamics` adds them.
+arm's own stiffness and damping, and gravity. `helyx.add_dynamics` adds them.
 
 ```{code-cell} python
 import numpy as np
@@ -65,14 +65,14 @@ controller.step(0.0, meas)["motor_torque"].round(3)  # [N·m]
 ```
 
 A positive torque pulls its tendon. On the real arm, this call runs at the control rate with
-the measured angles; the next sections let a simulator provide them.
+the measured angles. The next sections let a simulator provide them.
 
 ## The loop
 
 A controller never talks to a robot directly. At every control step the run loop reads the
 measurements from a *plant*, asks the controller for motor torques, writes them back, and lets
-the plant move on by one control period. The plant is either a simulator or, later, the real
-robot; the loop and the controller are the same in both cases.
+the plant move on by one control period. The plant is a simulator or the real robot. The loop
+and the controller are the same for both.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -82,7 +82,7 @@ control_loop.figure();
 
 The guard sends zero torque whenever a measurement is missing or not a finite number. Output
 stages are optional corrections for real hardware, such as friction compensation or a torque
-limit; a simulation does not need them.
+limit. A simulation does not need them.
 
 
 ## Run
