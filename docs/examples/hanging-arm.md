@@ -163,13 +163,14 @@ ax.legend(fontsize=14);
 ```{code-cell} python
 :tags: [remove-cell]
 glue("rms", 1e3 * float(check["rms"].max()), display=False)
-glue("vaf", float(check["vaf"][moved].min()), display=False)
+glue("left", 100 * float(1 - check["vaf"][moved].min()), display=False)
 ```
 
 The solid lines are the logged motion of the three coordinates that move most, and the dashed
 lines the identified arm's. Over the three held-out steps the arm stays within
-{glue:text}`rms:.2f` mm (root mean square) of the logged motion on every coordinate, and
-explains at least {glue:text}`vaf:.4f` of the variance of these three (`check["vaf"]`).
+{glue:text}`rms:.2f` mm (root mean square) of the logged motion on every coordinate.
+`check["vaf"]` is the share of each coordinate's variance that the model explains; for these
+three, all but {glue:text}`left:.3f` % of it.
 
 ### Friction
 
