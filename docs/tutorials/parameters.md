@@ -128,7 +128,7 @@ for _ in range(round(4.0 / dt)):
     controller.set({"ctrl.reach.goal": target})
     meas = plant.read()
     plant.write(controller.step(plant.t, meas))
-    log.append(t=plant.t, q=meas["q"], goal=target)
+    log.step(t=plant.t, q=meas["q"], goal=target)
     plant.advance(dt)
 ```
 

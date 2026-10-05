@@ -9,7 +9,7 @@ from std_msgs.msg import String
 
 from ..control.blending import SwapController
 from ..hardware.profile import HardwareProfile
-from ..sim.run import RunLog, WallClock, run
+from ..sim import RunLog, WallClock, run
 from .joint_io import TOPICS
 from .params import LiveParams
 from .plant import RosPlant

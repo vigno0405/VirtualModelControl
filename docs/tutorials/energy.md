@@ -44,7 +44,8 @@ The energies come in opposite orders: `(V, T)` for the controller, `(T, V)` for 
 `z` holds the controller's virtual states (positions, then velocities), `p` the live Params of
 each and `u` the motor torques. The input is the port: the robot receives the torques as the
 controller sends them, as long as no output stage changes them and the transmission's
-efficiency is 1, the default.
+efficiency is 1, the default. To log the controller's terms during a run instead, ask
+`vmc.sim.run` for `record=["energy"]` ([Run logs](run-logs.md)).
 
 ## A run
 

@@ -12,8 +12,8 @@ versions, with one minor version of deprecation before a removal).
 - `vmc.config`: experiments in YAML files. `vmc.config.load` reads the robot (a template and its
   arguments), named coordinates, the controller's elements (a registered component `type`, the
   `coordinate` it acts on, its gains), controllers to swap to, and how to run them: a simulation
-  (with the robot's dynamics and simulated elements such as contacts), a Dynamixel or a ROS
-  plant, the rate, the duration, output stages, schedules and the initial virtual state.
+  (with the robot's dynamics and simulated elements such as contacts), the rate, the duration,
+  output stages, schedules and the initial virtual state.
   `Experiment.run` runs it, `save` writes it back with the Params' current values. Robot
   templates, output stages and coordinate kinds are registry entries, so a project adds its own.
   An experiment from a file gives the same run as the same experiment written in Python.
@@ -23,6 +23,25 @@ versions, with one minor version of deprecation before a removal).
 - `vmc.sim.run(..., z0=...)` also takes a function of the first reading, such as
   `turtle.initial_state`.
 - Docs: tutorial "Experiments in files".
+- Run logs. `vmc.sim.RunLog` saves a run whole or not at all (`save`: a compressed `.npz` with a
+  schema version and what the run was, in `meta`: the library's version, the start time, the
+  Params at the start, the plant's hardware profile and, from a configuration, the
+  configuration; written through a temporary file, and a name already taken is refused unless
+  `overwrite=True`), loads it back (`load`) and exports CSV (`to_csv`, one column per entry).
+  `step` adds one step and keeps every signal at one row per step, with NaN for what a step
+  did not compute.
+- `vmc.sim.replay` sends a log's motor torques again to a simulated robot, each held for as long
+  as it was in the run, from the log's `q` and `v` or, for a real robot's log, from its first
+  motor reading (`ModelPlant.state_from_motors`); `vmc.sim.compare` gives the largest and the
+  root-mean-square difference of each signal of two runs. A replay on the true model gives the
+  run back.
+- A run's log holds `law_torque`, the controller's torque before the output stages.
+  `vmc.sim.run(..., record=...)` adds the live Params (`"params"`), each element's coordinate,
+  rate, force and share of the motor torques (`"elements"`), and the controller's energies and
+  powers (`"energy"`), from `VMCController.elements()` and `balance()`.
+- Configurations: `experiment.run` settings (`name`, `folder`, `overwrite`, `record`) save each
+  run beside the file and refuse a name already taken before the run starts.
+- Docs: tutorial "Run logs".
 - `vmc.ros.control`: the controller node. It runs a controller at the profile's rate on the
   robot behind the driver's topics, with its live Params as ROS parameters, for a duration or
   until Ctrl-C, and ends with zero torque.

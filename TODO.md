@@ -50,12 +50,12 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   states; figures and animations; contact; the rebuilt documentation; and the first parts of
   0.3.0 (hardware profiles, the Dynamixel plant, the real-time run loop, the ROS 2 bridge).
 - **On `main`, for 0.3.0** (see `CHANGELOG.md`, "Unreleased"): the repository review and its
-  fixes; experiments in YAML files (`vmc.config`); the ROS controller node and live element
-  swaps; every robot's efficiency is 1 by default, and `vmc.Efficiency` gives a polynomial one
-  per motor; `vmc.identification` fits efficiencies and stiffness and damping from data; the
-  constrained springs and dampers are components of their own; the two single-arm examples run
-  their own arm's experiments; concepts pages on Virtual Model Control, passivity, finger and
-  hand kinematics and efficiency.
+  fixes; experiments in YAML files (`vmc.config`); run logs that save, load, export, replay and
+  compare; the ROS controller node and live element swaps; every robot's efficiency is 1 by
+  default, and `vmc.Efficiency` gives a polynomial one per motor; `vmc.identification` fits
+  efficiencies and stiffness and damping from data; the constrained springs and dampers are
+  components of their own; the two single-arm examples run their own arm's experiments; concepts
+  pages on Virtual Model Control, passivity, finger and hand kinematics and efficiency.
 - **Decided on 5 October 2026:** the library is communication-agnostic, so `vmc.ros` and the
   direct Dynamixel path (the motor plant, homing, the bus check) are deprecated in 0.3.0 and
   removed in 0.4.0. After 0.3.0 the releases follow the research: optimization of virtual
@@ -237,15 +237,16 @@ How the commands reach the robot stays outside the library.
   round-trip tested. Done: `vmc.config` (robot templates, named coordinates, elements, swaps,
   simulation plants, output stages, schedules), files for every robot in
   `tests/data/configs/`, the same runs as in Python, the tutorial "Experiments in files".
-- [ ] **Run logs:** a run's log saved and loaded whole or not at all (`.npz` with a schema
+- [x] **Run logs:** a run's log saved and loaded whole or not at all (`.npz` with a schema
   version and what the run was: library version, start time, the Params at the start, the
   hardware profile, the configuration); CSV export; at every step the law's torque before the
   output stages and, on request, the live Params, each element's coordinate, rate, force and
   share of the motor torques, and the controller's energies; replay of a run's commands on a
   simulated robot, and comparison of runs; a configuration's `run` settings (name, folder,
-  what to record) save each run and refuse a name already taken before the run starts. Done
-  when save, load, CSV, replay and comparison are tested (a replay on the true model gives the
-  run back) and a documentation page shows them.
+  what to record) save each run and refuse a name already taken before the run starts. Done:
+  `vmc.sim.RunLog`, `replay` and `compare`, `record=` on `vmc.sim.run`, and the `run` settings of
+  a configuration, tested (a replay on the true model gives the run back to rounding error),
+  and the tutorial "Run logs".
 - [ ] **Interactive tools:** a matplotlib window (no new dependency) to drag goals, set gains and
   swap elements of a running controller in the same process (a simulation, or inside the
   robot's own node); keyboard teleoperation of a goal; joystick teleoperation (pygame, an
@@ -254,8 +255,8 @@ How the commands reach the robot stays outside the library.
 - [ ] **Deprecations:** `vmc.ros` and the direct Dynamixel path (`DynamixelPlant`, `home`,
   `scan`, `latency_timer`, the buses) warn when used, and leave in 0.4.0 with dynamixel-sdk and
   pyserial: the library is communication-agnostic, and the lab drives its robots through its
-  own ROS Dynamixel driver. The configurations' robot plants (`dynamixel`, `ros`, never
-  released) go now. Done when the warnings are tested and the CHANGELOG lists the deprecations.
+  own ROS Dynamixel driver. Done when the warnings are tested and the CHANGELOG lists the
+  deprecations.
 - [ ] **Wall-clock run loop:** done in code (`vmc.sim.WallClock`, measured steps, stale
   readings, rate statistics, overrun warnings); its documentation remains (see Docs).
 - [ ] **Smooth element swaps and schedules:** done in code (`vmc.control.SwapController`,

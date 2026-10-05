@@ -91,7 +91,7 @@ log = vmc.sim.RunLog()
 def hold(torque, seconds, record=True):
     for _ in range(round(seconds / dt)):
         if record:
-            log.append(t=plant.t, q=plant.q, v=plant.v, u=torque)
+            log.step(t=plant.t, q=plant.q, v=plant.v, u=torque)
         plant.write(vmc.Signals(plant.t, motor_torque=torque))
         plant.advance(dt)
 

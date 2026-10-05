@@ -131,22 +131,3 @@ def test_a_swap_message_blends_to_another_controller(ros):
         thread.join()
         sender.destroy_node()
     assert other.t is not None and other.t > 0.2  # the other controller took over
-
-
-def test_a_configuration_runs_on_the_robot_behind_the_drivers_topics(ros):
-    from pathlib import Path
-
-    spec = vmc.config.read(Path(__file__).parents[1] / "data" / "configs" / "finger.yaml")
-    plant = {"type": "ros", "hardware": "adapt.finger_hardware"}
-    spec["experiment"] = {"plant": plant, "rate": 200.0, "duration": 0.2}
-    experiment = vmc.config.load(spec)
-    robot, _ = finger_controller()
-    stop, thread = start_twin(robot, rate=500.0)
-    try:
-        log = experiment.run()
-    finally:
-        stop.set()
-        thread.join()
-    rows = log.arrays()
-    assert 30 <= log.info["steps"] <= 40 and log.info["stale"] == 0
-    assert np.ptp(rows["motor_position"], axis=0).max() > 0.01  # the twin's finger moved

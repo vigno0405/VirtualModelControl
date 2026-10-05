@@ -24,7 +24,8 @@ class Compiled:
     ``law`` (→ u, ż), ``tau``, ``energy`` (→ V, T), ``power`` (→ port, dissipation, source) and
     ``forces`` take (q, v, z, p, t): configuration, velocity, virtual state z = [positions,
     velocities], live Params p and time t [s]. ``fast`` maps one vector [θ, θ̇, z, p, t] of motor
-    angles and rates to [u, ż]; ``fast_energy`` maps it to V + T.
+    angles and rates to [u, ż]; ``fast_energy`` maps it to V + T, ``fast_power`` to (V, T, port,
+    dissipation, source) and ``fast_elements`` to each element's (y, ẏ, f, its share of u).
     """
 
     system: VirtualMechanismSystem
@@ -37,6 +38,8 @@ class Compiled:
     forces: ca.Function
     fast: ca.Function
     fast_energy: ca.Function
+    fast_power: ca.Function
+    fast_elements: ca.Function
     component_names: list[str]
     z0: np.ndarray
     n_motors: tuple[int, int]
@@ -132,6 +135,19 @@ def compile(system: VirtualMechanismSystem, runtime: Iterable[str] = ()) -> Comp
     x = ca.vertcat(theta, theta_dot, z, binding.p, t)
     ua, zdot_a = law(qa, va, z, binding.p, t)
     Va, Ta = energy(qa, va, z, binding.p, t)
+    power = ca.Function(
+        "power",
+        args,
+        [ca.dot(tau, v), P_diss, P_src],
+        ARGS,
+        ["port", "dissipation", "source"],
+        OPTS,
+    )
+    port_a, diss_a, src_a = power(qa, va, z, binding.p, t)
+    forces = ca.Function("forces", args, per_component, OPTS)
+    elements = forces.call([qa, va, z, binding.p, t]) if per_component else []
+    for k in range(3, len(elements), 4):  # each element's torque, as motor torques
+        elements[k] = actuation.allocate(elements[k], qa, pa)
 
     return Compiled(
         system=system,
@@ -140,17 +156,19 @@ def compile(system: VirtualMechanismSystem, runtime: Iterable[str] = ()) -> Comp
         law=law,
         tau=ca.Function("tau", args, [tau], ARGS, ["tau"], OPTS),
         energy=energy,
-        power=ca.Function(
-            "power",
-            args,
-            [ca.dot(tau, v), P_diss, P_src],
-            ARGS,
-            ["port", "dissipation", "source"],
-            OPTS,
-        ),
-        forces=ca.Function("forces", args, per_component, OPTS),
+        power=power,
+        forces=forces,
         fast=ca.Function("fast", [x], [ca.vertcat(ua, zdot_a)], ["x"], ["out"], OPTS),
         fast_energy=ca.Function("fast_energy", [x], [Va + Ta], ["x"], ["E"], OPTS),
+        fast_power=ca.Function(
+            "fast_power",
+            [x],
+            [Va, Ta, port_a, diss_a, src_a],
+            ["x"],
+            ["V", "T", "port", "dissipation", "source"],
+            OPTS,
+        ),
+        fast_elements=ca.Function("fast_elements", [x], elements, OPTS),
         component_names=names,
         z0=z0,
         n_motors=(n_angles, n_rates),

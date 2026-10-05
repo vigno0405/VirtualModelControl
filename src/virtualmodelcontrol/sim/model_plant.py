@@ -6,12 +6,15 @@ import math
 from collections.abc import Iterable
 from typing import Any
 
+import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..core.params import constants
 from ..core.signals import Signals
 from ..dynamics import compile_dynamics
 from ..mechanisms.mechanism import Mechanism
+from ..models.actuation import Direct
 
 
 class ModelPlant:
@@ -69,6 +72,16 @@ class ModelPlant:
             q, v = self.dynamics.step(self.q, self.v, self.u, self.p, self.t, h)
             self.q, self.v = np.array(q).ravel(), np.array(v).ravel()
             self.t += h
+
+    def state_from_motors(self, theta: ArrayLike, theta_dot: ArrayLike) -> tuple[Any, Any]:
+        """(q, v) for motor angles [rad] and rates [rad/s], through the transmission's exact
+        inverse, at the current Param values."""
+        robot = self.dynamics.robot
+        actuation = robot.actuation if robot.actuation is not None else Direct()
+        p = constants(actuation.params)
+        q = actuation.config_from_motors(ca.DM(np.asarray(theta, dtype=float)), p)
+        v = actuation.velocity_from_motors(q, ca.DM(np.asarray(theta_dot, dtype=float)), p)
+        return np.array(ca.evalf(q)).ravel(), np.array(ca.evalf(v)).ravel()
 
     def energy(self) -> float:
         """Kinetic plus stored energy of the robot [J]."""

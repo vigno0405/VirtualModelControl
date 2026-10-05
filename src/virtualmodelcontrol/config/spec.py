@@ -7,11 +7,11 @@ from typing import Any
 
 from ..core.registry import get
 
-Path = tuple[Any, ...]
+Location = tuple[Any, ...]
 """Where an entry sits in the configuration: its keys and list indices, from the top."""
 
 
-def where(path: Path) -> str:
+def where(path: Location) -> str:
     """A path as it reads in the file, such as ``controller.elements.reach.on``."""
     out = ""
     for key in path:
@@ -20,7 +20,7 @@ def where(path: Path) -> str:
 
 
 def check_keys(
-    spec: Any, path: Path, allowed: Iterable[str] | None, required: Iterable[str] = ()
+    spec: Any, path: Location, allowed: Iterable[str] | None, required: Iterable[str] = ()
 ) -> dict[str, Any]:
     """``spec`` as a mapping whose keys are all ``allowed`` (any, for None) and include the
     ``required`` ones."""
@@ -37,7 +37,7 @@ def check_keys(
     return spec
 
 
-def template(kind: str, spec: Any, path: Path) -> Callable[..., Any]:
+def template(kind: str, spec: Any, path: Location) -> Callable[..., Any]:
     """A registered template, called with the arguments the file gives it: ``spec`` is its name,
     or a mapping of ``template`` (the name) and the template's keyword arguments."""
     if isinstance(spec, str):

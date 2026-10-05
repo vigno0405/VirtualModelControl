@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import time
 import warnings
-from collections.abc import Callable
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import numpy as np
 
 from ..core.signals import Signals
+from .runlog import RunLog, library_version
 
 MEASUREMENTS = ("motor_position", "motor_velocity")
+RECORDS = ("params", "elements", "energy")
+"""What ``run`` can also record at every step: the controller's live Params, each element's
+coordinate, rate, force and share of the motor torques, and the controller's energies."""
 
 
 @dataclass
@@ -48,24 +53,6 @@ class Guard:
         return good
 
 
-@dataclass
-class RunLog:
-    """Recorded signals of a run, one row per step; ``arrays`` stacks them."""
-
-    rows: dict[str, list[np.ndarray]] = field(default_factory=dict)
-    info: dict[str, float] = field(default_factory=dict)  # statistics of a real-time run
-
-    def append(self, **values: Any) -> None:
-        """Add one row of named values."""
-        for name, value in values.items():
-            # A copy: plants and controllers may update their arrays in place.
-            self.rows.setdefault(name, []).append(np.array(value, dtype=float, ndmin=1))
-
-    def arrays(self) -> dict[str, np.ndarray]:
-        """Each signal as an (n_steps, ...) array."""
-        return {name: np.array(rows) for name, rows in self.rows.items()}
-
-
 def run(
     plant: Any,
     controller: Any,
@@ -73,6 +60,7 @@ def run(
     T: float | None,
     guard: Guard | None = None,
     z0: Any = None,
+    record: Iterable[str] | str = (),
 ) -> RunLog:
     """Run ``controller`` on ``plant`` for ``T`` [s]; returns the recorded run.
 
@@ -80,30 +68,100 @@ def run(
     trips), writes it, then advances a simulated plant by ``clock.dt`` or, with a ``WallClock``,
     waits for the next step. On real time, ``T=None`` runs until Ctrl-C, and Ctrl-C ends any run
     with the log so far. ``z0`` sets the controller's initial virtual state, or is a function of
-    the first reading that returns it; the log also records that state, ``z``, when the
-    controller has one.
+    the first reading that returns it. The log holds, at every step, the measurements, the
+    command (and the law's torque before any output stage), the virtual state ``z`` when the
+    controller has one, and what ``record`` asks for (see ``RECORDS``); a value the step did not
+    compute is NaN. Its ``meta`` holds the Params at the start and the plant's hardware profile.
     """
     guard = Guard() if guard is None else guard
+    extras = _extras(record)
     if isinstance(clock, WallClock):
-        return _run_wall(plant, controller, clock, T, guard, z0)
+        return _run_wall(plant, controller, clock, T, guard, z0, extras)
     if T is None:
         raise ValueError("a simulated run needs its duration T")
     log = RunLog()
     meas = plant.read()
     motors = _motors(meas)
     _reset(controller, plant.t, meas, z0)
+    _describe(log, plant, controller)
     for _ in range(round(T / clock.dt)):
         meas = plant.read()
-        if guard.ok(meas):
+        good = guard.ok(meas)
+        if good:
             cmd = controller.step(plant.t, meas)
         else:
             cmd = Signals(plant.t, motor_torque=np.zeros(motors))
         plant.write(cmd)
-        log.append(t=plant.t, motor_torque=cmd["motor_torque"], **{n: meas[n] for n in meas.names})
-        if getattr(controller, "z", None) is not None and np.size(controller.z):
-            log.append(z=controller.z)
+        log.step(**_values(plant.t, cmd, meas, controller, extras if good else None))
         plant.advance(clock.dt)
     return log
+
+
+def _values(
+    t: float,
+    cmd: Signals,
+    meas: Signals,
+    controller: Any,
+    extras: Callable[[Any], dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """One step's record: the time, the command, the measurements, z and the extras."""
+    values: dict[str, Any] = {"t": t}
+    values.update({name: cmd[name] for name in cmd.names})
+    values.update({name: meas[name] for name in meas.names})
+    if getattr(controller, "z", None) is not None and np.size(controller.z):
+        values["z"] = controller.z
+    if extras is not None:
+        values.update(extras(controller))
+    return values
+
+
+def _extras(record: Iterable[str] | str) -> Callable[[Any], dict[str, Any]]:
+    """What ``record`` asks of a controller after a step, by log name."""
+    record = {record} if isinstance(record, str) else set(record)
+    if record - set(RECORDS):
+        raise ValueError(f"record takes some of {RECORDS}, got {sorted(record)}")
+
+    def extras(controller: Any) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        if "params" in record:
+            out.update({f"param/{name}": v for name, v in _live(controller).items()})
+        if "elements" in record:
+            for element, quantities in controller.elements().items():
+                out.update({f"element/{element}/{k}": v for k, v in quantities.items()})
+        if "energy" in record:
+            balance = controller.balance()
+            out["energy/stored"], out["energy/kinetic"] = balance["stored"], balance["kinetic"]
+            for name in ("port", "dissipation", "source"):
+                out[f"power/{name}"] = balance[name]
+        return out
+
+    return extras
+
+
+def _live(controller: Any) -> dict[str, np.ndarray]:
+    """The controller's own values of its live Params, each in the Param's shape."""
+    compiled = controller.compiled
+    return {
+        name: np.reshape(controller.params[where], compiled.params[name].shape, order="F")
+        for name, where in compiled.live_slices().items()
+    }
+
+
+def _describe(log: RunLog, plant: Any, controller: Any) -> None:
+    """What the run is: the library, the start, the Params at the start, the hardware."""
+    log.meta.update(
+        library=library_version(), start=datetime.now().astimezone().isoformat(timespec="seconds")
+    )
+    compiled = getattr(controller, "compiled", None)
+    if compiled is not None:
+        live = _live(controller)  # the controller's own values, which `set` may have changed
+        log.meta["params"] = {
+            name: {"value": live.get(name, param.value).tolist(), "unit": param.unit}
+            for name, param in compiled.params.items()
+        }
+    profile = getattr(plant, "profile", None)
+    if profile is not None and hasattr(profile, "to_dict"):
+        log.meta["hardware"] = profile.to_dict()
 
 
 def _motors(meas: Signals) -> int:
@@ -121,7 +179,13 @@ def _reset(controller: Any, t: float, meas: Signals, z0: Any) -> None:
 
 
 def _run_wall(
-    plant: Any, controller: Any, clock: WallClock, T: float | None, guard: Guard, z0: Any
+    plant: Any,
+    controller: Any,
+    clock: WallClock,
+    T: float | None,
+    guard: Guard,
+    z0: Any,
+    extras: Callable[[Any], dict[str, Any]],
 ) -> RunLog:
     """The run loop on real time: measured steps, stale readings refused, rate statistics."""
     log, limit = RunLog(), None if T is None else round(T / clock.dt)
@@ -129,6 +193,7 @@ def _run_wall(
     motors = _motors(meas)
     t0 = previous = tick = clock.now()
     _reset(controller, 0.0, meas, z0)
+    _describe(log, plant, controller)
     steps = overruns = stale = 0
     try:
         while limit is None or steps < limit:
@@ -137,15 +202,14 @@ def _run_wall(
             meas = plant.read()
             old = clock.stale is not None and plant.t - meas.t > clock.stale
             stale += old
-            if guard.ok(meas) and not old:
+            good = guard.ok(meas) and not old
+            if good:
                 cmd = controller.step(t, meas)
             else:
                 cmd = Signals(t, motor_torque=np.zeros(motors))
             plant.write(cmd)
-            log.append(t=t, dt=now - previous, motor_torque=cmd["motor_torque"])
-            log.append(**{n: meas[n] for n in meas.names})
-            if getattr(controller, "z", None) is not None and np.size(controller.z):
-                log.append(z=controller.z)
+            values = _values(t, cmd, meas, controller, extras if good else None)
+            log.step(dt=now - previous, **values)
             steps += 1
             previous, tick = now, tick + clock.dt
             wait = tick - clock.now()

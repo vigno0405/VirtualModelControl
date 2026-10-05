@@ -2,6 +2,20 @@
 
 from .model_plant import ModelPlant
 from .plant import Plant, SimPlant
-from .run import Guard, RunLog, SimClock, WallClock, run
+from .replay import replay
+from .run import RECORDS, Guard, SimClock, WallClock, run
+from .runlog import RunLog, compare
 
-__all__ = ["Guard", "ModelPlant", "Plant", "RunLog", "SimClock", "SimPlant", "WallClock", "run"]
+__all__ = [
+    "RECORDS",
+    "Guard",
+    "ModelPlant",
+    "Plant",
+    "RunLog",
+    "SimClock",
+    "SimPlant",
+    "WallClock",
+    "compare",
+    "replay",
+    "run",
+]

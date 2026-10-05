@@ -14,7 +14,7 @@ from ..core.params import Param
 from ..core.registry import get
 from ..mechanisms import Component, Coordinate, Mechanism
 from .coordinates import Scope
-from .spec import Path, check_keys, template, where
+from .spec import Location, check_keys, template, where
 
 
 def build_controller(
@@ -22,8 +22,8 @@ def build_controller(
     name: str,
     robot: Mechanism,
     coordinates: dict[str, Coordinate],
-    record: list[tuple[Path, Param]],
-    path: Path,
+    record: list[tuple[Location, Param]],
+    path: Location,
     *,
     named: bool = False,
 ) -> Mechanism:
@@ -49,7 +49,7 @@ def build_controller(
     return mechanism
 
 
-def build_element(spec: Any, scope: Scope, path: Path) -> Component:
+def build_element(spec: Any, scope: Scope, path: Location) -> Component:
     """A component of a registered ``type``, on its ``coordinate`` or on the robot."""
     check_keys(spec, path, None, required=("type",))
     factory = get("component", spec["type"])

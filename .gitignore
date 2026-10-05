@@ -26,6 +26,13 @@ docs/api/generated/
 docs/**/*.mp4
 docs/**/*.gif
 docs/**/*.webp
+# Run logs and files written by the docs build
+docs/**/*.npz
+docs/**/*.csv
+docs/tutorials/logs/
+docs/tutorials/reach-stiffer.yaml
+docs/tutorials/walk.yaml
+docs/tutorials/again.yaml
 
 # Lock file written by editor tooling; the project pins nothing
 uv.lock

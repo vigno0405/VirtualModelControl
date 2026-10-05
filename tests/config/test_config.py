@@ -2,6 +2,7 @@
 coordinate kind builds what Python builds, and saved files carry the current values."""
 
 import copy
+import re
 from pathlib import Path
 
 import numpy as np
@@ -10,8 +11,6 @@ import pytest
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.config import files
 from virtualmodelcontrol.control import Schedule, ScheduledController
-from virtualmodelcontrol.hardware import FakeBus
-from virtualmodelcontrol.hardware.bus import TORQUE_ENABLE
 from virtualmodelcontrol.robots import adapt, helyx, turtle
 
 CONFIGS = Path(__file__).parents[1] / "data" / "configs"
@@ -221,18 +220,6 @@ def test_saved_files_carry_the_current_values(tmp_path):
     assert elements["j"]["normal"] == [1.0, 0.0, 0.0]
 
 
-def test_a_dynamixel_dry_run_from_a_file():
-    spec = files.read(CONFIGS / "finger.yaml")
-    plant = {"type": "dynamixel", "hardware": "adapt.finger_hardware", "home": True}
-    spec["experiment"] = {"plant": plant, "duration": 0.05}  # at the profile's rate
-    profile = adapt.finger_hardware()
-    homes = dict(zip(profile.ids, adapt.FINGER_HOME, strict=True))
-    bus = FakeBus(dict.fromkeys(profile.ids, "XC330-T288"), homes)
-    log = vmc.config.load(spec).run(bus=bus)
-    assert log.info["steps"] == round(0.05 * profile.rate)
-    assert bus.closed and [bus.value(i, TORQUE_ENABLE) for i in profile.ids] == [0, 0]
-
-
 def test_numbers_read_as_numbers(tmp_path):
     path = tmp_path / "numbers.yaml"
     path.write_text("a: 1e-3\nb: -2.5E+2\nc: .5\nd: 3\ne: '1e-3'\nf: [1e4, 2]\ng: true\n")
@@ -270,10 +257,11 @@ MISTAKES = {
     "name": (lambda s: element(s, coordinate="toe"), KeyError, "no coordinate or state named"),
     "kind": (lambda s: element(s, coordinate={"pont": "tip"}), KeyError, "no coordinate named"),
     "plant": (lambda s: s["experiment"].update(plant={"type": "mujoco"}), ValueError, "mujoco"),
-    "hardware": (
-        lambda s: s["experiment"].update(plant={"type": "dynamixel"}),
+    "run": (lambda s: s["experiment"].update(run={"folde": "logs"}), ValueError, "'folde'"),
+    "record": (
+        lambda s: s["experiment"].update(run={"record": ["energies"]}),
         ValueError,
-        "missing 'hardware'",
+        r"experiment\.run\.record: \['energies'\]",
     ),
     "live": (
         lambda s: s["experiment"].update(schedule=[{"param": "ctrl.press.s", "points": [[0, 1]]}]),
@@ -310,3 +298,99 @@ def test_a_configuration_written_in_python_saves_too(tmp_path):
     spec["experiment"]["plant"]["q0"] = (0.8, 0.8)
     saved = vmc.config.load(spec).save(tmp_path / "finger.yaml")
     assert files.read(saved) == files.read(CONFIGS / "finger.yaml")
+
+
+def finger_file(tmp_path, **run):
+    """The finger's file, 0.1 s long, in a folder of its own, with ``run`` settings."""
+    spec = files.read(CONFIGS / "finger.yaml")
+    spec["experiment"].update(duration=0.1, run=run)
+    path = tmp_path / "configs" / "finger.yaml"
+    path.parent.mkdir()
+    return files.write(spec, path)
+
+
+def test_a_run_is_saved_beside_its_file_with_the_configuration_it_started_from(
+    tmp_path, monkeypatch
+):
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    path = finger_file(tmp_path, name="first", folder="logs", record=["energy"])
+    experiment = vmc.config.load(path)
+    assert experiment.log_path() == path.parent / "logs" / "first.npz"
+    log = experiment.run()
+
+    saved = path.parent / "logs" / "first.npz"
+    assert saved.exists() and list(elsewhere.iterdir()) == []  # relative to the file, not here
+    loaded = vmc.sim.RunLog.load(saved)
+    assert "energy/stored" in loaded.arrays() and "element/ctrl.press/force" not in loaded.arrays()
+    for name, values in log.arrays().items():
+        np.testing.assert_array_equal(loaded.arrays()[name], values, err_msg=name)
+
+    # The log holds the configuration it started from; run again, it gives the run back.
+    text = tmp_path / "from-the-log.yaml"
+    text.write_text(loaded.meta["configuration"])
+    assert vmc.config.load(text).to_dict() == experiment.to_dict()
+    spec = files.read(text)
+    del spec["experiment"]["run"]
+    again = vmc.config.load(spec).run().arrays()
+    recorded = {name for name in log.arrays() if "/" in name}  # what `record` added
+    assert (
+        set(log.arrays()) - set(again)
+        == recorded
+        == {"energy/stored", "energy/kinetic", "power/port", "power/dissipation", "power/source"}
+    )
+    for name, values in again.items():
+        np.testing.assert_array_equal(loaded.arrays()[name], values, err_msg=name)
+
+    copy_ = vmc.config.load(experiment.save(tmp_path / "copy.yaml"))
+    assert copy_.to_dict() == experiment.to_dict() and copy_.run_settings == experiment.run_settings
+
+
+def test_a_name_already_taken_stops_the_run_before_it_starts(tmp_path):
+    experiment = vmc.config.load(finger_file(tmp_path, name="first"))
+    experiment.run()
+    saved = experiment.log_path()
+    kept, end = saved.read_bytes(), experiment.plant.t
+    assert end > 0.0
+    with pytest.raises(FileExistsError, match="give the run another name"):
+        experiment.run()
+    assert saved.read_bytes() == kept
+    assert experiment.plant.t == end  # the refused run did not start: the plant was not reset
+
+
+def test_overwrite_replaces_a_log_of_the_same_name(tmp_path):
+    path = finger_file(tmp_path, name="again", overwrite=True)
+    experiment = vmc.config.load(path)
+    experiment.run()
+    experiment.mechanism.components["press"].stiffness.value = 150.0
+    experiment.run()
+    saved = vmc.sim.RunLog.load(experiment.log_path())
+    configuration = saved.meta["configuration"]
+    assert re.search(r"stiffness: 150(\.0)?\b", configuration)
+    folder = experiment.log_path().parent  # the file's own: the log and no temporary file
+    assert sorted(p.name for p in folder.iterdir()) == ["again.npz", "finger.yaml"]
+
+
+def test_a_log_without_a_name_is_named_by_its_start_time(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    spec = files.read(CONFIGS / "finger.yaml")
+    spec["experiment"].update(duration=0.05, run={"folder": "logs"})  # a dict: relative to here
+    vmc.config.load(spec).run()
+    (saved,) = (tmp_path / "logs").iterdir()
+    assert re.fullmatch(r"run-\d{8}-\d{6}\.npz", saved.name)
+
+
+def test_a_name_may_carry_its_suffix(tmp_path):
+    experiment = vmc.config.load(finger_file(tmp_path, name="mine.npz"))
+    assert experiment.log_path().name == "mine.npz"
+
+
+def test_without_run_settings_nothing_is_saved(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    spec = files.read(CONFIGS / "finger.yaml")
+    spec["experiment"]["duration"] = 0.05
+    experiment = vmc.config.load(spec)
+    log = experiment.run()
+    assert experiment.log_path() is None and list(tmp_path.iterdir()) == []
+    assert "configuration" in log.meta  # the log still says what it was

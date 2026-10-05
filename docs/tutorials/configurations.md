@@ -36,7 +36,8 @@ as `tip - [0.1, 0.0, 0.40]` is in Python.
 ## Run it
 
 `vmc.config.load` reads the file and builds the robot from its template, the controllers and
-the plant; `run` runs the experiment from its start and returns the log:
+the plant; `run` runs the experiment from its start and returns the log (with `run` settings in
+the file it also saves it, as [Run logs](run-logs.md) shows):
 
 ```{code-cell} python
 import numpy as np
@@ -56,7 +57,8 @@ other tutorials apply to them unchanged.
 
 The `experiment` section says how to run it: the plant, here a simulation with the arm's own
 stiffness, damping and gravity (`helyx.add_dynamics`), the control rate [Hz], the duration [s],
-and a schedule:
+and a schedule. An `output` list adds output stages to the controller, such as the real arm's
+pretension `{type: helyx.output_stage}`; this file has none:
 
 ```{literalinclude} reach.yaml
 :language: yaml
@@ -190,40 +192,6 @@ comments of the one it was loaded from. The robot is saved as its template call,
 `controller.set` changes only the running controller's own copy of a value
 ([Parameters](parameters.md)), so only the Params' values reach the file.
 
-## On the real robot
-
-The same file runs on the real arm with another plant: `dynamixel` drives the motors through
-the Dynamixel SDK, `ros` through the driver's topics. Each takes the robot's hardware profile
-by its template; the rate defaults to the profile's, and without a `duration` the run lasts
-until Ctrl-C:
-
-```yaml
-experiment:
-  plant:
-    type: dynamixel  # or ros
-    hardware: {template: helyx.hardware, geometry: "145-145-145"}
-  output: [{type: helyx.output_stage}]
-```
-
-`output` lists the output stages, here the real arm's pretension. A fake bus runs it dry, with
-motors that never move:
-
-```{code-cell} python
-from virtualmodelcontrol.hardware import FakeBus
-
-hardware = {"template": "helyx.hardware", "geometry": "145-145-145"}
-spec = experiment.to_dict()
-spec["experiment"].update(
-    plant={"type": "dynamixel", "hardware": hardware},
-    output=[{"type": "helyx.output_stage"}],
-    duration=0.1,  # [s]
-)
-dry = vmc.config.load(spec)
-motors = helyx.hardware("145-145-145").ids
-log = dry.run(bus=FakeBus(dict.fromkeys(motors, "XL330-M288")))
-log.info["steps"]
-```
-
 ## What a file can name
 
 Every name in a file comes from the library's registry, so a project adds its own robots,
@@ -238,7 +206,6 @@ from virtualmodelcontrol.core import registry
 kinds = {
     "robot": "A robot's `template`",
     "dynamics": "A simulation's `dynamics`",
-    "hardware": "A robot plant's `hardware`",
     "output": "An `output` stage",
     "controller": "A controller's `template`",
     "initial_state": "`z0`, the virtual state from the first reading",

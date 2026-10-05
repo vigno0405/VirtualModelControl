@@ -72,6 +72,27 @@ class VMCController:
         """Energy of the controller at the last step [J] (stored plus virtual kinetic)."""
         return 0.0 if self._x is None else self._energy(self.params)
 
+    def balance(self) -> dict[str, float]:
+        """The controller's energies [J] and powers [W] at the last step: ``stored`` (V),
+        ``kinetic`` (T), ``port`` (τᵀv), ``dissipation`` and ``source``."""
+        if self._x is None:
+            return {}
+        values = self.compiled.fast_power.call([self._x])
+        names = ("stored", "kinetic", "port", "dissipation", "source")
+        return {name: float(value) for name, value in zip(names, values, strict=True)}
+
+    def elements(self) -> dict[str, dict[str, np.ndarray]]:
+        """Each element at the last step: its coordinate ``y``, rate ``ydot``, ``force`` and
+        ``torque``, its share of the motor torques before any output stage."""
+        if self._x is None:
+            return {}
+        values = [np.array(v).ravel() for v in self.compiled.fast_elements.call([self._x])]
+        quantities = ("y", "ydot", "force", "torque")
+        return {
+            name: dict(zip(quantities, values[4 * k : 4 * k + 4], strict=True))
+            for k, name in enumerate(self.compiled.component_names)
+        }
+
     def _energy(self, params: np.ndarray) -> float:
         assert self._x is not None
         x = self._x.copy()

@@ -48,17 +48,20 @@ def plain(value: Any) -> Any:
     return value
 
 
-def write(data: dict[str, Any], path: str | os.PathLike[str]) -> Path:
-    """Write a configuration as YAML (short lists on one line); returns the path."""
-    path = Path(path)
-    path.write_text(
-        yaml.dump(
-            plain(data),
-            Dumper=yaml.SafeDumper,
-            sort_keys=False,
-            default_flow_style=None,
-            allow_unicode=True,
-            width=100,
-        )
+def dumps(data: dict[str, Any]) -> str:
+    """A configuration as YAML text, short lists on one line."""
+    return yaml.dump(
+        plain(data),
+        Dumper=yaml.SafeDumper,
+        sort_keys=False,
+        default_flow_style=None,
+        allow_unicode=True,
+        width=100,
     )
+
+
+def write(data: dict[str, Any], path: str | os.PathLike[str]) -> Path:
+    """Write a configuration as YAML; returns the path."""
+    path = Path(path)
+    path.write_text(dumps(data))
     return path

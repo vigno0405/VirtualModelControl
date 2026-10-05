@@ -37,7 +37,8 @@ change, including that nothing in the library imports ROS.
 | correct commands for real hardware | `vmc.control.output`: friction compensation, pretension, limits |
 | get positions, Jacobians, Hessians | `vmc.Kinematics` |
 | get the robot's equations of motion | `vmc.compile_dynamics` |
-| simulate a closed loop | `vmc.sim`: `ModelPlant`, `run`, `SimClock`, `RunLog` |
+| simulate a closed loop | `vmc.sim`: `ModelPlant`, `run`, `SimClock` |
+| record, save, replay and compare runs | `vmc.sim`: `RunLog`, `replay`, `compare` |
 | describe an experiment in a file | `vmc.config`: `load`, `Experiment` |
 | draw and animate | `vmc.viz` |
 | parameters, units, scopes | `vmc.Param`, `vmc.ParamSet` |

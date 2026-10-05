@@ -1,0 +1,4 @@
+  run:
+    name: walk
+    folder: logs
+    record: [params, elements]

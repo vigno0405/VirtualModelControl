@@ -97,6 +97,7 @@ troubleshooting
 tutorials/coordinates-and-components
 tutorials/parameters
 tutorials/configurations
+tutorials/run-logs
 tutorials/energy
 tutorials/kinematics
 tutorials/tuning

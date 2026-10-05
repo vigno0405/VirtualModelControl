@@ -25,7 +25,7 @@ from ..mechanisms import (
     Stack,
 )
 from ..mechanisms.coordinates.base import as_coordinate
-from .spec import Path, check_keys, where
+from .spec import Location, check_keys, where
 
 
 class Scope:
@@ -33,11 +33,11 @@ class Scope:
     ``record``, the Param behind each value of the file (by its path)."""
 
     def __init__(
-        self, robot: Any, names: dict[str, Coordinate], record: list[tuple[Path, Param]]
+        self, robot: Any, names: dict[str, Coordinate], record: list[tuple[Location, Param]]
     ) -> None:
         self.robot, self.names, self.record = robot, names, record
 
-    def build(self, spec: Any, path: Path) -> Coordinate:
+    def build(self, spec: Any, path: Location) -> Coordinate:
         """The coordinate ``spec``: a known name, or ``{kind: arguments}``."""
         if isinstance(spec, str):
             if spec not in self.names:
@@ -54,7 +54,7 @@ class Scope:
             f"such as {{point: {{s: 1.0}}}}; got {spec!r}"
         )
 
-    def operand(self, spec: Any, path: Path, like: Coordinate) -> Coordinate:
+    def operand(self, spec: Any, path: Location, like: Coordinate) -> Coordinate:
         """A coordinate, or a plain list: a live reference named ``ref`` shaped like ``like``."""
         if _plain(spec):
             ref = as_coordinate(spec, like)
@@ -64,7 +64,7 @@ class Scope:
             return ref
         return self.build(spec, path)
 
-    def track(self, param: Param, path: Path) -> None:
+    def track(self, param: Param, path: Location) -> None:
         """Remember that ``param`` holds the value at ``path``."""
         self.record.append((tuple(path), param))
 
@@ -74,7 +74,7 @@ def _plain(spec: Any) -> bool:
 
 
 @register("coordinate", "point")
-def point(args: Any, scope: Scope, path: Path) -> Coordinate:
+def point(args: Any, scope: Scope, path: Location) -> Coordinate:
     """A point of the robot: a site's name, or ``{at, s, offset}`` as in ``robot.point``."""
     if isinstance(args, str):
         return scope.robot.point(args)
@@ -88,7 +88,7 @@ def point(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "joint")
-def joint(args: Any, scope: Scope, path: Path) -> Coordinate:
+def joint(args: Any, scope: Scope, path: Location) -> Coordinate:
     """Entries of the robot's q: an index, a list of indices, or ``{start, stop, step}``."""
     if isinstance(args, dict):
         check_keys(args, path, ("start", "stop", "step"), required=("stop",))
@@ -97,13 +97,13 @@ def joint(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "state")
-def state(args: Any, scope: Scope, path: Path) -> Coordinate:
+def state(args: Any, scope: Scope, path: Location) -> Coordinate:
     """A virtual state of the controller, by name."""
     return scope.build(args, path)
 
 
 @register("coordinate", "ref")
-def ref(args: Any, scope: Scope, path: Path) -> Coordinate:
+def ref(args: Any, scope: Scope, path: Location) -> Coordinate:
     """A live reference held in a Param: ``{name, value, unit (m), scope (stage)}``."""
     check_keys(args, path, ("name", "value", "unit", "scope"), required=("name", "value"))
     r = Ref(
@@ -117,7 +117,7 @@ def ref(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "difference")
-def difference(args: Any, scope: Scope, path: Path) -> Coordinate:
+def difference(args: Any, scope: Scope, path: Location) -> Coordinate:
     """a − b; a plain list on either side is a live reference named ``ref``."""
     if not (isinstance(args, list) and len(args) == 2):
         raise ValueError(f"{where(path)}: a difference takes two coordinates, got {args!r}")
@@ -129,7 +129,7 @@ def difference(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "projection")
-def projection(args: Any, scope: Scope, path: Path) -> Coordinate:
+def projection(args: Any, scope: Scope, path: Location) -> Coordinate:
     """The length of a coordinate along a direction: ``{of, direction, scope (episode)}``."""
     check_keys(args, path, ("of", "direction", "scope"), required=("of", "direction"))
     coord = scope.build(args["of"], (*path, "of"))
@@ -139,20 +139,20 @@ def projection(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "norm")
-def norm(args: Any, scope: Scope, path: Path) -> Coordinate:
+def norm(args: Any, scope: Scope, path: Location) -> Coordinate:
     """The length of a coordinate."""
     return Norm(scope.build(args, path))
 
 
 @register("coordinate", "slice")
-def slice_(args: Any, scope: Scope, path: Path) -> Coordinate:
+def slice_(args: Any, scope: Scope, path: Location) -> Coordinate:
     """Some entries of a coordinate: ``{of, index}`` with an index or a list of indices."""
     check_keys(args, path, ("of", "index"), required=("of", "index"))
     return Slice(scope.build(args["of"], (*path, "of")), args["index"])
 
 
 @register("coordinate", "stack")
-def stack(args: Any, scope: Scope, path: Path) -> Coordinate:
+def stack(args: Any, scope: Scope, path: Location) -> Coordinate:
     """Coordinates stacked into one: a list."""
     if not isinstance(args, list):
         raise ValueError(f"{where(path)}: a stack takes a list of coordinates, got {args!r}")
@@ -160,7 +160,7 @@ def stack(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "plane_distance")
-def plane_distance(args: Any, scope: Scope, path: Path) -> Coordinate:
+def plane_distance(args: Any, scope: Scope, path: Location) -> Coordinate:
     """Signed distance from a point to a plane: ``{point, normal, origin (0, 0, 0)}``."""
     check_keys(args, path, ("point", "normal", "origin"), required=("point", "normal"))
     out = PlaneDistance(
@@ -175,7 +175,7 @@ def plane_distance(args: Any, scope: Scope, path: Path) -> Coordinate:
 
 
 @register("coordinate", "sphere_distance")
-def sphere_distance(args: Any, scope: Scope, path: Path) -> Coordinate:
+def sphere_distance(args: Any, scope: Scope, path: Location) -> Coordinate:
     """Signed distance from a point to a sphere's surface: ``{point, center, radius}``."""
     check_keys(args, path, ("point", "center", "radius"), required=("point", "center", "radius"))
     out = SphereDistance(

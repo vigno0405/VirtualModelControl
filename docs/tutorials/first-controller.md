@@ -98,7 +98,10 @@ sorted(rows)
 ```
 
 Each entry is an array with one row per step: the time `t`, the measured motor angles and rates,
-the configuration `q` and velocity `v` of the arm, and the torques sent to the motors.
+the configuration `q` and velocity `v` of the arm, the torques sent to the motors
+(`motor_torque`) and the torques the controller asked for before any output stage
+(`law_torque`). [Run logs](run-logs.md) shows what else a run records, and how to save and
+replay it.
 
 ## Plot
 
