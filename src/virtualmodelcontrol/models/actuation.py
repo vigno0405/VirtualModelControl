@@ -104,6 +104,57 @@ class Direct:
         return cls(data.get("efficiency", 1.0))
 
 
+@register("actuation", "passive")
+class Passive:
+    """No motors: a part that nothing drives, with ``nv`` velocity coordinates (a free body).
+
+    Stack it with the motors of the other parts (``Assembly.stacked_actuation``): the motor
+    vector is then the other parts' only. The motors do not give its configuration, so a
+    controller cannot be compiled against a robot that has one.
+    """
+
+    def __init__(self, nv: int) -> None:
+        self.nv = int(nv)
+        self.params = ParamSet()
+
+    def motor_sizes(self, space: Any) -> tuple[int, int]:
+        """No motor angles and no motor rates."""
+        return 0, 0
+
+    def motor_angles(self, q: Any, p: dict[str, Any]) -> Any:
+        """None."""
+        return ca.DM.zeros(0, 1)
+
+    def motor_rates(self, q: Any, v: Any, p: dict[str, Any]) -> Any:
+        """None."""
+        return ca.DM.zeros(0, 1)
+
+    def generalized_force(self, u: Any, q: Any, p: dict[str, Any]) -> Any:
+        """τ = 0."""
+        return ca.DM.zeros(self.nv, 1)
+
+    def allocate(self, tau: Any, q: Any, p: dict[str, Any]) -> Any:
+        """No motor torques."""
+        return ca.DM.zeros(0, 1)
+
+    def config_from_motors(self, theta: Any, p: dict[str, Any]) -> Any:
+        """The motors do not give the configuration of a passive part."""
+        raise NotImplementedError("a passive part has no motors, so they do not give its q")
+
+    def velocity_from_motors(self, q: Any, theta_dot: Any, p: dict[str, Any]) -> Any:
+        """The motors do not give the velocity of a passive part."""
+        raise NotImplementedError("a passive part has no motors, so they do not give its v")
+
+    def to_dict(self) -> dict[str, Any]:
+        """The number of velocity coordinates."""
+        return {"type": "passive", "nv": self.nv}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Passive:
+        """Inverse of ``to_dict``."""
+        return cls(data["nv"])
+
+
 @register("actuation", "tendons")
 class TendonTransmission:
     """Rigid tendons on PCC segments, with motor angle θ = −ΔL / r: θ > 0 pulls a tendon.

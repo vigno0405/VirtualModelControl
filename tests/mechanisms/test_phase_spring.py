@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from helpers import component_function
+from helpers import component_function, controller_of, flywheel
 from virtualmodelcontrol.robots import turtle
 
 rng = np.random.default_rng(21)
@@ -170,24 +170,6 @@ def cranks(inertia=0.002, damping=0.02):
         robot.add(f"inertia{i}", vmc.Inertance(robot.joint(i), inertia))
         robot.add(f"friction{i}", vmc.LinearDamper(robot.joint(i), damping))
     return robot
-
-
-def flywheel(robot, K, C, Jv, bv, speed, delta, ramp=0.0, spring=vmc.PhaseSpring, **args):
-    """The virtual flywheel of the paper with a ``PhaseSpring`` between it and each crank."""
-    ctrl = vmc.Mechanism("ctrl")
-    phi = ctrl.add_state("flywheel", unit="rad")
-    ctrl.add("flywheel", vmc.Inertance(phi, Jv))
-    offset = vmc.Ref("phase", 1, value=delta, unit="rad")
-    for i, (name, own, side) in enumerate((("left", phi, 1.0), ("right", phi - offset, -1.0))):
-        e = robot.joint(i) - own
-        ctrl.add(f"spring_{name}", spring(vmc.Stack(e, own), K, side=side, **args))
-        ctrl.add(f"damper_{name}", vmc.LinearDamper(e, C))
-    ctrl.add("drive", vmc.SpeedRegulator(phi, bv, speed, ramp))
-    return ctrl
-
-
-def controller_of(robot, ctrl):
-    return vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl)))
 
 
 def run(robot, controller, T, record=()):
