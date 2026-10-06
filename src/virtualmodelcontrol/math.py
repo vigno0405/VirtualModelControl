@@ -113,6 +113,18 @@ def rot(axis: Any, angle: Any) -> Any:
     return o.eye(3) + o.sin(angle) * k + (1 - o.cos(angle)) * (k @ k)
 
 
+def quat_rot(q: Any) -> Any:
+    """The rotation matrix of the unit quaternion ``q`` = (w, x, y, z)."""
+    o = _ops(q)
+    q = o.col(q)
+    w, x, y, z = q[0], q[1], q[2], q[3]
+    return o.mat([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+        [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+    ])  # fmt: skip
+
+
 def exp_so3(w: Any) -> Any:
     """The rotation matrix of the rotation vector ``w``, smooth at 0."""
     o = _ops(w)

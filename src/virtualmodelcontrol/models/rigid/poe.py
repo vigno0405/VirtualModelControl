@@ -10,14 +10,36 @@ import numpy as np
 
 from ...core.params import ParamSet, as_param
 from ...core.registry import register
-from ...core.space import Euclidean
+from ...core.space import Euclidean, Product, Quaternion
 from ...core.units import M
-from ...math import exp_so3, rot
+from ...math import exp_so3, quat_rot, rot
 from .spline import spline_point
 
-JOINT_TYPES = ("revolute", "prismatic", "helical", "spherical", "free", "rail")
-COORDINATES = {"revolute": 1, "prismatic": 1, "helical": 1, "spherical": 3, "free": 6, "rail": 1}
-"""How many entries of q each joint type owns."""
+JOINT_TYPES = ("revolute", "prismatic", "helical", "spherical", "free", "rail", "floating")
+COORDINATES = {
+    "revolute": 1,
+    "prismatic": 1,
+    "helical": 1,
+    "spherical": 3,
+    "free": 6,
+    "rail": 1,
+    "floating": 7,
+}
+"""How many entries of q each joint type owns (a floating joint has 6 velocities)."""
+
+
+def chain_space(joints: Sequence[str]) -> Any:
+    """The space of a chain: its joints in order, a floating one as a translation and a unit
+    quaternion, the others as plain numbers."""
+    spaces: list[Any] = []
+    for kind in joints:
+        flat = Euclidean(COORDINATES[kind])
+        for part in [Euclidean(3), Quaternion()] if kind == "floating" else [flat]:
+            if isinstance(part, Euclidean) and spaces and isinstance(spaces[-1], Euclidean):
+                spaces[-1] = Euclidean(spaces[-1].nq + part.nq)
+            else:
+                spaces.append(part)
+    return spaces[0] if len(spaces) == 1 else Product(*spaces)
 
 
 @register("model", "poe")
@@ -26,12 +48,14 @@ class SerialChain:
 
     A joint is ``"revolute"`` or ``"prismatic"`` (one coordinate), ``"helical"`` (one, a turn that
     also slides along its axis by ``pitch`` [m/rad]; give it as ``("helical", pitch)``),
-    ``"spherical"`` (three, a rotation vector about a point) or ``"free"`` (six, a translation and
-    a rotation vector: a floating base) or ``"rail"`` (one, a slide along the natural cubic
+    ``"spherical"`` (three, a rotation vector about a point), ``"free"`` (six, a translation and
+    a rotation vector: a floating base), ``"floating"`` (seven, a translation and a unit
+    quaternion, with the body's angular velocity as its three rates: a floating base that can turn
+    any number of times) or ``"rail"`` (one, a slide along the natural cubic
     spline through the rows of ``j{i}.waypoints`` [m]; give it as ``("rail", waypoints)``; its
     coordinate is the spline parameter, 0 at the first waypoint and 1 at the last, and its
     waypoints are in the frame of the joint before it). Joint i (from 1) has ``j{i}.axis``
-    (direction at q = 0, normalized internally; ``None`` for spherical, free and rail) and
+    (direction at q = 0, normalized internally; ``None`` for spherical, free, floating and rail) and
     ``j{i}.point`` [m], a point on its axis, or the point a rotation turns about. A site
     ``(after, position[, rotation])`` has ``{name}.position`` [m] and ``{name}.rotation``
     (rotation vector [rad]) at q = 0 and moves with the joints up to ``after`` (1-based). All are
@@ -53,7 +77,7 @@ class SerialChain:
         self.joints = [kind for kind, _ in specs]
         sizes = [COORDINATES[kind] for kind in self.joints]
         self._start = np.cumsum([0, *sizes]).tolist()
-        self.space = Euclidean(sum(sizes))
+        self.space = chain_space(self.joints)
         self.params = ParamSet()
         free = (-np.inf, np.inf)
         for i, ((kind, extra), axis, point) in enumerate(zip(specs, axes, points, strict=True)):
@@ -109,10 +133,13 @@ class SerialChain:
         kind, name = self.joints[i], f"j{i + 1}"
         mine = q[self._start[i] : self._start[i + 1]]
         eye, point = ca.DM.eye(3), ca.reshape(p[f"{name}.point"], 3, 1)
-        if kind in ("spherical", "free"):
-            R = exp_so3(mine[3:] if kind == "free" else mine)
+        if kind in ("spherical", "free", "floating"):
+            if kind == "floating":
+                R = quat_rot(mine[3:])
+            else:
+                R = exp_so3(mine[3:] if kind == "free" else mine)
             t = ca.mtimes(eye - R, point)  # the turn about ``point``
-            if kind == "free":
+            if kind != "spherical":
                 t = t + mine[:3]
             return R, t
         if kind == "rail":

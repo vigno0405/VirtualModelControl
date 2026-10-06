@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from . import adaptation, estimation, identification, math, optimization, sim
 from .compiler import Compiled, compile
 from .control import VMCController
-from .core import SO2, Euclidean, Param, ParamSet, Product, Signals, register
+from .core import SO2, Euclidean, Param, ParamSet, Product, Quaternion, Signals, register
 from .dynamics import Dynamics, compile_dynamics
 from .mechanisms import (
     BoxDistance,
@@ -104,6 +104,7 @@ __all__ = [
     "PolynomialSpring",
     "Product",
     "Projection",
+    "Quaternion",
     "Ref",
     "SigmoidSpring",
     "Signals",

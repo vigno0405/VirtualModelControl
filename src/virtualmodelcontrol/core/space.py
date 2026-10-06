@@ -9,6 +9,9 @@ import numpy as np
 
 from .symbolic import is_casadi
 
+EPS = 1e-24
+"""Added under the square root of a squared angle, so that every function is smooth at zero."""
+
 
 class Space(Protocol):
     """Where a configuration lives. ``integrate`` and ``difference`` accept numpy or CasADi."""
@@ -30,6 +33,10 @@ class Space(Protocol):
 
     def velocity_map(self, q: Any) -> Any:
         """G(q) with q̇ = G(q) v, shape (nq, nv)."""
+        ...
+
+    def coadjoint(self, v: Any, mu: Any) -> Any:
+        """The term that velocities that do not commute add to the momentum's rate: ad*_v μ."""
         ...
 
 
@@ -66,6 +73,10 @@ class Euclidean:
     def velocity_map(self, q: Any) -> Any:
         """Identity."""
         return type(q).eye(self.nq) if is_casadi(q) else np.eye(self.nq)
+
+    def coadjoint(self, v: Any, mu: Any) -> Any:
+        """Zero: the velocities commute."""
+        return 0 * v
 
     def __repr__(self) -> str:
         return f"Euclidean({self.nq})"
@@ -105,8 +116,75 @@ class SO2:
         c, s = np.asarray(q, dtype=float).ravel()
         return np.array([[-s], [c]])
 
+    def coadjoint(self, v: Any, mu: Any) -> Any:
+        """Zero: there is one angular velocity."""
+        return 0 * v
+
     def __repr__(self) -> str:
         return "SO2()"
+
+
+class Quaternion:
+    """Rotations of a body as unit quaternions (w, x, y, z): q has 4 entries, and v is the body's
+    angular velocity in its own frame [rad/s], 3 entries. A body can turn any number of times."""
+
+    nq = 4
+    nv = 3
+
+    def neutral(self) -> np.ndarray:
+        """No rotation."""
+        return np.array([1.0, 0.0, 0.0, 0.0])
+
+    def integrate(self, q: Any, v: Any) -> Any:
+        """Turn ``q`` by the rotation vector ``v`` about the body's own axes; stays a unit."""
+
+        def fn(q: Any, v: Any) -> Any:
+            angle = ca.sqrt(ca.dot(v, v) + EPS)
+            k, a = ca.sin(angle / 2) / angle, ca.cos(angle / 2)
+            w, x, y, z = (q[i] for i in range(4))
+            bx, by, bz = (k * v[i] for i in range(3))
+            out = ca.vertcat(
+                w * a - x * bx - y * by - z * bz,
+                w * bx + x * a + y * bz - z * by,
+                w * by - x * bz + y * a + z * bx,
+                w * bz + x * by - y * bx + z * a,
+            )
+            return out / ca.norm_2(out)
+
+        return _numeric_call(fn, q, v)
+
+    def difference(self, q1: Any, q0: Any) -> Any:
+        """The rotation vector, of angle at most π, that takes ``q0`` to ``q1``."""
+
+        def fn(q1: Any, q0: Any) -> Any:
+            w0, x0, y0, z0 = (q0[i] for i in range(4))
+            w1, x1, y1, z1 = (q1[i] for i in range(4))
+            w = w0 * w1 + x0 * x1 + y0 * y1 + z0 * z1  # conj(q0) times q1
+            x = w0 * x1 - x0 * w1 - y0 * z1 + z0 * y1
+            y = w0 * y1 + x0 * z1 - y0 * w1 - z0 * x1
+            z = w0 * z1 - x0 * y1 + y0 * x1 - z0 * w1
+            sign = ca.if_else(w < 0, -1.0, 1.0)  # the short way round
+            w, x, y, z = sign * w, sign * x, sign * y, sign * z
+            s = ca.sqrt(x**2 + y**2 + z**2 + EPS)
+            return 2 * ca.atan2(s, w) / s * ca.vertcat(x, y, z)
+
+        return _numeric_call(fn, q1, q0)
+
+    def velocity_map(self, q: Any) -> Any:
+        """G(q) with q̇ = G(q) v, the rows of ½ q ⊗ (0, v)."""
+        if is_casadi(q):
+            w, x, y, z = q[0], q[1], q[2], q[3]
+            rows = [[-x, -y, -z], [w, -z, y], [z, w, -x], [-y, x, w]]
+            return 0.5 * ca.vertcat(*[ca.horzcat(*row) for row in rows])
+        w, x, y, z = np.asarray(q, dtype=float).ravel()
+        return 0.5 * np.array([[-x, -y, -z], [w, -z, y], [z, w, -x], [-y, x, w]])
+
+    def coadjoint(self, v: Any, mu: Any) -> Any:
+        """μ × v: what turns a spinning body's angular momentum away from its angular velocity."""
+        return ca.cross(mu, v) if is_casadi(v) or is_casadi(mu) else np.cross(mu, v)
+
+    def __repr__(self) -> str:
+        return "Quaternion()"
 
 
 class Product:
@@ -157,6 +235,11 @@ class Product:
             out[i : i + r, j : j + c] = block
             i, j = i + r, j + c
         return out
+
+    def coadjoint(self, v: Any, mu: Any) -> Any:
+        """Block by block."""
+        a, b = self._blocks(v, "nv"), self._blocks(mu, "nv")
+        return self._cat([s.coadjoint(x, y) for s, x, y in zip(self.spaces, a, b, strict=True)])
 
     def __repr__(self) -> str:
         return f"Product({', '.join(map(repr, self.spaces))})"

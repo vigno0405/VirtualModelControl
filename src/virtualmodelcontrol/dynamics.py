@@ -52,7 +52,7 @@ def compile_dynamics(
 ) -> Dynamics:
     """Compile the dynamics of ``robot`` from its components.
 
-    Valid for spaces whose velocity coordinates commute (Euclidean, SO2 and their products).
+    The space gives the velocities' structure: Euclidean, SO2, Quaternion and their products.
     ``stage`` Params and those matching ``runtime`` stay live; the rest are folded in. A robot
     without an actuation gets ``actuation`` (a new ``Direct()`` by default), which a system
     passes so that its Params are the ones the dynamics read.
@@ -101,6 +101,7 @@ def compile_dynamics(
     h_vec = ca.mtimes(ca.jacobian(ca.mtimes(M, v), q), ca.mtimes(G, v)) - ca.mtimes(
         G.T, ca.gradient(T, q)
     )
+    h_vec -= space.coadjoint(v, ca.mtimes(M, v))  # velocities that do not commute (a spinning body)
     tau_u = actuation.generalized_force(u, q, pa)
     rhs = f_gen + tau_u - h_vec
     acc = ca.solve(M, rhs)

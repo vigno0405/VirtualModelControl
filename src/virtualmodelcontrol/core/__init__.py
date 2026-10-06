@@ -3,7 +3,7 @@
 from .params import SCOPES, Binding, Param, ParamSet, as_param, constants
 from .registry import get, load_plugins, names, register
 from .signals import Signals
-from .space import SO2, Euclidean, Product, Space
+from .space import SO2, Euclidean, Product, Quaternion, Space
 
 __all__ = [
     "SCOPES",
@@ -13,6 +13,7 @@ __all__ = [
     "Param",
     "ParamSet",
     "Product",
+    "Quaternion",
     "Signals",
     "Space",
     "as_param",

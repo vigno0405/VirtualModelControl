@@ -141,7 +141,7 @@ that does work would not let it fall.
 
 ## Joints with more coordinates
 
-A joint of a `SerialChain` is one of six kinds. Its coordinates take the next entries of $q$:
+A joint of a `SerialChain` is one of seven kinds. Its coordinates take the next entries of $q$:
 
 | joint | coordinates | motion |
 |---|---|---|
@@ -150,9 +150,10 @@ A joint of a `SerialChain` is one of six kinds. Its coordinates take the next en
 | `("helical", pitch)` | 1 | a turn that also slides by `pitch` [m/rad] |
 | `"spherical"` | 3 | a rotation vector, about the joint's point |
 | `"free"` | 6 | a translation, then a rotation vector: a floating base |
+| `"floating"` | 7 | a translation, then a unit quaternion: a floating base that turns any number of times |
 | `("rail", waypoints)` | 1 | a slide along the spline through the waypoints |
 
-A spherical, a free and a rail joint have no axis: give `None`. We toss a brick on a free joint. It
+A spherical, a free, a floating and a rail joint have no axis: give `None`. We toss a brick on a free joint. It
 is four point masses at its corners, and it spins as it flies:
 
 ```{code-cell} python
@@ -203,9 +204,35 @@ ax.legend();
 ```
 
 The centre of mass follows the parabola of a stone to {glue:text}`error:.2f` mm while the corner
-winds around it: nothing but gravity acts, so the spin does not change it. The orientation is
-a rotation vector, which is smooth until the body has turned once, so a body that keeps
-spinning needs its coordinates restarted.
+winds around it: nothing but gravity acts, so the spin does not change it. The orientation of a
+free joint is a rotation vector, which is smooth until the body has turned once. A body that
+keeps spinning takes a `"floating"` joint: its orientation is a unit quaternion, so $q$ has
+seven entries and the velocity six, the translation's and the body's own angular velocity.
+The same brick, thrown with a spin of 15 rad/s, turns more than twice in a second:
+
+```{code-cell} python
+spinner = vmc.Mechanism("spinner", model=SerialChain(
+    ["floating"], axes=[None], points=[[0, 0, 0]],
+    sites={name: (1, c) for name, c in corners.items()}))
+for name, m in mass.items():
+    spinner.add(f"m_{name}", vmc.PointMass(spinner.point(name), m))
+
+plant = vmc.sim.ModelPlant(spinner, v0=[0, 0, 0, 0, 15.0, 0], max_step=1e-4)
+rate = []
+for _ in range(50):
+    plant.advance(0.02)
+    rate.append(np.linalg.norm(plant.v[3:]))
+plant.q.size, plant.v.size
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+turns = np.sum(rate) * 0.02 / (2 * np.pi)
+assert turns > 2 and abs(np.linalg.norm(plant.q[3:]) - 1) < 1e-12
+glue("turns", float(turns), display=False)
+```
+
+It turned {glue:text}`turns:.1f` times, and its quaternion is still a unit.
 
 ## A rail along a path
 
