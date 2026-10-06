@@ -226,9 +226,9 @@ class NoReaction(vmc.PhaseSpring):
         return ca.vertcat(f[0], 0.0)
 
 
-def balance_of(spring_class, damping, T):
+def balance_of(spring_class, damping, T, **args):
     robot = cranks(damping=damping)
-    ctrl = flywheel(robot, **GAINS, depth=0.6, peak=0.4, steer=0.3, spring=spring_class)
+    ctrl = flywheel(robot, **GAINS, depth=0.6, peak=0.4, steer=0.3, spring=spring_class, **args)
     log = run(robot, controller_of(robot, ctrl), T, record=["energy"])
     return vmc.sim.energy_balance(log)
 
@@ -238,6 +238,14 @@ def test_with_a_depth_the_flywheel_loop_stays_passive():
     assert balance["margin"].min() >= 0.0  # it never gives more than it holds and is supplied
     assert balance["margin"].max() > 0.05  # and the check does see the energy move
     assert np.abs(balance["injected"]).max() < 1e-3 * balance["supplied"][-1]  # the books close
+
+
+def test_with_a_limit_the_loop_stays_passive_when_the_springs_saturate():
+    free = balance_of(vmc.PhaseSpring, damping=0.5, T=8.0)
+    limited = balance_of(vmc.PhaseSpring, damping=0.5, T=8.0, limit=0.1)
+    assert limited["energy"].max() > 3 * free["energy"].max()  # stretched far past the limit
+    assert limited["margin"].min() >= 0.0
+    assert np.abs(limited["injected"]).max() < 1e-3 * limited["supplied"][-1]
 
 
 def test_without_the_reaction_on_the_phase_the_books_do_not_close():

@@ -161,3 +161,6 @@ viz.animate(robot, log, "turtle.mp4", draw=draw,
 ```{video} turtle.mp4
 :caption: The two cranks follow the virtual flywheel (middle), the right one half a turn behind.
 ```
+
+To see the turtle's cranks crawl in simulation, with a body on the ground, see
+[Crawl with a flywheel](../tutorials/crawl.md).
