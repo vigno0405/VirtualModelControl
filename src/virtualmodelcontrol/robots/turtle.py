@@ -66,8 +66,8 @@ DEFAULTS = {
 """Default controller parameters (starting values, not tuned)."""
 
 PHASE_SPRINGS = ("depth", "peak", "steer", "limit")
-"""Optional controller parameters: give any of them and the cranks' springs are ``PhaseSpring``s
-(depth of the stiffness swing, phase of its peak, steering, largest stretch), else plain ones."""
+"""Optional controller parameters (depth of the stiffness swing, phase of its peak, steering,
+largest stretch): give any and the cranks' springs follow the phase, as a ``PhaseSpring``."""
 
 
 @register("hardware", "turtle.hardware")
