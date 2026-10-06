@@ -400,12 +400,16 @@ turtle crawling.
   laws; `TaskStiffness`, the task-space stiffness with the Hessian terms (the exact one of the
   lab; the first-order one is not provided); the tutorials "Track a contact force" and "Shape
   the stiffness of the tip" use them.
-  `KalmanFilter` and `Measurement` (6 October 2026, the filter only): the robot's own dynamics
-  linearised at the estimate, per-sensor gating with `rejected`, `rejected_total` and `missing`,
-  partial sensors, encoders through the transmission. Open: its golden test against the lab's
-  filter, the mocap inversion by Gauss-Newton and the velocity filter, the IMU conversions, EKF
-  and UKF variants, and the docs page.
-- [ ] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
+  `KalmanFilter` and `Measurement` (6 October 2026): the robot's own dynamics linearised at the
+  estimate, per-sensor gating with `rejected`, `rejected_total` and `missing`, partial sensors,
+  encoders through the transmission; its state, covariance, gate and health agree with the lab's
+  filter over a run with dropouts and outliers. The shape from motion capture: `Inversion`
+  (damped Gauss-Newton on the robot's kinematics, any robot) and `VelocityFilter`. The shape from
+  IMUs: `ImuFilter`, the complementary filter of the sections' relative rotations of the soft
+  arm. The tutorial "Estimate the state of a soft arm" fuses all three sensors.
+  Open: EKF and UKF variants of the filter, the momentum observer, regression and nonlinear
+  least squares, moving-horizon estimation, and object compliance by probing.
+- [x] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,
   prismatic, helical, spherical, a rail along a spline path, joints driven by a reference or
@@ -421,8 +425,14 @@ turtle crawling.
   Also done (6 October 2026): `vmc.math` (rotations and rigid transforms on numpy and CasADi
   alike), the joint types `helical`, `spherical` and `free` of `SerialChain` (a floating base,
   with its rotation as a rotation vector), trees as parts mounted on sites by `Assembly`.
-  Open: a rail along a spline path, joints driven by a reference or by a function of time, a
-  quaternion space for floating bases that turn more than once.
+  Done (6 October 2026): the joint `("rail", waypoints)`, a slide along the natural cubic spline
+  through the waypoints (it agrees with SciPy's, and a bead on a circular wire swings as a
+  pendulum); the joint `"floating"`, a floating base on a unit quaternion (`vmc.Quaternion`, with
+  the Euler-Poincare term in the dynamics), which turns through several full turns by Euler's
+  equations; and joints driven by a reference or by a function of time, as a virtual model at the
+  value of any coordinate (`FramePoint(model, site, q=coordinate)`, with `vmc.Time()` and
+  `Custom`), which a controller uses as a cart on a rail. A robot's own joint is driven the same
+  way, by a stiff spring to a reference or to a function of time.
 
 - [ ] **More coordinates and components:** the sum of coordinates, an orientation error, the
   angular velocity of a frame, a vector expressed in a frame and back; one-sided springs and

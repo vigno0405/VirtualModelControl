@@ -150,3 +150,26 @@ def test_time_needs_a_context_that_has_it_and_a_virtual_model_the_right_coordina
     assert vmc.Time().dim == 1 and vmc.Time().unit == "s"
     with pytest.raises(ValueError, match="1 coordinates, q has 2"):
         vmc.FramePoint(rail(), "cart", q=vmc.Ref("x", 2))
+
+
+def test_a_joint_of_the_robot_follows_a_function_of_time_through_a_stiff_spring():
+    omega, amplitude = 2.0, 0.3
+    robot = vmc.Mechanism("robot", model=vmc.models.JointSpace(1, unit="rad"))
+    robot.add("inertia", vmc.Inertance(robot.joint(0), 1.0))
+
+    def wanted(t):
+        return amplitude * ca.sin(omega * t)
+
+    goal = vmc.Custom(wanted, [vmc.Time()], dim=1, unit="rad")
+    robot.add("servo", vmc.LinearSpring(robot.joint(0) - goal, 1e4))
+    robot.add("servo_damper", vmc.LinearDamper(robot.joint(0) - goal, 100.0))
+    plant = vmc.sim.ModelPlant(robot, max_step=1e-4)
+    error = []
+    for _ in range(60):
+        plant.advance(0.05)
+        if plant.t > 1.0:
+            error.append(plant.q[0] - amplitude * np.sin(omega * plant.t))
+    # the lag is the mass's, m w^2 / k = 0.04 %; a damper blind to the goal's speed would add
+    # c w / k = 2 %
+    assert np.abs(error).max() < 0.002 * amplitude
+    assert abs(plant.v[0]) > 0.1  # it moves, and does not sit at the start

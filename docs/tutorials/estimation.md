@@ -1,0 +1,287 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+---
+
+# Estimate the state of a soft arm
+
+A controller needs the arm's configuration and velocity. The encoders of the tendon motors give
+them through the transmission, but the tendons slacken and stretch, so the encoders drift away
+from the arm. In this tutorial we simulate a soft arm with three sensors, encoders, motion
+capture and IMUs, and fuse them with a Kalman filter that predicts with the arm's own dynamics.
+
+```{code-cell} python
+:tags: [remove-cell]
+import docs_setup
+```
+
+| Sensor | It sees | How the library turns it into a measurement |
+| --- | --- | --- |
+| encoders | all of $q$ and $v$, through the tendons | `kf.encoder(theta, theta_dot, ...)` |
+| motion capture | markers on the arm: its shape, not its speed | `Inversion` gives $q$, `VelocityFilter` gives $v$ |
+| IMUs | how each section bends, $D_x$ and $D_y$, not its length $D_l$ | `ImuFilter` gives both |
+
+## The arm and its run
+
+The arm points up. A spring pulls its tip to a goal that stays still for 0.3 s and then goes
+around a circle of 10 cm. We run it and keep the true $q$ and $v$ to compare the estimates with.
+
+```{code-cell} python
+import casadi as ca
+import numpy as np
+import matplotlib.pyplot as plt
+import virtualmodelcontrol as vmc
+from virtualmodelcontrol.robots import helyx
+
+arm = helyx.add_dynamics(helyx.arm("290-145-145"))
+tip = arm.point(s=1.0)
+
+def goal(t):  # still for 0.3 s, then a circle of 10 cm
+    u = ca.fmin(ca.fmax((t - 0.3) / 1.0, 0.0), 1.0)
+    r = 0.10 * (3 * u**2 - 2 * u**3)
+    return ca.vertcat(r * ca.cos(4 * (t - 0.3)),
+                      r * ca.sin(4 * (t - 0.3)), 0.55)
+
+ctrl = vmc.Mechanism("ctrl")
+ctrl.add("reach", vmc.LinearSpring(
+    tip - vmc.Custom(goal, [vmc.Time()], dim=3), 400.0))
+ctrl.add("damp", vmc.LinearDamper(tip, 5.0))
+ctrl.add("gravity", vmc.GravityCompensation(arm))
+system = vmc.VirtualMechanismSystem(arm, ctrl)
+controller = vmc.VMCController(vmc.compile(system))
+
+dt = 1 / helyx.CONTROL_RATE
+log = vmc.sim.run(vmc.sim.ModelPlant(arm), controller,
+                  vmc.sim.SimClock(dt), T=4.0)
+rows = log.arrays()
+t, q, v = np.ravel(rows["t"]), rows["q"], rows["v"]
+u = rows["motor_torque"]  # what the motors were told at each step
+```
+
+## What the sensors read
+
+The sensors read the true motion with noise. The encoders read the motors, whose angles are
+off by a few tenths of a radian because the tendons are slack: about a millimetre of $q$. The
+three markers sit at the ends of the sections, and an IMU on the base and on each section end
+reads its angular velocity and the direction of gravity in its own axes, with a bias on the
+gyros.
+
+```{code-cell} python
+:tags: [hide-input]
+rng = np.random.default_rng(1)
+n = len(t)
+slack = rng.uniform(-0.4, 0.4, 9)  # [rad]
+theta = rows["motor_position"] + slack + rng.normal(0, 0.01, (n, 9))
+theta_dot = rows["motor_velocity"] + rng.normal(0, 0.05, (n, 9))
+
+kin = vmc.Kinematics(arm)
+at = [0.5, 0.75, 1.0]  # markers at the ends of the three sections
+markers = np.array([[kin.position(qk, s) for s in at] for qk in q])
+markers += rng.normal(0, 3e-4, markers.shape)  # [m]
+
+sites = ["base", "seg1", "seg2", "tip"]  # an IMU on each
+gyro, acc = np.zeros((n, 4, 3)), np.zeros((n, 4, 3))
+for k in range(n):
+    for i, site in enumerate(sites):
+        R = kin.rotation(q[k], site)
+        w = kin.angular_jacobian(q[k], site) @ v[k]
+        gyro[k, i] = R.T @ w  # in the sensor's own axes
+        acc[k, i] = R.T @ [0.0, 0.0, 9.81]
+gyro += rng.normal(0, 0.02, (4, 3)) + rng.normal(0, 0.005, gyro.shape)
+acc += rng.normal(0, 0.05, acc.shape)
+```
+
+## The filter
+
+`KalmanFilter` holds the state $(q, v)$ and its covariance. At every control step it
+`predict`s with the torques the motors were given, then `update`s with the measurements that
+came in. A `Measurement` is some of the coordinates $q$ and rates $v$ with their covariances,
+and a name. The encoders come ready: `kf.encoder` takes the motor angles and rates through
+the transmission. The markers go through `Inversion`, which finds the $q$ that puts the arm's
+points on them, and the markers' $v$ comes from `VelocityFilter`, a low-passed difference of
+consecutive $q$. The IMUs' $(D_x, D_y)$ and their rates come from `ImuFilter`, which is
+`observed` on those coordinates only. The markers and the IMUs run at a third of the control
+rate, as real ones do.
+
+```{code-cell} python
+from virtualmodelcontrol.estimation import (
+    ImuFilter, Inversion, KalmanFilter, Measurement, VelocityFilter)
+
+Q = np.diag([1e-12] * 9 + [1e-5] * 9)  # the model's error, on q then v
+every = 3  # steps between two frames of the markers, or of the IMUs
+
+def estimate(sensors, markers=markers, gate=40.0, lost=()):
+    """Run the filter over the recorded readings; the frames in ``lost``
+    never arrive."""
+    kf = KalmanFilter(system, dt, Q=Q, P0=1e-4, gate=gate)
+    inversion = Inversion(arm, at)
+    velocity = VelocityFilter(every * dt)
+    imu = ImuFilter(arm)
+    imu.calibrate(gyro[:90], acc[:90])  # the arm is still at first
+    kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)
+    out, missing = [np.concatenate([kf.q, kf.v])], 0
+    for k in range(1, n):
+        kf.predict(u[k - 1])
+        seen = [kf.encoder(theta[k], theta_dot[k], 1.5e-3**2, 1e-2**2)]
+        asked = ["encoder"]
+        if "mocap" in sensors and k % every == 0:
+            asked.append("mocap")
+            if k not in lost:
+                qm = inversion(markers[k])
+                seen.append(Measurement(qm, velocity.update(qm), 0.5e-3**2,
+                                        5e-2**2, name="mocap"))
+        if "imu" in sensors and k % every == 1:
+            asked.append("imu")
+            qi, vi = imu.update(gyro[k], acc[k], every * dt)
+            seen.append(Measurement(qi, vi, 2e-3**2, 5e-2**2,
+                                    observed=imu.observed, name="imu"))
+        kf.update(seen, expected=asked)
+        missing += len(kf.missing)
+        if "mocap" in kf.rejected or "mocap" in kf.missing:
+            velocity.reset()  # the next frame has nothing to differ from
+            inversion.reset(kf.q)  # and its fit starts from the estimate
+        out.append(np.concatenate([kf.q, kf.v]))
+    return np.array(out), kf.rejected_total, missing
+```
+
+The filter's model is the simulated arm itself, so `Q` can be small. On a real arm, `Q` is where
+the model's errors go. The covariances of the measurements are the noise we gave the sensors,
+with the slack counted in for the encoders: 1.5 mm.
+
+## One estimate, three sensors
+
+We run the filter with each combination of sensors and compare with the true state, after the
+first second.
+
+```{code-cell} python
+truth = np.hstack([q, v])
+combos = {"encoders": ("encoder",),
+          "encoders + IMUs": ("encoder", "imu"),
+          "encoders + markers": ("encoder", "mocap"),
+          "all three": ("encoder", "mocap", "imu")}
+runs = {name: estimate(sensors) for name, sensors in combos.items()}
+
+def rms(error):  # [mm] and [mm/s]
+    return 1e3 * np.sqrt(np.mean(error[t > 1.0] ** 2))
+
+print(f"{'sensors':20s}{'q [mm]':>10s}{'v [mm/s]':>10s}")
+for name, (est, _, _) in runs.items():
+    e = est - truth
+    print(f"{name:20s}{rms(e[:, :9]):10.2f}{rms(e[:, 9:]):10.2f}")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+err = {name: rms((est - truth)[:, :9]) for name, (est, _, _) in runs.items()}
+assert err["encoders + markers"] < 0.5 * err["encoders"]
+assert err["encoders + IMUs"] < err["encoders"]
+assert err["all three"] <= err["encoders + markers"]
+glue("enc_error", err["encoders"], display=False)
+glue("mocap_error", err["encoders + markers"], display=False)
+glue("ratio", err["encoders"] / err["encoders + markers"], display=False)
+glue("rejected_clean", runs["all three"][1], display=False)
+glue("frames", 2 * int((n - 1) // every), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+for name, (est, _, _) in runs.items():
+    e = (est - truth)[:, :9]
+    ax.plot(t, 1e3 * np.sqrt(np.mean(e**2, axis=1)), label=name)
+ax.set_xlabel("time [s]")
+ax.set_ylabel("error of $q$ [mm]")
+ax.legend();
+```
+
+The encoders alone are off by {glue:text}`enc_error:.2f` mm: they read the slack. The markers
+anchor the estimate to the arm: with them the error is {glue:text}`mocap_error:.2f` mm,
+{glue:text}`ratio:.1f` times smaller, and the velocity improves as much. The IMUs help less. They
+see how the sections bend and not how long they are, and the markers see all of it. On an arm
+with no markers they still cut the error of the encoders.
+
+## Outliers and dropouts
+
+Markers jump when a camera swaps two of them, and frames get lost when one is hidden. The
+filter takes both. Each measurement has to pass the *gate* before it is used: its innovation,
+how far it is from what the filter expected, measured in the measurement's own standard
+deviations, must stay below a limit. The default limit is about the 99.9 % bound of the
+chi-squared distribution, so about one good frame in a thousand is turned away: in this run
+{glue:text}`rejected_clean` of the {glue:text}`frames` frames and readings, none of them at
+fault. A real outlier is far outside the limit. We move all three markers by 10 cm for two
+frames, and run the filter with the gate and without it:
+
+```{code-cell} python
+bad = markers.copy()
+bad[700:706] += 0.1  # [m], two frames of the markers
+both = ("encoder", "mocap")
+gated = estimate(both, markers=bad)
+ungated = estimate(both, markers=bad, gate=None)
+window = (t > 2.1) & (t < 2.7)
+fits = {"gate": gated, "no gate": ungated}
+worst = {name: 1e3 * np.abs((est - truth)[window, :9]).max()
+         for name, (est, _, _) in fits.items()}
+worst, gated[1], ungated[1]  # the worst error [mm], and the frames rejected
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert worst["gate"] < 0.6 * worst["no gate"] and ungated[1] == 0
+glue("worst_gate", worst["gate"], display=False)
+glue("worst_free", worst["no gate"], display=False)
+glue("rejected_bad", gated[1], display=False)
+glue("rejected_same", runs["encoders + markers"][1], display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+for name, (est, _, _) in (("with the gate", gated), ("without it", ungated)):
+    e = (est - truth)[:, :9]
+    ax.plot(t[window], 1e3 * np.sqrt(np.mean(e[window] ** 2, axis=1)),
+            label=name)
+ax.axvspan(t[700], t[705], color="0.9", zorder=0)
+ax.set_xlabel("time [s]")
+ax.set_ylabel("error of $q$ [mm]")
+ax.legend();
+```
+
+With the gate the worst error is {glue:text}`worst_gate:.2f` mm, without it
+{glue:text}`worst_free:.2f` mm. The gate turned {glue:text}`rejected_bad` frames away: the two
+that were wrong and {glue:text}`rejected_same` that it turns away on this run without the
+outlier too. After a rejected or missing frame, `estimate` resets the velocity filter, which
+has no previous frame to differ from, and the inversion, which starts from the estimate:
+neither keeps the jump.
+
+A lost frame is not a rejected one. `update(..., expected=[...])` names the sensors that
+should have come: those that did not are in `kf.missing`, and those the gate turned away are in
+`kf.rejected`. With no frame of the markers for a third of a second the filter keeps going on
+the encoders and the model:
+
+```{code-cell} python
+dropout = estimate(both, lost=set(range(600, 700)))
+shown = (t > 1.0)
+dropped = 1e3 * np.sqrt(np.mean((dropout[0] - truth)[shown, :9] ** 2))
+print(f"{dropout[2]} frames missing, error {dropped:.2f} mm")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert dropout[2] > 30 and dropped < err["encoders"]
+```
+
+## On a real arm
+
+The numbers here come from sensors we simulated. For a real arm, take the noise of each sensor
+from a recording of the arm held still, set `Q` by trying values until the estimate is smooth
+and still follows a quick move, and look at `kf.rejected_total`: a gate that turns away many
+frames means the covariances are too small, or a sensor is wrong.
+
+The markers' positions must be in the arm's base frame: `Inversion` takes `positions` as rows
+of $(x, y, z)$ in that frame, so a motion-capture system that reports them in the room needs
+one change of frame first, $R^\top (p - t)$ with the base's pose. From the neutral
+configuration `Inversion` finds the soft arm up to 0.6 rad of bend in each section, and it
+keeps its last result as the start of the next fit; after a long gap, give it `q0`.

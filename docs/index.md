@@ -112,6 +112,7 @@ tutorials/optimize
 tutorials/contact
 tutorials/force
 tutorials/stiffness
+tutorials/estimation
 tutorials/build-a-robot
 tutorials/extend
 ```

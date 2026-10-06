@@ -123,7 +123,22 @@ All notable changes to this project are documented here. The format follows
     frozen mass matrix, in general form), with the command going through the system's
     transmission. It fuses encoders (`kf.encoder`) and any sensor that sees part of the state,
     gates each measurement on its innovation, and reports the sensors it rejected (`rejected`,
-    `rejected_total`) and the expected ones that offered nothing (`missing`).
+    `rejected_total`) and the expected ones that offered nothing (`missing`). Over a run with
+    dropouts and an outlier of each sensor it agrees with the lab's filter in its state to 1e-9,
+    its covariance, its innovation distances and the sensors it rejects.
+  - `Inversion(robot, at, damping, tol, max_iter)`: the configuration that puts the robot's points
+    `at` where a position sensor saw them (motion-capture markers), by damped Gauss-Newton from the
+    last result, for any robot. It agrees with the lab's closed form for the three-section arm
+    to 1e-8, and finds the soft arm from its neutral configuration up to 0.6 rad of bend in each
+    section (give `q0` beyond). `VelocityFilter(dt, alpha=0.3)`: the low-passed difference of
+    consecutive samples, the lab's velocity of the markers, with `dt` the sensor's own period.
+  - `ImuFilter(arm, mounts, kp, acc_tol, gravity)`: the curvature (Dx, Dy) of each section of a
+    soft arm and its rate from an IMU on its base and on each section end, by a complementary
+    filter of each section's relative rotation (the gyros turn it, the gravity both accelerometers
+    see corrects it, and it is kept on the rotations the arm can make). `calibrate` takes the
+    gyro bias and the starting pose from the arm held still. Its `observed` coordinates go to
+    `Measurement`. It agrees with the lab's filter to 1e-10 over a run with accelerometers that
+    cannot be trusted.
 - `VMCController.inputs()`: the vector the law reads, with the live Params as they are now.
   A Param that acts only through a virtual state does not change the force at once, and the
   laws leave it.
@@ -175,6 +190,23 @@ All notable changes to this project are documented here. The format follows
   a translation and a rotation vector, a floating base). A chain on a free base, a brick of point
   masses thrown with a spin and its momenta and energy are tested; a branch of a tree is a part
   mounted on a site of another part by `Assembly`.
+- `SerialChain` joint `("rail", waypoints)`: a slide along the natural cubic spline through the
+  waypoints, which are a `design` Param (an array of rows of three) in the frame of the joint
+  before it. Its coordinate is the spline parameter, 0 at the first waypoint and 1 at the last. It
+  agrees with SciPy's natural spline, and a bead on a circular wire swings as a pendulum.
+- `SerialChain` joint `"floating"`: a floating base whose rotation is a unit quaternion, with
+  seven coordinates and six velocities (the translation's and the body's angular velocity in its
+  own axes). `vmc.Quaternion` is its space, and `Space.coadjoint` gives the term that
+  velocities that do not commute add to the dynamics (the Euler-Poincare term), which
+  `compile_dynamics` now includes. A body tumbles about its intermediate axis through several
+  full turns by Euler's equations, and a base with an arm keeps its momenta and energy.
+- `vmc.FramePoint(model, site, q=coordinate)`: a point of a virtual model, at the configuration
+  that `coordinate` gives: a virtual state (a cart on a rail with a mass of its own), a
+  reference, or a function of time. `vmc.Time()` is the time of the run, to build functions of
+  time with `Custom`; a damper on the difference to such a goal feels its velocity.
+- Docs: the tutorial "Estimate the state of a soft arm" (encoders with slack, markers and IMUs
+  fused by the filter, an outlier and lost frames); "A rail along a path" and the floating joint
+  in "Build your own robot"; "A cart on a rail" in "Coordinates and components".
 
 ### Removed
 
