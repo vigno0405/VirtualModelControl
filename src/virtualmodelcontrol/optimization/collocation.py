@@ -53,6 +53,13 @@ class Collocation:
     the robot is, carrying the force that balances it under ``initial``. Both controllers' time
     counts from the first node. ``scales`` are the typical sizes of q, v and a (the solver sees
     values divided by them).
+
+    ``periodic=True`` plans an orbit that repeats: the last node equals the first (q and v), and
+    the first is free, so ``q0`` and ``v0`` are only the solver's starting guess. With
+    ``free_time=(lower, upper)`` the horizon is an unknown within these bounds, starting at
+    ``horizon``; the windows of the terms still read the nodes' times at that starting horizon.
+    Neither goes with ``initial``. Start a periodic problem from a guess of the orbit
+    (``Problem.solve(warm_start=...)``), not from rest.
     """
 
     name = "collocation"
@@ -69,6 +76,8 @@ class Collocation:
         transition: float = 0.0,
         scales: tuple[float, float, float] = (1.0, 1.0, 1.0),
         scheme: str = "trapezoid",
+        periodic: bool = False,
+        free_time: tuple[float, float] | None = None,
     ) -> None:
         if scheme not in SCHEMES:
             raise ValueError(f"scheme takes one of {SCHEMES}, got {scheme!r}")
@@ -80,11 +89,25 @@ class Collocation:
             raise ValueError("the transition cannot be negative")
         if len(scales) != 3 or min(scales) <= 0.0:
             raise ValueError("scales are three positive numbers: the sizes of q, v and a")
+        if free_time is not None:
+            if np.size(free_time) != 2 or not 0.0 < free_time[0] < free_time[1]:
+                raise ValueError("free_time is (lower, upper), with 0 < lower < upper [s]")
+            if not free_time[0] <= horizon <= free_time[1]:
+                raise ValueError("the horizon is the starting value of free_time: put it inside")
+            if initial is not None or transition > 0.0:
+                raise ValueError(
+                    "free_time cannot go with initial or transition: the blend needs the node "
+                    "times as numbers"
+                )
+        if periodic and initial is not None:
+            raise ValueError("a periodic motion repeats: it has no initial controller")
         self.q0 = np.asarray(q0, dtype=float).ravel()
         self.v0 = None if v0 is None else np.asarray(v0, dtype=float).ravel()
         self.horizon, self.nodes = float(horizon), int(nodes)
         self.transition = float(transition)
         self.scales, self.scheme = tuple(float(s) for s in scales), scheme
+        self.periodic = bool(periodic)
+        self.free_time = None if free_time is None else (float(free_time[0]), float(free_time[1]))
         self._hold = None if initial is None else _snapshot(initial)
 
     def coordinates(self) -> tuple[Any, ...]:
@@ -103,10 +126,23 @@ class Collocation:
         v0 = np.zeros(nv) if self.v0 is None else self.v0
         if self.q0.size != nq or v0.size != nv:
             raise ValueError(f"q0 and v0 need {nq} and {nv} entries, got {self.q0.size}, {v0.size}")
-        dt = self.horizon / (n - 1)
-        t = np.arange(n) * dt
+        nominal = self.horizon / (n - 1)
+        t = np.arange(n) * nominal
         sq, sv, sa = self.scales
         inf = np.inf
+        if self.free_time is None:
+            horizon: Any = self.horizon
+        else:
+            lower, upper = self.free_time
+            horizon = builder.variables.add("horizon", 1, lower, upper, self.horizon, self.horizon)
+        dt = nominal if self.free_time is None else horizon / (n - 1)
+
+        def node_time(k: int, fraction: float = 0.0) -> Any:
+            """The time of node k plus a fraction of a step: a number, or the free horizon's."""
+            if self.free_time is None:
+                return float(t[k] + fraction * dt)
+            return (k + fraction) * dt if k or fraction else 0.0
+
         v_guess = np.zeros(n * nv)
         v_guess[:nv] = v0
         Q = builder.variables.add("q", n * nq, -inf, inf, np.tile(self.q0, n), sq)
@@ -129,16 +165,16 @@ class Collocation:
             u_rest = hold_law(ca.DM(self.q0), rest, no_z, p_hold, 0.0)[0]
             bias = dynamics.residual(ca.DM(self.q0), rest, rest, u_rest, p_dyn, 0.0)
 
-        def law(q: Any, v: Any, tk: float, w: float) -> Any:
+        def law(q: Any, v: Any, tk: Any, w: float) -> Any:
             """The motor torques at (q, v, tk), blended with the controller in place."""
             u = compiled.law(q, v, no_z, p_law, tk)[0]
             return u if w >= 1.0 else w * u + (1.0 - w) * hold_law(q, v, no_z, p_hold, tk)[0]
 
         us, defects = [], []
         for k in range(n):
-            us.append(law(qs[k], vs[k], float(t[k]), float(blend[k])))
+            us.append(law(qs[k], vs[k], node_time(k), float(blend[k])))
             defects.append(
-                dynamics.residual(qs[k], vs[k], accel[k], us[k], p_dyn, float(t[k])) - bias
+                dynamics.residual(qs[k], vs[k], accel[k], us[k], p_dyn, node_time(k)) - bias
             )
         if self.scheme == "trapezoid":
             positions = [
@@ -152,7 +188,7 @@ class Collocation:
             Am = builder.variables.add("am", (n - 1) * nv, -inf, inf, np.zeros((n - 1) * nv), sa)
             positions, velocities, middles = [], [], []
             for k in range(n - 1):
-                a_c, tc = Am[k * nv : (k + 1) * nv], float(t[k] + 0.5 * dt)
+                a_c, tc = Am[k * nv : (k + 1) * nv], node_time(k, 0.5)
                 q_c = 0.5 * (qs[k] + qs[k + 1]) + dt / 8 * (vs[k] - vs[k + 1])
                 v_c = 0.5 * (vs[k] + vs[k + 1]) + dt / 8 * (accel[k] - accel[k + 1])
                 w_c = blend_weight(tc, self.transition) if hold else 1.0
@@ -162,13 +198,18 @@ class Collocation:
                     space.difference(qs[k + 1], qs[k]) - dt / 6 * (vs[k] + 4 * v_c + vs[k + 1])
                 )
                 velocities.append(vs[k + 1] - vs[k] - dt / 6 * (accel[k] + 4 * a_c + accel[k + 1]))
-        builder.constrain("start", ca.vertcat(qs[0] - self.q0, vs[0] - v0), 0.0, 0.0)
+        if self.periodic:
+            wrap = ca.vertcat(space.difference(qs[-1], qs[0]), vs[-1] - vs[0])
+            builder.constrain("periodic", wrap, 0.0, 0.0)
+        else:
+            builder.constrain("start", ca.vertcat(qs[0] - self.q0, vs[0] - v0), 0.0, 0.0)
         builder.constrain("dynamics", ca.vertcat(*defects), 0.0, 0.0)
         if self.scheme != "trapezoid":
             builder.constrain("middles", ca.vertcat(*middles), 0.0, 0.0)
         builder.constrain("position", ca.vertcat(*positions), 0.0, 0.0)
         builder.constrain("velocity", ca.vertcat(*velocities), 0.0, 0.0)
         builder.output("u", ca.horzcat(*us))
+        builder.output("horizon", ca.MX(horizon))
         builder.trajectory = Trajectory(
             t=t,
             dt=dt,
@@ -179,6 +220,7 @@ class Collocation:
             blend=blend,
             shapes={"q": (n, nq), "v": (n, nv), "a": (n, nv)},
             evaluate=builder.evaluate,
+            fixed_start=not self.periodic,
         )
 
     def _check_hold(self, builder: Builder) -> tuple[Any, Any] | None:

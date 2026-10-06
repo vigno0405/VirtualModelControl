@@ -65,10 +65,8 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   models in PyTorch and numpy (0.7.0), then a full check and the 1.0.0 release. Co-design with
   variable-stiffness actuators, URDF and MuJoCo, continuum models beyond PCC, inverse dynamics,
   realism wrappers, learning from demonstrations and the other model backends are not planned.
-- **Where 0.5.0 stands (6 October 2026):** contact, estimation (with its simulated sensors), the
-  docs, bring-your-own-kinematics and the other items below are ticked. The turtle crawling has
-  its controller elements, its simulated crawler, its seeking law and its tutorial; its gait search
-  by periodic motion with a free period is the one piece still open. 0.6.0 has begun.
+- **Where things stand (6 October 2026):** 0.5.0 is complete: every item below is ticked, and
+  its release is the next thing to do. 0.6.0 has begun.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -282,10 +280,9 @@ the soft arm among obstacles.
 - [x] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
   new language. Done (6 October 2026): trajectories by trapezoidal and Hermite-Simpson
   collocation, and equilibria (`Equilibrium`), in `vmc.optimization`, with IPOPT (L-BFGS and
-  `expand=True`) as the preset. Multiple shooting, free final time, periodic problems and the
-  other solver presets (FATROP, SQP, QP solvers, acados) wait for what needs them: periodic
-  problems and free final time for the turtle's gait (0.5.0), multiple shooting and the solver
-  presets for MPC (0.6.0), data fits for estimation (0.5.0).
+  `expand=True`) as the preset. Periodic orbits and a free final time followed (6 October 2026,
+  for the turtle's gait, 0.5.0). Multiple shooting and the other solver presets (FATROP, SQP, QP
+  solvers, acados) wait for what needs them: MPC (0.6.0), and data fits for estimation (0.5.0).
 - [x] **Automatic scales:** the trajectory problem could derive the typical sizes of q, v and a
   itself. Decided (6 October 2026): no simple derivation holds up, so `(1, 1, 1)` stays the
   default and `Collocation(scales=...)` stays an option. Measured on the soft arm (20 nodes): on
@@ -478,7 +475,7 @@ turtle crawling.
   `SphereDistance(b - a, 0, width)`; a soft object is a part with coordinates and springs of its
   own, in series with the contacts: no new pieces, tested (`tests/mechanisms/test_pair_contact.py`)
   and shown in the contact tutorial.
-- [ ] **The turtle crawling:** its floating body on the ground in the library's own simulator;
+- [x] **The turtle crawling:** its floating body on the ground in the library's own simulator;
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.
   Done (6 October 2026): `PhaseSpring` (phase-modulated stiffness, saturating potential, steering,
@@ -489,13 +486,16 @@ turtle crawling.
   a flywheel". The series VSA spring needs no new component (a `LinearSpring` on the series
   deflection, with a live stiffness `Param`). `turtle.controller` takes the phase options, and
   `adaptation.DitherSeeking` is the paper's two-tone extremum seeking, through a tank for the
-  passivity cap: the tutorial lets the crawler find its best peak phase with it. Open: the gait
-  search by periodic trajectory problems.
-  Its gait needs periodic trajectory problems (the orbit repeats, with references that change in
-  time) and free final time (the period is an unknown), both built on `vmc.optimization`. The
-  force laws and the estimators work in motor coordinates and need as many velocity coordinates as
-  configuration coordinates; a floating body has fewer, so they are to be extended for it (the
-  crawler avoids this: its controller never sees the body).
+  passivity cap: the tutorial lets the crawler find its best peak phase with it. Periodic
+  trajectory problems and a free final time are done in `vmc.optimization`
+  (`Collocation(periodic=True, free_time=(lower, upper))`, `Period` for a reference that repeats
+  with the period, `Result.horizon`; the tutorial shows both on a mass on a spring), so the gait
+  of a controller whose references change in time can be planned as an orbit with its period
+  free. Planning the flywheel controller itself needs the planner to accept controllers with
+  virtual states: that is an item of 0.6.0. The force laws and the estimators work in motor
+  coordinates and need as many velocity coordinates as configuration coordinates; a floating body
+  has fewer, so they are to be extended for it (the crawler avoids this: its controller never
+  sees the body).
 - [x] **Docs:** adaptation and passivity filters; estimation; the turtle crawling; bring your
   own kinematics (a function, DH or product-of-exponentials data), each ending in a working
   controller without simulation or optimization imports. Done (6 October 2026): the tutorials
@@ -520,6 +520,9 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   frozen-base controllers; passive and tank corrections; direction-constrained force tracking;
   each a flag, so the old and new behaviour compare; an underactuated allocation that reports
   the part it cannot realize.
+- [ ] **Planning with virtual states:** `Collocation` and the shooting transcription accept
+  controllers with virtual states (the turtle's flywheel, a tank), so that the gait search runs on
+  the flywheel controller itself; the states are unknowns of the plan with their own dynamics.
 - [ ] **Robots where some coordinates are not measured:** controllers that act through an
   estimate of them.
 - [ ] **Underactuated templates:** a planar three-link arm with one passive joint, a five-link
