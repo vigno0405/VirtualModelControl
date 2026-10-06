@@ -50,8 +50,8 @@ def settle(seconds):
 settle(2.0)
 ```
 
-A push of 1 mm on the tip along $x$ is met by a force of about $K_{xx}$ N, and a push along $x$
-also meets a force along $z$ if $K_{xz}$ is not zero. `TaskStiffness` gives the matrix $K$ from
+A push $\delta$ of the tip along $x$ is met by a force $K_{xx}\delta$ along $x$ and, if $K_{xz}$
+is not zero, by a force $K_{xz}\delta$ along $z$. `TaskStiffness` gives the matrix $K$ from
 the controller and the model of the arm: the stiffness of everything that holds the tip, the
 arm's own and the springs', with the changes of the geometry counted.
 
@@ -131,7 +131,7 @@ passed in place of the controller.
 ## Put the tip where we want it
 
 A spring with a stiffness of 300 N/m does not bring the tip to its goal: the arm's own stiffness
-and the soft arm's sag hold it back.
+holds it back.
 
 ```{code-cell} python
 :tags: [remove-cell]
