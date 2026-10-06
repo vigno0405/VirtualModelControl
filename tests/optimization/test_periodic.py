@@ -347,7 +347,7 @@ def test_the_node_times_and_spacing_follow_the_free_horizon_and_t_stays_the_star
     assert at(trajectory.dt) == pytest.approx(0.4)
     assert at(trajectory.horizon) == pytest.approx(4.0)
     assert [at(t) for t in trajectory.times] == pytest.approx(list(np.linspace(0.0, 4.0, 11)))
-    assert trajectory.times[0] == 0.0
+    assert trajectory.times[0] == 0.0 and isinstance(trajectory.times[0], float)
 
 
 def test_a_fixed_trajectory_has_numbers_for_its_times_and_horizon():
@@ -448,6 +448,15 @@ def test_a_result_reports_the_horizon_that_was_planned():
     rest.add(opt.Equilibrium([0.0]))
     there = rest.solve()
     assert there.horizon == 0.0 and there.t.tolist() == [0.0]
+    two = opt.Problem(system)
+    two.add(opt.Collocation([0.0], 3.0, 2))
+    assert two.solve().t.tolist() == pytest.approx([0.0, 3.0])
+    bare = opt.Result(  # a result made by hand has no horizon unless it is given
+        t=np.zeros(1), q=np.zeros((1, 1)), v=np.zeros((1, 1)), a=np.zeros((1, 1)),
+        u=np.zeros((1, 1)), blend=np.ones(1), params={}, references={}, cost=0.0, costs={},
+        status="", iterations=0, seconds=0.0, violation=0.0,
+    )  # fmt: skip
+    assert bare.horizon == 0.0
 
 
 def test_a_warm_start_carries_the_horizon_of_a_free_problem():
@@ -491,6 +500,8 @@ def test_the_arguments_of_a_free_horizon_and_a_periodic_motion_are_checked():
         opt.Collocation([0.0], 3.0, 10, free_time=(3.0, 3.0))
     with pytest.raises(ValueError, match="free_time is"):
         opt.Collocation([0.0], 0.5, 10, free_time=(-1.0, 4.0))
+    with pytest.raises(ValueError, match="free_time is"):
+        opt.Collocation([0.0], 0.5, 10, free_time=(0.0, 4.0))
     with pytest.raises(ValueError, match="starting value"):
         opt.Collocation([0.0], 3.0, 10, free_time=(1.0, 2.0))
     with pytest.raises(ValueError, match="starting value"):
@@ -519,6 +530,15 @@ def test_a_periodic_motion_needs_a_flat_space_as_every_collocation_does():
     builder = SimpleNamespace(system=SimpleNamespace(robot=SimpleNamespace(model=space)))
     with pytest.raises(NotImplementedError, match="Euclidean"):
         opt.Collocation([0.0], 3.0, 10, periodic=True, free_time=(1.0, 4.0)).build(builder)
+
+
+def test_a_window_without_nodes_in_an_equilibrium_is_an_error_too():
+    system, x, _ = mass_spring()
+    problem = opt.Problem(system)
+    problem.add(opt.Equilibrium([0.0]))
+    problem.add(opt.Cost(x - 1.0, t_from=1.0))
+    with pytest.raises(ValueError, match="no node lies in the window of 'cost'"):
+        problem.build()
 
 
 # the period term
