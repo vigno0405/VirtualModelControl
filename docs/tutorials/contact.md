@@ -29,6 +29,7 @@ The table is a plane 6 cm below the finger's base. The finger's $z$ axis points 
 table's outward normal is $-z$.
 
 ```{code-cell} python
+import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
@@ -133,6 +134,76 @@ viz.animate(finger, log, "contact.mp4", plane="yz", invert=True,
 :caption: The goal (red cross) steps 5 mm deeper every second; the arrow is the table's force.
 ```
 
+## Friction
+
+A contact spring keeps the tip out of the table, and friction holds it back along the table.
+`ContactFriction(distance, stiffness, friction)` is Coulomb friction, smoothed: a force against
+the tip's speed along the surface, of size $\mu F_n$, with $F_n$ the contact spring's own force.
+Give it the same `Param` for the stiffness as the spring has, so that they agree. Below a small
+speed the force falls linearly with it, so a tip at rest creeps instead of sticking. We press
+the tip 1.5 cm below the table and, after one second, move the goal along it at 5 mm/s:
+
+```{code-cell} python
+mu = 0.5
+rough = adapt.add_dynamics(adapt.finger())
+rough_tip = rough.point("tip")
+floor = vmc.PlaneDistance(rough_tip, normal=[0, 0, -1], origin=[0, 0, 0.06])
+stiffness = vmc.Param("table", 1e4, unit="N/m", scope="stage")  # shared
+rough.add("table", vmc.ContactSpring(floor, stiffness))
+rough.add("cushion", vmc.ContactDamper(floor, 5.0))
+rough.add("rub", vmc.ContactFriction(floor, stiffness, mu))
+
+def goal(t):  # 1.5 cm below the table, moving along it after 1 s
+    return ca.vertcat(0.0, 0.05 - 0.005 * ca.fmax(t - 1.0, 0.0), 0.075)
+
+drag = vmc.Mechanism("drag")
+drag.add("pull", vmc.LinearSpring(
+    rough_tip - vmc.Custom(goal, [vmc.Time()], dim=3, unit="m"), 100.0))
+drag.add("damp", vmc.LinearDamper(rough_tip, 1.0))
+drag.add("limits", adapt.joint_limit_spring(rough))
+drag.add("gravity", vmc.GravityCompensation(rough))
+system = vmc.VirtualMechanismSystem(rough, drag)
+controller = vmc.VMCController(vmc.compile(system))
+plant = vmc.sim.ModelPlant(rough, q0=[0.8, 0.8], max_step=1e-4)
+log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500), T=4.0,
+                  record=["elements", "robot"])
+rows = log.arrays()
+```
+
+`record="robot"` makes the run log what the simulated robot itself feels, component by component,
+as `robot/<name>/force`: here the table's push and the friction. The controller's own elements
+are logged by `record="elements"`.
+
+```{code-cell} python
+t = np.ravel(rows["t"])
+normal = rows["robot/table/force"][:, 0]  # [N], the table's push
+rub = rows["robot/rub/force"][:, 1]  # [N], along the table: it opposes the motion
+pull = rows["element/drag.pull/force"][:, 1]  # [N], the controller's spring
+
+fig, ax = plt.subplots()
+ax.plot(t, -pull, label="the goal's pull")
+ax.plot(t, rub, label="friction")
+ax.plot(t, mu * normal, "--", label=r"$\mu F_n$")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("force along the table [N]")
+ax.legend(loc="upper left");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+slide = t > 3.0
+assert abs(rub[slide].mean() - mu * normal[slide].mean()) < 0.03 * mu * normal[slide].mean()
+assert np.ptp(rub[:400]) > 0.3  # it grew before it slid
+glue("friction_limit", float(mu * normal[slide].mean()), display=False)
+glue("friction_slide", float(rub[slide].mean()), display=False)
+```
+
+The goal moves away and the pull grows; friction grows with it and holds the tip, which creeps,
+until the pull reaches the limit $\mu F_n$, {glue:text}`friction_limit:.2f` N here. Then the tip slides
+at the goal's pace, with a friction of {glue:text}`friction_slide:.2f` N, and the pull stays a little above.
+
 ## A virtual wall
 
 The same two components on the controller make a floor that the fingertip may not cross,
@@ -186,6 +257,59 @@ pole = vmc.CylinderDistance(arm.point(s=1.0), center=[0.1, 0.0, 0.3],
 arm.add("pole", vmc.ContactSpring(pole, 2e4))
 vmc.compile_dynamics(arm).energy  # the pole is now part of the arm's world
 ```
+
+## Between two points
+
+A contact needs no fixed surface. Two points of the robot, or of two arms, meet when the distance
+between them falls under a width, and `ContactSpring(vmc.Norm(a - b) - width, k)` pushes them
+apart with the stiffness of whatever is between them. That is how the
+[two-arms example](../examples/two-arms.md) squeezes an object, and the same spring between two
+points of one arm is a self-contact. Here two masses of 0.5 kg are pulled together by a virtual
+spring and stop on an object 10 cm wide. The run logs the object's force with `record="robot"`:
+
+```{code-cell} python
+pair = vmc.Mechanism("pair", model=vmc.models.JointSpace(2, unit="m"))
+a, b = pair.joint(0), pair.joint(1)
+for i, coord in enumerate((a, b)):
+    pair.add(f"m{i}", vmc.Inertance(coord, 0.5))  # [kg]
+width = (b - a) - 0.10  # [m] from the object's surface; negative inside it
+pair.add("object", vmc.ContactSpring(width, 2e3))  # [N/m]
+pair.add("cushion", vmc.ContactDamper(width, 8.0))
+
+squeeze = vmc.Mechanism("squeeze")
+squeeze.add("pull", vmc.LinearSpring(b - a, 50.0))  # [N/m], towards each other
+system = vmc.VirtualMechanismSystem(pair, squeeze)
+controller = vmc.VMCController(vmc.compile(system))
+plant = vmc.sim.ModelPlant(pair, q0=[0.0, 0.3], max_step=1e-4)
+log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500), T=1.5,
+                  record="robot")
+rows = log.arrays()
+gap = rows["q"][:, 1] - rows["q"][:, 0]  # [m]
+on_object = rows["robot/object/force"][:, 0]  # [N]
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, (top, bottom) = plt.subplots(2, 1, sharex=True)
+top.plot(np.ravel(rows["t"]), 100 * gap)
+top.axhline(10, color=viz.PALETTE[1], ls="--")
+top.set_ylabel("distance [cm]")
+bottom.plot(np.ravel(rows["t"]), on_object)
+bottom.set_xlabel("time [s]")
+bottom.set_ylabel("object's force [N]");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(on_object[-1] - 50.0 * gap[-1]) < 0.05 and gap[-1] < 0.1
+glue("squeeze_force", float(on_object[-1]), display=False)
+glue("squeeze_sink", float(1e3 * (0.10 - gap[-1])), display=False)
+```
+
+The masses stop {glue:text}`squeeze_sink:.1f` mm into the object, where its force,
+{glue:text}`squeeze_force:.2f` N, equals the virtual spring's pull of 50 N/m times the 10 cm.
+An object with a mass of its own, or with several coordinates, is a part with its own joints
+in the robot, as in [Build your own robot](build-a-robot.md); the contact is the same.
 
 ## Choosing the numbers
 

@@ -12,6 +12,7 @@ from virtualmodelcontrol.robots import adapt, helyx
 
 DT = 1 / 330
 ELEMENTS = ("ctrl.reach", "ctrl.damp", "ctrl.gravity")
+ROBOT = ("stiffness", "damping", "gravity")  # the arm's own springs, dampers and gravity
 BASIC = {"t", "motor_torque", "law_torque", "motor_position", "motor_velocity", "q", "v"}
 
 
@@ -55,6 +56,7 @@ def test_record_adds_the_live_params_the_elements_and_the_energies():
     names = {f"param/{name}" for name in live}
     names |= {f"element/{e}/{q}" for e in ELEMENTS for q in ("y", "ydot", "force", "torque")}
     names |= {"energy/stored", "energy/kinetic", "power/port", "power/dissipation", "power/source"}
+    names |= {f"robot/{e}/{q}" for e in ROBOT for q in ("y", "ydot", "force", "torque")}
     assert set(rows) == BASIC | names
     n = len(rows["t"])
     assert all(len(values) == n for values in rows.values())
@@ -64,6 +66,7 @@ def test_record_adds_the_live_params_the_elements_and_the_energies():
     np.testing.assert_array_equal(rows["param/ctrl.reach.goal"][0], [0.05, 0.0, 0.40])
     assert rows["element/ctrl.reach/y"].shape == (n, 3)  # the spring's coordinate: tip - goal
     assert rows["element/ctrl.reach/torque"].shape == (n, 9)  # as motor torques
+    assert rows["robot/stiffness/force"].shape == (n, 9)  # the arm's own stiffness, in q
 
 
 def test_a_matrix_param_is_logged_in_its_own_shape():

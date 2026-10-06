@@ -15,9 +15,10 @@ from ..core.signals import Signals
 from .runlog import RunLog, library_version
 
 MEASUREMENTS = ("motor_position", "motor_velocity")
-RECORDS = ("params", "elements", "energy")
+RECORDS = ("params", "elements", "energy", "robot")
 """What ``run`` can also record at every step: the controller's live Params, each element's
-coordinate, rate, force and share of the motor torques, and the controller's energies."""
+coordinate, rate, force and share of the motor torques, the controller's energies, and, of a
+simulated robot, the same of each of its own springs, dampers and contacts (``robot``)."""
 
 
 @dataclass
@@ -76,6 +77,12 @@ def run(
     """
     guard = Guard() if guard is None else guard
     extras = _extras(record)
+    if "robot" in ({record} if isinstance(record, str) else set(record)) and not hasattr(
+        plant, "elements"
+    ):
+        raise ValueError(
+            "record='robot' needs a simulated plant: a real robot does not report forces"
+        )
     if isinstance(clock, WallClock):
         return _run_wall(plant, controller, clock, T, guard, z0, extras)
     if T is None:
@@ -93,7 +100,7 @@ def run(
         else:
             cmd = Signals(plant.t, motor_torque=np.zeros(motors))
         plant.write(cmd)
-        log.step(**_values(plant.t, cmd, meas, controller, extras if good else None))
+        log.step(**_values(plant.t, cmd, meas, controller, plant, extras if good else None))
         plant.advance(clock.dt)
     return log
 
@@ -103,7 +110,8 @@ def _values(
     cmd: Signals,
     meas: Signals,
     controller: Any,
-    extras: Callable[[Any], dict[str, Any]] | None,
+    plant: Any,
+    extras: Callable[[Any, Any], dict[str, Any]] | None,
 ) -> dict[str, Any]:
     """One step's record: the time, the command, the measurements, z and the extras."""
     values: dict[str, Any] = {"t": t}
@@ -112,17 +120,17 @@ def _values(
     if getattr(controller, "z", None) is not None and np.size(controller.z):
         values["z"] = controller.z
     if extras is not None:
-        values.update(extras(controller))
+        values.update(extras(controller, plant))
     return values
 
 
-def _extras(record: Iterable[str] | str) -> Callable[[Any], dict[str, Any]]:
-    """What ``record`` asks of a controller after a step, by log name."""
+def _extras(record: Iterable[str] | str) -> Callable[[Any, Any], dict[str, Any]]:
+    """What ``record`` asks of a controller and a plant after a step, by log name."""
     record = {record} if isinstance(record, str) else set(record)
     if record - set(RECORDS):
         raise ValueError(f"record takes some of {RECORDS}, got {sorted(record)}")
 
-    def extras(controller: Any) -> dict[str, Any]:
+    def extras(controller: Any, plant: Any) -> dict[str, Any]:
         out: dict[str, Any] = {}
         if "params" in record:
             out.update({f"param/{name}": v for name, v in controller.live_params().items()})
@@ -134,6 +142,9 @@ def _extras(record: Iterable[str] | str) -> Callable[[Any], dict[str, Any]]:
             out["energy/stored"], out["energy/kinetic"] = balance["stored"], balance["kinetic"]
             for name in ("port", "dissipation", "source"):
                 out[f"power/{name}"] = balance[name]
+        if "robot" in record:
+            for element, quantities in plant.elements().items():
+                out.update({f"robot/{element}/{k}": v for k, v in quantities.items()})
         return out
 
     return extras
@@ -177,7 +188,7 @@ def _run_wall(
     T: float | None,
     guard: Guard,
     z0: Any,
-    extras: Callable[[Any], dict[str, Any]],
+    extras: Callable[[Any, Any], dict[str, Any]],
 ) -> RunLog:
     """The run loop on real time: measured steps, stale readings refused, rate statistics."""
     log, limit = RunLog(), None if T is None else round(T / clock.dt)
@@ -200,7 +211,7 @@ def _run_wall(
             else:
                 cmd = Signals(t, motor_torque=np.zeros(motors))
             plant.write(cmd)
-            values = _values(t, cmd, meas, controller, extras if good else None)
+            values = _values(t, cmd, meas, controller, plant, extras if good else None)
             log.step(dt=now - previous, **values)
             steps += 1
             previous, tick = now, tick + clock.dt

@@ -8,6 +8,7 @@ from .geometry import (
     CylinderDistance,
     PlaneDistance,
     SphereDistance,
+    SurfaceDistance,
 )
 from .joints import Joint, State
 from .ops import Custom, Difference, Norm, Projection, Slice, Stack, Sum
@@ -36,6 +37,7 @@ __all__ = [
     "Stack",
     "State",
     "Sum",
+    "SurfaceDistance",
     "Time",
     "as_coordinate",
     "walk",

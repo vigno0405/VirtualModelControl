@@ -8,7 +8,7 @@ from .constrained import (
     ConstrainedTanhDamper,
     ConstrainedTanhSpring,
 )
-from .dissipation import ContactDamper, DiodeDamper, LinearDamper, TanhDamper
+from .dissipation import ContactDamper, ContactFriction, DiodeDamper, LinearDamper, TanhDamper
 from .gated import Gated
 from .inertance import Inertance, PointMass, RotationalInertia
 from .sources import ForceSource, GravityCompensation, SpeedRegulator
@@ -32,6 +32,7 @@ __all__ = [
     "ConstrainedTanhDamper",
     "ConstrainedTanhSpring",
     "ContactDamper",
+    "ContactFriction",
     "ContactSpring",
     "DiodeDamper",
     "ForceSource",
