@@ -26,7 +26,7 @@ energy_flow.figure();
 
 The controller stores $E_c = V + T$: $V$ in its springs, $T$ in the inertances of its virtual
 states. Three powers change it. The port, $P = \tau^\top v$, is the power its torques give the
-robot; the dissipation, $D = \sum f \cdot \dot y \le 0$ over its dampers; the source power,
+robot. The dissipation is $D = \sum f \cdot \dot y \le 0$ over its dampers. The source power is
 $S = \sum f \cdot \dot y$ over its sources. With the [VMC equations](vmc.md),
 
 $$
@@ -57,19 +57,20 @@ $$
 \dot E_r + \dot E_c = D_r + D + S .
 $$
 
-Without sources the total energy can only fall. It is bounded by its value at the start, and
-where it has a minimum, at the equilibrium the springs set, it works as a Lyapunov function:
-the robot settles there or stays near it.
+Without sources the total energy can only fall. It is bounded by its value at the start. Where
+it has a minimum, at the equilibrium the springs set, it works as a Lyapunov function: the
+robot settles there or stays near it.
 
 Gravity compensation is a source, but its forces are exactly those that cancel the weight of
 the robot's masses: its power is minus the power of gravity on them. Added to the balance, it
-removes gravity's potential energy from the robot's, which then behaves as if it had no weight.
+removes gravity's potential energy from the robot's. The robot then behaves as if it had no
+weight.
 
 ## What weakens it
 
 - **Sampling and delay.** A digital controller holds each torque for a control period, so it
-  reacts to the past. Stiff springs and strong dampers then inject energy, and above a point
-  the loop goes unstable even though every element is passive; [Tuning](../tutorials/tuning.md)
+  reacts to the past. Stiff springs and strong dampers then inject energy. Above a point the
+  loop goes unstable even though every element is passive. [Tuning](../tutorials/tuning.md)
   shows the limit on damping.
 - **Changing parameters while running.** Raising a stiffness raises the energy stored in that
   spring at once; `controller.set` returns that jump ([Parameters](../tutorials/parameters.md)).

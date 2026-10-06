@@ -6,8 +6,8 @@ kernelspec:
 
 # How the library is organized
 
-The library is a stack of layers, each of which uses only the layers below it. The ready-made
-robots and the figures sit at the edges: they may use every layer, and no layer uses them.
+The library is a stack of layers. Each layer uses only the layers below it. The ready-made
+robots and the figures sit at the edges. They may use every layer, and no layer uses them.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -22,8 +22,8 @@ library_map.figure();
 
 A controller needs only the layers up to `control`: describe the robot with `models`, place
 virtual elements with `mechanisms`, pair them in a `VirtualMechanismSystem`, `compile` it and
-run it with `VMCController`. Simulation, figures and the robot templates are optional. The
-order is enforced: `lint-imports` checks the contracts written in `pyproject.toml` on every
+run it with `VMCController`. Simulation, figures and the robot templates are optional.
+`lint-imports` enforces the order: it checks the contracts written in `pyproject.toml` on every
 change, including that nothing in the library imports ROS.
 
 ## Where things are
@@ -48,8 +48,8 @@ change, including that nothing in the library imports ROS.
 ## One symbolic source
 
 Every model is written once with CasADi operations. Jacobians, Hessians, the control law and the
-robot's dynamics all come from that one graph by automatic differentiation, so they can never
-disagree with each other. The robot's dynamics take one form for every robot, the residual
+robot's dynamics all come from that one graph by automatic differentiation, so they cannot
+disagree. The robot's dynamics take one form for every robot, the residual
 
 $$
 \begin{aligned}

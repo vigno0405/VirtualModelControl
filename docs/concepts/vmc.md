@@ -46,10 +46,10 @@ $J_z$ need no hand derivation.
 ## Elements and their forces
 
 Each element gives a force $f$ on its coordinate. Springs store energy, $f = -\partial V/\partial y$
-with $V \ge 0$, so a linear spring of stiffness $K$ on $y = x - x_\text{ref}$ pulls $x$
-towards $x_\text{ref}$ with $f = -K y$. Dampers dissipate, $f \cdot \dot y \le 0$, as
-$f = -D \dot y$. Inertances give the virtual states their mass. Sources add forces of their
-own, such as gravity compensation, $f = -m g$ on each of the robot's masses.
+with $V \ge 0$. A linear spring of stiffness $K$ on $y = x - x_\text{ref}$ pulls $x$ towards
+$x_\text{ref}$ with $f = -K y$. Dampers dissipate, $f \cdot \dot y \le 0$, as $f = -D \dot y$.
+Inertances give the virtual states their mass. Sources add forces of their own, such as gravity
+compensation, $f = -m g$ on each of the robot's masses.
 
 ## From forces to motor torques
 
@@ -67,7 +67,7 @@ B(q)\,u = \tau ,
 $$
 
 with $B$ the robot's actuation map. For a tendon arm $B = (\partial\theta/\partial q)^\top$,
-with $\theta$ the motor angles; with one motor per joint $B$ is the identity. The controller
+with $\theta$ the motor angles. With one motor per joint $B$ is the identity. The controller
 never divides $u$ by an [efficiency](efficiency.md).
 
 ## Virtual states
@@ -79,13 +79,14 @@ $$
 M_z\,\ddot z = \sum_k J_{z,k}^\top f_k - c(z, \dot z),
 $$
 
-with $c$ the velocity terms of $M_z$; the controller integrates them at every step. A virtual
+with $c$ the velocity terms of $M_z$. The controller integrates them at every step. A virtual
 flywheel that the turtle's cranks follow is such a state
 ([turtle example](../examples/turtle.md)).
 
 ## The compiled controller
 
-`vmc.compile` writes all of this as one CasADi function: from the motor angles and rates (the
-robot's configuration follows through the exact inverse of its transmission), the virtual
-states and the live parameters, to the motor torques and the virtual states' rates. Its energy
-and its power, used on [Passivity](passivity.md), come from the same graph.
+`vmc.compile` writes all of this as one CasADi function. Its inputs are the motor angles and
+rates, the virtual states and the live parameters. Its outputs are the motor torques and the
+virtual states' rates. The robot's configuration follows from the motor angles through the exact
+inverse of its transmission. The controller's energy and power, used on
+[Passivity](passivity.md), come from the same graph.
