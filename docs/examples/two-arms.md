@@ -158,6 +158,112 @@ The tips meet the object after {glue:text}`touch:.2f` s and stop on it. The spri
 then pull with {glue:text}`spring:.2f` N and the object feels {glue:text}`squeeze:.2f` N: the
 rest holds the soft arms bent. A stiffer spring squeezes harder.
 
+## Hold it with a chosen force
+
+The spring above squeezes with whatever force its stiffness leaves. To hold the object with a
+chosen force, we give each arm a spring of its own, towards a goal on a face of the object, and
+let a [force tracking law](../tutorials/force.md) move each arm's goal. Each arm pushes along
+the line between the tips, the $x$ axis.
+
+```{code-cell} python
+from virtualmodelcontrol.adaptation import ForceTracking
+from virtualmodelcontrol.estimation import ContactForce
+
+push = {"right": np.array([-1.0, 0.0, 0.0]),  # each arm pushes
+        "left": np.array([1.0, 0.0, 0.0])}  # towards the other
+grip = vmc.Mechanism("grip")
+for arm, x in (("right", 0.05), ("left", -0.05)):  # on the object's faces
+    tip = arms.point(arm, s=1.0)
+    goal = vmc.Ref(f"goal_{arm}", 3, value=[x, 0.0, 0.58])
+    grip.add(arm, vmc.LinearSpring(tip - goal, 30.0))  # [N/m]
+    grip.add(f"damp_{arm}", vmc.LinearDamper(tip, 2.0))
+grip.add("gravity", vmc.GravityCompensation(arms))
+grip_system = vmc.VirtualMechanismSystem(arms, grip)
+compiled = vmc.compile(grip_system)
+```
+
+Each arm needs to know the force it exerts. With a sensor on the object, both read the
+object's force. Without one, each arm estimates its own force from the model of the arms alone,
+a copy that has no object. The laws start at 1.5 s, once the arms have settled on the faces:
+
+```{code-cell} python
+wanted = 1.0  # [N]
+
+def hold(sensor, level=None):
+    controller = vmc.VMCController(compiled)
+    if level is not None:  # run through a tank of this many joules
+        controller = vmc.control.Tank(controller, level=level)
+    model = bimanual.add_dynamics(bimanual.arms())  # no object
+    law, estimate = {}, {}
+    for arm in bimanual.ARMS:
+        site = (arm, 1.0)
+        law[arm] = ForceTracking(controller, site, f"grip.{arm}.goal_{arm}",
+                                 push[arm])
+        estimate[arm] = ContactForce(controller, site, push[arm],
+                                     robot=model)
+    plant = vmc.sim.ModelPlant(arms)
+    dt, log = 1 / bimanual.CONTROL_RATE, []
+    for _ in range(int(5.0 / dt)):
+        plant.write(controller.step(plant.t, plant.read()))
+        a, b = (kin.position(plant.q, (arm, 1.0)) for arm in bimanual.ARMS)
+        true = k_object * max(0.0, width - np.linalg.norm(a - b))  # [N]
+        for arm in bimanual.ARMS:
+            told = true * push[arm] if sensor else estimate[arm](controller)
+            if plant.t > 1.5:
+                law[arm].step(controller, told, wanted * push[arm])
+        believed = estimate["right"](controller) @ push["right"]
+        log.append((plant.t, true, believed))
+        plant.advance(dt)
+    return np.array(log)
+
+with_sensor, without = hold(sensor=True), hold(sensor=False)
+funded, empty = hold(False, level=0.2), hold(False, level=0.0)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.plot(without[:, 0], without[:, 1], label="estimates only")
+ax.plot(with_sensor[:, 0], with_sensor[:, 1], "--", label="sensor on the object")
+ax.axhline(wanted, color="0.5", linestyle="--")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("force on the object [N]")
+ax.legend(loc="lower right");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+late = slice(-500, None)
+blind, sensed = without[late, 1], with_sensor[late, 1]
+assert abs(blind.mean() - wanted) < 0.02 and abs(sensed.mean() - wanted) < 0.02
+glue("grip_blind", float(blind.mean()), display=False)
+glue("grip_sensed", float(sensed.mean()), display=False)
+glue("grip_ripple_blind", float(np.ptp(blind)), display=False)
+glue("grip_ripple_sensed", float(np.ptp(sensed)), display=False)
+glue("grip_believed", float(without[late, 2].mean()), display=False)
+```
+
+The object feels {glue:text}`grip_blind:.2f` N with the estimates alone and
+{glue:text}`grip_sensed:.2f` N with the sensor. The force ripples by
+{glue:text}`grip_ripple_blind:.4f` N in the first run and by {glue:text}`grip_ripple_sensed:.3f` N
+in the second. The right arm's estimate, {glue:text}`grip_believed:.2f` N, is right too, because
+the model has no error here. A wrong mass in the model would give a wrong force, as in the
+[force tracking tutorial](../tutorials/force.md).
+
+Moving a goal inward stores energy in the spring, and a [tank](../tutorials/energy.md) pays for
+it. The laws take the tank in place of the controller. A tank with 0.2 J grasps as before, and
+an empty one gets only as far as what the arms' dampers gave it on the way in:
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("tank_funded", float(funded[late, 1].mean()), display=False)
+glue("tank_empty", float(empty[late, 1].mean()), display=False)
+assert abs(funded[late, 1].mean() - wanted) < 0.02 and empty[late, 1].mean() < 0.5 * wanted
+```
+
+With 0.2 J the object feels {glue:text}`tank_funded:.2f` N at the end. With an empty tank it
+feels {glue:text}`tank_empty:.2f` N.
+
 ## Animate
 
 `viz.animate` draws only springs from the robot to fixed points. The `draw` callback adds the

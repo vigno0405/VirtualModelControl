@@ -96,6 +96,11 @@ All notable changes to this project are documented here. The format follows
   to 2 %. The tutorial "Track a contact force" feeds the law with it, and shows that a wrong
   mass in the model goes straight into the force. `VMCController.inputs()` returns the vector
   the law reads, with the live Params as they are now.
+- Grasp-force tracking on two arms is these two together: each arm has its own goal spring, its
+  own `ForceTracking` along the line between the tips and its own `ContactForce`. Open loop, each
+  arm is told its estimate and the object feels the wanted force to 0.2 %; closed loop, both
+  are told a sensor on the object; and either runs through a `Tank`. The "Two arms" example
+  holds an object with a chosen force this way, and its integration tests cover the three runs.
 - `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
   `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
   that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements

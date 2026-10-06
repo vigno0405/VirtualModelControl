@@ -367,8 +367,11 @@ turtle crawling.
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
   nearest symmetric positive semidefinite stiffness; the energy tutorial shows both.
-- [ ] **Grasp-force tracking on the two arms:** the lab's tank-based algorithm, open and
-  closed loop, ported with a regression test.
+- [x] **Grasp-force tracking on the two arms:** the lab's tank-based algorithm, open and
+  closed loop, ported with a regression test. Done (6 October 2026): one `ForceTracking` and one
+  `ContactForce` per arm, told its own estimate (open loop) or a sensor on the object (closed
+  loop), alone or through a `Tank`; the laws and the estimate agree with the lab's, and the
+  "Two arms" example holds an object with a chosen force.
 - [ ] **The hand's fingertip laws:** fingertip force and stiffness optimization (stiffness-
   and reference-based gradient descent, the heuristic laws), toward grasp stability with
   fingertip sensing.
