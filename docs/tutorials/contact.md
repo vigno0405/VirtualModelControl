@@ -177,12 +177,13 @@ are logged by `record="elements"`.
 ```{code-cell} python
 t = np.ravel(rows["t"])
 normal = rows["robot/table/force"][:, 0]  # [N], the table's push
-rub = rows["robot/rub/force"][:, 1]  # [N], along the table: it opposes the motion
+rub = rows["robot/rub/force"][:, 1]  # [N], opposes the motion
 pull = rows["element/drag.pull/force"][:, 1]  # [N], the controller's spring
 
 settled = t > 0.3  # leaves out the first bounces on the table
 fig, ax = plt.subplots()
-ax.plot(t[settled], -pull[settled], lw=6, alpha=0.5, label="the goal's pull")
+ax.plot(t[settled], -pull[settled], lw=6, alpha=0.5,
+        label="the goal's pull")
 ax.plot(t[settled], rub[settled], label="friction")
 ax.plot(t[settled], mu * normal[settled], "--", label=r"$\mu F_n$")
 ax.set_xlabel("time [s]")
@@ -279,7 +280,7 @@ pair.add("object", vmc.ContactSpring(width, 2e3))  # [N/m]
 pair.add("cushion", vmc.ContactDamper(width, 8.0))
 
 squeeze = vmc.Mechanism("squeeze")
-squeeze.add("pull", vmc.LinearSpring(b - a, 50.0))  # [N/m], towards each other
+squeeze.add("pull", vmc.LinearSpring(b - a, 50.0))  # [N/m]
 system = vmc.VirtualMechanismSystem(pair, squeeze)
 controller = vmc.VMCController(vmc.compile(system))
 plant = vmc.sim.ModelPlant(pair, q0=[0.0, 0.3], max_step=1e-4)

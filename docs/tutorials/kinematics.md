@@ -157,9 +157,11 @@ def energy(law, q):
     return float(law.energy(q, 0 * q, none, law.live_values(), 0.0)[0])
 
 law, R_goal = spring(0.8)
-gradient = np.array([(energy(law, q + h * e) - energy(law, q - h * e)) / (2 * h)
-                     for e in eye])
-print("torque + gradient of the energy:", np.abs(torque(law, q) + gradient).max())
+def slope(e):
+    return (energy(law, q + h * e) - energy(law, q - h * e)) / (2 * h)
+
+gradient = np.array([slope(e) for e in eye])
+print("torque + energy gradient:", np.abs(torque(law, q) + gradient).max())
 ```
 
 The torque from $J_\omega$ instead, $-(R_\text{goal}^\top J_\omega)^\top K_r \phi$, is the right
@@ -209,8 +211,8 @@ ctrl = vmc.Mechanism("ctrl")
 along = vmc.InFrame(arm.point("tool") - goal, arm.model, "tool")
 ctrl.add("hold", vmc.LinearSpring(along, Kt))
 law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
-fd = -np.column_stack([(torque(law, q + h * e) - torque(law, q - h * e)) / (2 * h)
-                       for e in eye])
+change = [torque(law, q + h * e) - torque(law, q - h * e) for e in eye]
+fd = -np.column_stack(change) / (2 * h)
 print("error:", np.abs(J.T @ R @ Kt @ R.T @ J - fd).max())
 ```
 
