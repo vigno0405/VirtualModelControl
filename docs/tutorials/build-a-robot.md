@@ -249,14 +249,16 @@ inertia = sum(mk * (x @ x * np.eye(3) - np.outer(x, x))
 
 def brick():
     """A floating brick that turns about its centre of mass."""
-    sites = {n: (1, c) for n, c in corners.items()} | {"centre": (1, centre)}
+    sites = {n: (1, c) for n, c in corners.items()}
+    sites["centre"] = (1, centre)
     chain = SerialChain(["floating"], axes=[None], points=[centre],
                         sites=sites)
     return vmc.Mechanism("brick", model=chain)
 
 corner_masses, rigid = brick(), brick()
 for n in names:
-    corner_masses.add(f"m_{n}", vmc.PointMass(corner_masses.point(n), mass[n]))
+    point = corner_masses.point(n)
+    corner_masses.add(f"m_{n}", vmc.PointMass(point, mass[n]))
 rigid.add("mass", vmc.PointMass(rigid.point("centre"), m.sum()))
 rigid.add("spin", vmc.RotationalInertia(
     vmc.FrameRotation(rigid.model, "centre"), inertia))
@@ -384,9 +386,13 @@ kin_soft = vmc.Kinematics(soft)
 def moment(n):
     """The mass times the height of its centre [kg·m], with n masses."""
     rod = vmc.Mechanism("rod", model=soft.model)
-    parts = [rod.components[k] for k in rod.add_mass_along("rod", 1.0, 0.0, 1.0, n)]
-    return sum(float(c.mass.value) * kin_soft.position(q_bent, float(c.coord.s.value))[2]
-               for c in parts)
+    names = rod.add_mass_along("rod", 1.0, 0.0, 1.0, n)
+    parts = [rod.components[k] for k in names]
+
+    def height(c):
+        return kin_soft.position(q_bent, float(c.coord.s.value))[2]
+
+    return sum(float(c.mass.value) * height(c) for c in parts)
 
 counts = np.arange(1, 9)
 fine = moment(64)
