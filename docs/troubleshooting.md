@@ -9,8 +9,8 @@ kernelspec:
 ## Import errors with ROS 2 sourced
 
 When ROS 2 is sourced, `PYTHONPATH` points at ROS's own Python packages, which can shadow numpy,
-matplotlib or other packages of your environment and break imports in confusing ways. Unset it
-for the commands that install or run the library:
+matplotlib or other packages of your environment and break imports. Unset it for the commands
+that install or run the library:
 
 ```bash
 env -u PYTHONPATH ~/venvs/vmc/bin/python -c "import virtualmodelcontrol"
@@ -30,14 +30,14 @@ sudo apt install python3-venv
 ## CasADi does not import
 
 pip installs CasADi from a prebuilt wheel. If pip starts building CasADi from source, or
-`import casadi` fails, there is no wheel for your Python version or platform: create the
+`import casadi` fails, there is no wheel for your Python version or platform. Create the
 environment with a Python version listed among the files on CasADi's
 [PyPI page](https://pypi.org/project/casadi/#files).
 
 ## Compiling takes long
 
 Compiling a controller takes a fraction of a second for the robots in this library, and a
-control step about 20 µs. A large model compiles slower: compile once, and change gains and
+control step about 20 µs. A large model compiles slower. Compile once, and change gains and
 goals while running with `controller.set`, which needs no new compile. Only Params that are not
 live (geometry, masses, attachment points) need a new `compile` after a change; see
 [parameters](tutorials/parameters.md).

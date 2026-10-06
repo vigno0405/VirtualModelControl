@@ -49,17 +49,17 @@ python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
 ```
 
 conda installs Python, and pip installs the library and everything it uses into the environment.
-The channel is conda-forge on purpose: on a new installation, conda's default channels refuse to
-create an environment (`CondaToSNonInteractiveError`) until you have accepted Anaconda's terms
-of service, and conda-forge asks for nothing. If ROS 2 is sourced in your shell, set the
-environment up as shown in the next section.
+The channel is conda-forge on purpose. On a new installation, conda's default channels refuse to
+create an environment (`CondaToSNonInteractiveError`) until you accept Anaconda's terms of
+service. conda-forge asks for nothing. If ROS 2 is sourced in your shell, set the environment up
+as shown in the next section.
 
 ## With ROS 2 in the same shell
 
 The library never needs ROS. If ROS 2 is sourced in your shell, though, `PYTHONPATH` points at
 ROS's own Python packages. pip then takes them for installed: it ends with an error about their
-dependencies (`generate-parameter-library-py requires jinja2`, say). They also come first on the
-import path, so they can shadow the versions in your environment. Unset `PYTHONPATH` for the
+dependencies, such as `generate-parameter-library-py requires jinja2`. They also come first on
+the import path, so they can shadow the versions in your environment. Unset `PYTHONPATH` for the
 commands that install or run the library:
 
 ```bash
@@ -68,8 +68,8 @@ env -u PYTHONPATH ~/venvs/vmc/bin/python -c "import virtualmodelcontrol as vmc; 
 ```
 
 In a conda environment, empty `PYTHONPATH` for the environment once, before you first activate
-it. conda gives ROS's value back when you leave the environment, and prints a warning each time
-you enter it: that is the line doing it.
+it. conda gives ROS's value back when you leave the environment. Each time you enter it, conda
+prints a warning about overwriting `PYTHONPATH`: that warning is the empty value taking effect.
 
 ```bash
 conda create -n vmc -c conda-forge --override-channels python=3.12 -y
@@ -102,9 +102,9 @@ pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"
 ```
 
 Every commit on `main` has its own version number, such as `0.1.1.dev9+gb8695c46f`, so pip
-notices a newer commit and reinstalls; the output then ends with `Successfully installed
-virtualmodelcontrol-...`. If nothing changed on `main`, pip lists the dependencies as already
-satisfied and installs nothing.
+notices a newer commit and reinstalls. The output then ends with
+`Successfully installed virtualmodelcontrol-...`. If nothing changed on `main`, pip lists the
+dependencies as already satisfied and installs nothing.
 
 From a clone of the repository installed with `pip install -e .`, pull: the change is live at
 once. Reinstall only when the dependencies changed.
@@ -123,7 +123,7 @@ An experiment should always run the same code. Pin the version, and move the pin
 pip install "virtualmodelcontrol==0.1.0"
 ```
 
-In a `requirements.txt` file, write `virtualmodelcontrol==0.1.0`; in a conda `environment.yml`,
+In a `requirements.txt` file, write `virtualmodelcontrol==0.1.0`. In a conda `environment.yml`,
 list it under `pip:`. `pip show virtualmodelcontrol` tells you which version you have, and the
 [changelog](development/changelog.md) what changed between versions.
 

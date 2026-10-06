@@ -41,10 +41,11 @@ The site then opens from `docs/_build/html/index.html`.
 
 ## Tests
 
-`tests/` mirrors `src/`. Derivatives are checked against finite differences, energies against
-the power balance, and code ported from earlier implementations against their recorded results:
-the small `.npz` fixtures in `tests/data/`. `tests/test_readme.py` runs the README's examples
-and `tests/test_docs.py` the documentation's house rules. Timing benchmarks run on request:
+`tests/` mirrors `src/`. Derivatives are checked against finite differences and energies against
+the power balance. Code ported from earlier implementations is checked against its recorded
+results: the small `.npz` fixtures in `tests/data/`. `tests/test_readme.py` runs the README's
+examples and `tests/test_docs.py` the documentation's house rules. Timing benchmarks run on
+request:
 
 ```bash
 cd VirtualModelControl
