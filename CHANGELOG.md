@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-06
+
+This release also carries the work meant for 0.4.0 (optimization of virtual mechanisms, the energy
+tank, tuning and the calibrations), which was never released on its own.
+
 ### Added
 
 - `vmc.optimization`: plan the motion of a controller on a robot and optimize its Params.
