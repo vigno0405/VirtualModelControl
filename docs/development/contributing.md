@@ -74,8 +74,8 @@ Versions follow semantic versioning and come from git tags. To release:
 
    ```bash
    cd VirtualModelControl
-   git tag -a v0.2.0 -m "virtualmodelcontrol 0.2.0"
-   git push origin v0.2.0
+   git tag -a vX.Y.Z -m "virtualmodelcontrol X.Y.Z"
+   git push origin vX.Y.Z
    ```
 
 The release workflow builds the package, publishes it to PyPI and creates the GitHub release.

@@ -103,6 +103,7 @@ def goal_at(time):  # [m], the goal pulling the tip at a time [s]
 
 
 goal = np.array([goal_at(x) for x in t])
+walking = (t >= walk["points"][0][0]) & (t < swap["at"])
 
 fig, axes = plt.subplots(2, 1, figsize=(6.4, 6.4), sharex=True)
 for ax, k, axis in zip(axes, (0, 2), "xz"):
@@ -119,7 +120,6 @@ axes[1].set_xlabel("time [s]");
 from myst_nb import glue
 from virtualmodelcontrol.robots import helyx
 
-walking = (t >= walk["points"][0][0]) & (t < swap["at"])
 first_gap = 100 * float(np.abs(tip[walking, 0] - goal[walking, 0]).max())  # [cm]
 glue("gap", first_gap, display=False)
 glue("z_end", 100 * float(tip[-1, 2] - middle[2]), display=False)

@@ -95,6 +95,7 @@ segment lengths, radii, tendon angles or masses, with any number of segments:
 
 ```{code-cell} python
 import numpy as np
+from virtualmodelcontrol.robots import helyx
 
 short = helyx.arm(
     lengths=(0.2, 0.2),  # [m], two segments

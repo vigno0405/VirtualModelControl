@@ -126,13 +126,13 @@ t, force = rows["t"].ravel(), [line.get_ydata() for line in ax.get_lines()]  # [
 first = [t[np.argmax(f > 0)] for f in force]
 assert first[0] < min(first[1:]), "the thumb no longer touches first"
 glue("fingers", 1000 * float(max(t[np.argmax(f > 0)] for f in force[1:])), display=False)
-glue("thumb", float(t[np.argmax(force[0] > 0)]), display=False)
+glue("thumb", 1000 * float(t[np.argmax(force[0] > 0)]), display=False)
 glue("force", float(np.mean([f[-1] for f in force])), display=False)
 glue("pull", float(ctrl.params["grasp_index.stiffness"].value) * radius, display=False)
 ```
 
 The ball pushes a fingertip back once the tip enters it. The thumb reaches it first, after
-{glue:text}`thumb:.2f` s, and the index and middle fingertips within {glue:text}`fingers:.0f`
+{glue:text}`thumb:.0f` ms, and the index and middle fingertips within {glue:text}`fingers:.0f`
 ms. Each then presses with {glue:text}`force:.2f` N: the pull of its spring at the surface,
 stiffness times radius ({glue:text}`pull:.1f` N), a little less as the ball gives.
 
