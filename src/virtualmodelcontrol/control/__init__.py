@@ -1,6 +1,5 @@
 """Control: controllers built from compiled virtual mechanisms."""
 
-from . import underactuated
 from .blending import SwapController, blend_weight
 from .controller import VMCController
 from .output import FrictionCompensation, Pretension, TorqueLimit, TorqueOffset
@@ -22,5 +21,4 @@ __all__ = [
     "VMCController",
     "blend_weight",
     "project_psd",
-    "underactuated",
 ]
