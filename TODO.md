@@ -497,9 +497,13 @@ turtle crawling.
   virtual cart on a rail along a path, a virtual tool); a table that maps its features to this
   library's; examples mirroring it (reaching with obstacle avoidance, compliant path
   following, a pendulum on a spline rail).
-- [ ] **Docs:** adaptation and passivity filters; estimation; the turtle crawling; bring your
+- [x] **Docs:** adaptation and passivity filters; estimation; the turtle crawling; bring your
   own kinematics (a function, DH or product-of-exponentials data), each ending in a working
-  controller without simulation or optimization imports.
+  controller without simulation or optimization imports. Done (6 October 2026): the tutorials
+  "Track a contact force", "Shape the stiffness of the tip", "Energy and passivity", "Estimate the
+  state of a soft arm", "Crawl with a flywheel", "Fit Params to a run" and "Build your own robot";
+  the force, estimation and own-robot pages end with "Take it to the robot", a controller step
+  with nothing from `vmc.sim`, and the crawl page builds its controller the same way.
 
 ---
 

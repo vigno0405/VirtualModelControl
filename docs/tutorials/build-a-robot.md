@@ -440,3 +440,25 @@ such as a floating body, gets `models.Passive(nv)` in `assembly.stacked_actuatio
 [Crawl with a flywheel](crawl.md) builds a crawler that way.
 
 To write a new kind of model, see [Extend the library](extend.md).
+
+## Take it to the robot
+
+A robot you describe is controlled like any other, and the controller needs nothing from
+`vmc.sim`. Here a spring takes the tip of the soft arm above to a goal; one control period
+of your node is a `step` with the motors' reading, which for this arm is the tendons' angles and
+rates:
+
+```{code-cell} python
+ctrl = vmc.Mechanism("ctrl")
+tip = soft.point(s=1.0)
+ctrl.add("reach", vmc.LinearSpring(tip - [0.05, 0.0, 0.3], 100.0))
+ctrl.add("damp", vmc.LinearDamper(tip, 2.0))
+system = vmc.VirtualMechanismSystem(soft, ctrl)
+controller = vmc.VMCController(vmc.compile(system))
+
+angles, rates = soft.actuation.motor_sizes(soft.space)
+reading = vmc.Signals(0.0, motor_position=np.zeros(angles),
+                      motor_velocity=np.zeros(rates))
+controller.reset(0.0, reading)
+torques = controller.step(0.0, reading)["motor_torque"]  # [N·m]
+```

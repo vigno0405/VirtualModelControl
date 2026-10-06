@@ -335,3 +335,23 @@ of $(x, y, z)$ in that frame, so a motion-capture system that reports them in th
 one change of frame first, $R^\top (p - t)$ with the base's pose. From the neutral
 configuration `Inversion` finds the soft arm up to 0.6 rad of bend in each section, and it
 keeps its last result as the start of the next fit; after a long gap, give it `q0`.
+
+## Take it to the robot
+
+On the robot the filter sits in the node that reads the sensors, with nothing from `vmc.sim`.
+At each control period it predicts with the torques last sent, then fuses what came in, and the
+controller reads $q$ and $v$ from it. Here is that period for the encoders alone, with the
+readings of the recorded run standing in for the robot's:
+
+```{code-cell} python
+kf = KalmanFilter(system, dt, Q=Q, P0=1e-4)
+kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)
+
+def estimate_step(command, theta, theta_dot):
+    """The torques last sent and the encoders' reading, in; q and v, out."""
+    kf.predict(command)
+    kf.update([kf.encoder(theta, theta_dot, 1.5e-3**2, 1e-2**2)])
+    return kf.q, kf.v
+
+q_hat, v_hat = estimate_step(u[0], theta[1], theta_dot[1])
+```

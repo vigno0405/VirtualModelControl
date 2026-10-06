@@ -512,3 +512,30 @@ force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
   stiffness and weight, and the motors' efficiency is the system's. The estimate uses the
   controller's law, before the output stages, and leaves velocities out. A Param that acts only
   on a virtual state does not change the force at once, and the laws leave it.
+
+## Take it to the robot
+
+The loops above run a simulated plant. On the robot the same law runs inside the node that talks
+to the motors, with nothing from `vmc.sim`: the controller steps with the reading, and the law
+changes the controller with the force that a load cell or an estimate gives. Here the finger's
+controller of the first section runs through a tank that starts empty, as one control period of
+your node would, with a made-up reading:
+
+```{code-cell} python
+from virtualmodelcontrol.control import Tank
+
+tank = Tank(vmc.VMCController(compiled), level=0.0, capacity=0.01)  # [J]
+law = ForceTracking(tank, "tip", "ctrl.press.goal", normal=[0, 0, 1])
+wanted = np.array([0.0, 0.0, 2.0])  # [N]
+
+def control_step(t, reading, force):
+    """What the node does each control period: the torques, then the law."""
+    command = tank.step(t, reading)
+    law.step(tank, force, wanted)
+    return command["motor_torque"]
+
+reading = vmc.Signals(0.0, motor_position=[0.8, 0.8],
+                      motor_velocity=[0.0, 0.0])
+tank.reset(0.0, reading)
+control_step(0.0, reading, force=np.array([0.0, 0.0, 0.5]))  # [N·m]
+```
