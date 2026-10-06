@@ -52,7 +52,7 @@ class Problem:
         self._parameters: list[str] = []
         self._nlp: NLP | None = None
         self._solver: Any = None
-        self._solver_key: tuple[str, dict[str, Any]] | None = None
+        self._solver_key: tuple[str, dict[str, Any], bool] | None = None
         self._callback: IterationCallback | None = None
         self._progress: Progress | None = None
         self._failure: BaseException | None = None
@@ -113,6 +113,10 @@ class Problem:
             self._nlp = builder.finish()
         return self._nlp
 
+    def warm_up(self) -> None:
+        """Build the program and create the solver now, instead of at the first ``solve``."""
+        self._solver_for(self.build(), False)
+
     def initial_guess(self, warm_start: Result | Mapping[str, Any] | None = None) -> np.ndarray:
         """The solver's starting point (scaled): the robot at rest at ``q0`` with the free Params
         at their values, or ``warm_start``, a previous ``Result`` or a dict with ``q``, ``v``,
@@ -172,7 +176,7 @@ class Problem:
         refs, p = self._references(nlp, references)
         x0 = self.initial_guess(warm_start)
         lbx, ubx = self._bounds(nlp)
-        solver = self._solver_for(nlp)
+        solver = self._solver_for(nlp, progress is not None)
         self._progress, self._failure, self._iteration = progress, None, 0
         start = time.perf_counter()
         try:
@@ -255,13 +259,18 @@ class Problem:
             lbx[where], ubx[where] = lower / scale, upper / scale
         return lbx, ubx
 
-    def _solver_for(self, nlp: NLP) -> Any:
-        if self._solver is None or self._solver_key != (self.solver, self.options):
-            self._callback = IterationCallback(
-                "progress", nlp.x.numel(), nlp.g.numel(), self._on_iteration
+    def _solver_for(self, nlp: NLP, watched: bool) -> Any:
+        """The solver, with the iteration callback only when ``solve`` is given a ``progress``: a
+        Python callback is not safe to call from the thread of an asynchronous ``MPC``."""
+        key = (self.solver, dict(self.options), watched)
+        if self._solver is None or self._solver_key != key:
+            self._callback = (
+                IterationCallback("progress", nlp.x.numel(), nlp.g.numel(), self._on_iteration)
+                if watched
+                else None
             )
             self._solver = create_solver(nlp.problem, self.options, self._callback, self.solver)
-            self._solver_key = (self.solver, dict(self.options))
+            self._solver_key = key
         return self._solver
 
     def _on_iteration(self, x: np.ndarray, cost: float) -> bool:

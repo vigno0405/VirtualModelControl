@@ -1,11 +1,14 @@
 """MPC: a mass regulated to a goal under a force cap, planned again at every step."""
 
+import threading
+
 import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol import optimization as opt
 from virtualmodelcontrol.models import JointSpace
+from virtualmodelcontrol.optimization import mpc as mpc_module
 
 K, GOAL = "ctrl.spring.stiffness", "ctrl.spring.goal"
 H, PERIOD, DT = 0.02, 5, 0.1  # a control step [s], control steps per plan step, an interval [s]
@@ -231,3 +234,83 @@ def test_refusals():
     system, _problem, mpc = program(level=1.0)
     with pytest.raises(AttributeError):  # a tank is needed to read the level from
         mpc.step(vmc.VMCController(vmc.compile(system)), [0.0], [0.0])
+
+
+def ready(system):
+    """A controller that has taken its first step, and its plant."""
+    controller = vmc.VMCController(vmc.compile(system))
+    plant = vmc.sim.ModelPlant(system.robot, q0=[0.0], max_step=H)
+    controller.reset(0.0, plant.read())
+    controller.step(0.0, plant.read())
+    return controller, plant
+
+
+def test_a_plan_made_in_a_thread_is_applied_when_it_is_ready_as_of_the_time_it_took(monkeypatch):
+    system, problem, mpc = program()
+    controller, plant = ready(system)
+    gate, solve = threading.Event(), problem.solve
+
+    def held(*args, **kwargs):
+        gate.wait(5.0)
+        return solve(*args, **kwargs)
+
+    monkeypatch.setattr(problem, "solve", held)
+    clock = [10.0]
+    monkeypatch.setattr(mpc_module.time, "perf_counter", lambda: clock[0])
+    assert mpc.poll(controller) is None  # nothing started
+    assert mpc.start(controller, plant.q, plant.v) is True
+    assert mpc.busy and mpc.start(controller, plant.q, plant.v) is False  # one plan at a time
+    assert mpc.poll(controller) is None  # not ready: the controller is not touched
+    assert controller.live_params()[K] == 2.0
+    clock[0] = 10.25
+    gate.set()
+    mpc._thread.join()
+    assert not mpc.busy
+    jump = mpc.poll(controller)  # a quarter of a second after the start: the third interval
+    assert isinstance(jump, float) and mpc.interval == 2
+    np.testing.assert_allclose(controller.live_params()[K], mpc.result.steps[K][2])
+    assert mpc.poll(controller) is None  # applied once
+    assert mpc.start(controller, plant.q, plant.v) is True  # and the next can start
+    mpc._thread.join()
+    assert mpc.poll(controller, latency=0.0) is not None and mpc.interval == 0
+
+
+def test_the_solver_is_created_with_the_mpc_not_in_the_thread_that_plans():
+    system, problem, mpc = program()
+    kept = problem._solver
+    assert kept is not None  # CasADi is not safe to build a solver in a second thread
+    controller, plant = ready(system)
+    mpc.start(controller, plant.q, plant.v)
+    mpc._thread.join()
+    assert problem._solver is kept
+
+
+def test_a_solve_that_fails_in_the_thread_fails_in_the_control_loop(monkeypatch):
+    system, problem, mpc = program()
+    controller, plant = ready(system)
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("no plan")
+
+    monkeypatch.setattr(problem, "solve", broken)
+    mpc.start(controller, plant.q, plant.v)
+    mpc._thread.join()
+    with pytest.raises(RuntimeError, match="no plan"):
+        mpc.poll(controller)
+    assert mpc.poll(controller) is None and not mpc.busy
+
+
+def test_the_loop_with_plans_made_in_threads_reaches_the_goal():
+    system, _problem, mpc = program()
+    plant = vmc.sim.ModelPlant(system.robot, q0=[0.0], max_step=H)
+    controller = vmc.VMCController(vmc.compile(system))
+    controller.reset(0.0, plant.read())
+    for i in range(round(4.0 / H)):
+        command = controller.step(plant.t, plant.read())
+        if i % PERIOD == 0:
+            mpc.start(controller, plant.q, plant.v)
+            mpc._thread.join()  # the simulation has no clock: wait for the plan
+            mpc.poll(controller, latency=0.0)
+        plant.write(command)
+        plant.advance(H)
+    assert abs(plant.q[0] - 1.0) < 5e-3

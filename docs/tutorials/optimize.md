@@ -542,5 +542,6 @@ another structure, so solve a few and compare.
 
 To change a running controller within an energy budget, see [Energy and
 passivity](energy.md), and to tune one by trial runs instead of a plan, see
-[Tuning](tuning.md). The next steps are in the [roadmap](../development/roadmap.md): multiple
-shooting, a free final time and periodic motions.
+[Tuning](tuning.md). To plan again at every step from the measured state, with multiple shooting
+and a tank, see [Model predictive control](mpc.md). The next steps are in the
+[roadmap](../development/roadmap.md): a free final time and periodic motions.

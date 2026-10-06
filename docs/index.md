@@ -110,6 +110,7 @@ tutorials/energy
 tutorials/kinematics
 tutorials/tuning
 tutorials/optimize
+tutorials/mpc
 tutorials/contact
 tutorials/force
 tutorials/stiffness
