@@ -91,12 +91,17 @@ def test_a_preset_is_known_by_name_and_has_to_be_in_the_build():
     with pytest.raises(ValueError, match="solver takes one of"):
         solvers.create_solver({}, {}, None, "nothing")
     assert solvers.available("ipopt")
-    original = ca.has_nlpsol
+    original, original_conic = ca.has_nlpsol, ca.has_conic
     try:
         ca.has_nlpsol = lambda name: False
         assert not solvers.available("fatrop")
     finally:
         ca.has_nlpsol = original
+    try:
+        ca.has_conic = lambda name: False
+        assert not solvers.available("sqp") and solvers.available("ipopt")
+    finally:
+        ca.has_conic = original_conic
     assert set(opt.PRESETS) == {"ipopt", "ipopt-exact", "sqp", "rti", "fatrop"}
 
 

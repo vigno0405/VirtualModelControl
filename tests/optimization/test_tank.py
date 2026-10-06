@@ -1,5 +1,6 @@
 """TankBudget: the plan keeps the tank's level the way the real Tank does."""
 
+import casadi as ca
 import numpy as np
 import pytest
 
@@ -11,9 +12,13 @@ K, GOAL = "ctrl.spring.stiffness", "ctrl.spring.goal"
 INTERVALS, SUBSTEPS, HORIZON = 8, 4, 1.6
 
 
-def program(level, refill=True, budget=True):
-    """A mass pulled to 1 by a spring whose stiffness and reference step; a tank pays for it."""
+def program(level, refill=True, budget=True, moving=False):
+    """A mass pulled to 1 by a spring whose stiffness and reference step; a tank pays for it.
+    With ``moving`` the controller also has a damper on a coordinate that moves with time."""
     system, x = tanh_mass(stiffness=2.0, max_force=5.0, goal=0.0, bounds=(0.5, 50.0))
+    if moving:
+        sway = vmc.Custom(lambda t: 0.3 * ca.sin(6.0 * t), [vmc.Time()], dim=1, unit="m")
+        system.virtual.add("sway", vmc.LinearDamper(x - sway, 2.0))
     problem = opt.Problem(system, solver="ipopt-exact")
     problem.add(opt.Shooting([0.0], HORIZON, INTERVALS + 1, steps=[K, GOAL], substeps=SUBSTEPS))
     problem.add(opt.Effort(0.01))
@@ -45,9 +50,9 @@ def execute(system, plan, level, refill=True):
     return np.array(levels), np.array(fractions)
 
 
-@pytest.mark.parametrize("refill", [True, False])
-def test_the_planned_level_is_the_level_of_the_real_tank_executing_the_plan(refill):
-    system, problem = program(0.05, refill)
+@pytest.mark.parametrize("refill, moving", [(True, False), (False, False), (True, True)])
+def test_the_planned_level_is_the_level_of_the_real_tank_executing_the_plan(refill, moving):
+    system, problem = program(0.05, refill, moving=moving)
     plan = problem.solve()
     levels, fractions = execute(system, plan, 0.05, refill)
     nlp = problem.build()
@@ -77,6 +82,18 @@ def test_the_refill_from_the_dampers_lets_a_plan_do_more():
     assert cost[True] < cost[False] - 1e-3
 
 
+def test_the_default_refills_the_tank_and_the_solver_starts_at_its_level():
+    system, problem = program(0.05)
+    again = opt.Problem(system, solver="ipopt-exact")
+    again.add(opt.Shooting([0.0], HORIZON, INTERVALS + 1, steps=[K, GOAL], substeps=SUBSTEPS))
+    again.add(opt.Effort(0.01))
+    again.add(opt.Cost(system.robot.joint(0) - 1.0, 1.0, name="reach"))
+    again.add(opt.TankBudget(0.05))  # refill is not given
+    assert again.solve().cost == pytest.approx(problem.solve().cost, rel=1e-6)
+    nlp = again.build()
+    np.testing.assert_array_equal(nlp.x0[nlp.variables.slices["level:tank"]], 0.05)
+
+
 def test_the_level_now_is_a_parameter_and_more_budget_buys_a_better_plan():
     _, problem = program(0.05)
     problem.parameter("tank.level")
@@ -92,7 +109,7 @@ def test_a_negative_level_has_no_plan():
 
 
 def test_the_term_needs_steps_of_a_shooting():
-    system, x = tanh_mass()
+    system, _x = tanh_mass()
     problem = opt.Problem(system)
     problem.add(opt.Collocation([0.0], 1.0, 5))
     problem.add(opt.TankBudget(1.0))

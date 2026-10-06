@@ -2,6 +2,7 @@
 
 import itertools
 
+import casadi as ca
 import numpy as np
 import pytest
 from scipy.integrate import solve_ivp
@@ -44,11 +45,47 @@ def test_a_shooting_is_the_closed_loop_of_the_simulator_step_for_step():
         block = opt.Shooting([0.2], 3.0, 11, v0=[0.1], substeps=5, integrator=integrator)
         _, plan = plan_of(system, block)
         # 5 control steps of 0.06 s per interval, the command held over each
-        log = vmc.sim.rollout(system, [0.2], 3.0, 0.06, v0=[0.1], integrator=integrator, max_step=0.06)
+        log = vmc.sim.rollout(
+            system, [0.2], 3.0, 0.06, v0=[0.1], integrator=integrator, max_step=0.06
+        )
         assert plan.converged and plan.violation < 1e-9
         np.testing.assert_allclose(plan.q[:-1], log["q"][::5], atol=1e-9)
         np.testing.assert_allclose(plan.v[:-1], log["v"][::5], atol=1e-9)
         np.testing.assert_allclose(plan.u[:-1], log["u"][::5], atol=1e-9)
+
+
+def test_one_control_step_per_interval_is_the_default_and_the_clock_runs_in_the_plan():
+    system, x, _ = mass_spring()
+    wave = vmc.Custom(lambda t: 0.3 * ca.sin(5.0 * t), [vmc.Time()], dim=1, unit="m")
+    system.robot.add("drive", vmc.LinearSpring(x - wave, 2.0))  # the robot's own clock
+    system.virtual.add("sway", vmc.LinearDamper(x - wave, 0.7))  # and the controller's
+    _, plan = plan_of(system, opt.Shooting([0.2], 1.2, 21, v0=[0.1]))
+    log = vmc.sim.rollout(system, [0.2], 1.2, 0.06, v0=[0.1], max_step=0.06)
+    assert plan.converged
+    np.testing.assert_allclose(plan.q[:-1], log["q"], atol=1e-9)
+    np.testing.assert_allclose(plan.u[:-1], log["u"], atol=1e-9)
+
+
+def test_a_transition_without_a_controller_in_place_changes_nothing():
+    system, _, _ = mass_spring()
+    plain = plan_of(system, opt.Shooting([0.0], 2.0, 6, substeps=2))[1]
+    system, _, _ = mass_spring()
+    asked = plan_of(system, opt.Shooting([0.0], 2.0, 6, substeps=2, transition=1.5))[1]
+    np.testing.assert_allclose(asked.q, plain.q, atol=1e-12)
+    assert (asked.blend == 1.0).all()
+
+
+def test_the_scales_and_the_start_set_how_the_solver_sees_the_unknowns_not_the_plan():
+    system, _, _ = mass_spring()
+    problem = opt.Problem(system)
+    problem.add(opt.Shooting([0.3], 2.0, 6, scales=(2.0, 5.0), substeps=2))
+    nlp = problem.build()
+    assert nlp.variables.scales["q"] == 2.0 and nlp.variables.scales["v"] == 5.0
+    np.testing.assert_allclose(nlp.x0[nlp.variables.slices["q"]], 0.3 / 2.0)
+    scaled = problem.solve()
+    system, _, _ = mass_spring()
+    plain = plan_of(system, opt.Shooting([0.3], 2.0, 6, substeps=2))[1]
+    np.testing.assert_allclose(scaled.q, plain.q, atol=1e-9)
 
 
 def test_the_error_against_the_exact_solution_halves_with_every_doubling_of_the_control_steps():
@@ -105,7 +142,7 @@ def test_the_plan_agrees_with_collocation_on_the_pendulum_and_the_gap_closes_wit
 
 
 def test_the_start_is_a_parameter_of_one_program():
-    system, x, _ = mass_spring()
+    system, _x, _ = mass_spring()
     problem = opt.Problem(system)
     problem.add(opt.Shooting([0.0], 2.0, 11, substeps=4))
     problem.parameter("shooting.q0", "shooting.v0")
@@ -119,7 +156,7 @@ def test_the_start_is_a_parameter_of_one_program():
 
 
 def test_the_continuity_holds_with_steps_that_the_simulator_applies_at_the_same_times():
-    system, x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
+    system, _x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
     k, goal = "ctrl.spring.stiffness", "ctrl.spring.goal"
     block = opt.Shooting([0.0], 1.0, 6, steps=[k, goal], substeps=4)
     problem = opt.Problem(system)
@@ -150,7 +187,7 @@ def test_the_continuity_holds_with_steps_that_the_simulator_applies_at_the_same_
 
 
 def test_the_steps_come_back_per_interval_in_the_shape_of_the_param_and_apply_one_of_them():
-    system, q = two_masses()
+    system, _q = two_masses()
     problem = opt.Problem(system)
     problem.add(opt.Shooting([0.0, 0.0], 1.0, 4, steps=["ctrl.damper.damping"]))
     nlp = problem.build()
@@ -169,8 +206,20 @@ def test_the_steps_come_back_per_interval_in_the_shape_of_the_param_and_apply_on
         problem.initial_guess({"steps": {"ctrl.damper.damping": value[:2]}})
 
 
+def test_the_steps_of_a_plan_are_left_out_of_the_warm_start_of_a_problem_without_steps():
+    system, _x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
+    k = "ctrl.spring.stiffness"
+    stepping = opt.Problem(system)
+    stepping.add(opt.Shooting([0.0], 1.0, 4, steps=[k]))
+    plan = stepping.solve()
+    other = opt.Problem(system)
+    other.add(opt.Shooting([0.0], 1.0, 4))
+    guess = other.initial_guess(plan)  # its q and v are used, its steps have nowhere to go
+    np.testing.assert_allclose(other.build().unpack(guess)["q"], plan.q)
+
+
 def test_the_first_interval_starts_from_the_value_the_param_has_now():
-    system, x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
+    system, _x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
     k = "ctrl.spring.stiffness"
     problem = opt.Problem(system)
     problem.add(opt.Shooting([0.0], 1.0, 4, steps=[k]))
@@ -182,7 +231,7 @@ def test_the_first_interval_starts_from_the_value_the_param_has_now():
 
 
 def test_refusals():
-    system, x = tanh_mass()
+    system, _x = tanh_mass()
     k = "ctrl.spring.stiffness"
     with pytest.raises(ValueError, match="integrator"):
         opt.Shooting([0.0], 1.0, 3, integrator="cvodes")
@@ -194,6 +243,8 @@ def test_refusals():
         opt.Shooting([0.0], 1.0, 3, substeps=0)
     with pytest.raises(ValueError, match="scales"):
         opt.Shooting([0.0], 1.0, 3, scales=(1.0, 1.0, 1.0))
+    with pytest.raises(ValueError, match="scales"):
+        opt.Shooting([0.0], 1.0, 3, scales=(1.0, -1.0))
     with pytest.raises(ValueError, match="transition"):
         opt.Shooting([0.0], 1.0, 3, transition=-1.0)
     free = opt.Problem(system)
@@ -235,7 +286,7 @@ def test_a_swap_from_the_controller_in_place_blends_as_the_collocation_does():
 
 
 def test_the_accelerations_of_the_nodes_are_those_of_the_robot_at_the_nodes():
-    system, x, _ = mass_spring()
+    system, _x, _ = mass_spring()
     _, plan = plan_of(system, opt.Shooting([0.0], 3.0, 61, substeps=2))
     # m a = -(friction + damping) v - stiffness (x - goal)
     expected = -(1.0 + DAMPING) * plan.v[:, 0] - 4.0 * (plan.q[:, 0] - 1.0)
@@ -244,7 +295,7 @@ def test_the_accelerations_of_the_nodes_are_those_of_the_robot_at_the_nodes():
 
 
 def test_effort_counts_the_commands_at_the_nodes_and_the_last_one_uses_the_last_interval():
-    system, x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
+    system, _x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
     k = "ctrl.spring.stiffness"
     problem = opt.Problem(system)
     problem.add(opt.Shooting([0.0], 1.0, 5, steps=[k]))

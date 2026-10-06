@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.models import JointSpace
 from virtualmodelcontrol import optimization as opt
+from virtualmodelcontrol.models import JointSpace
 
 K, GOAL = "ctrl.spring.stiffness", "ctrl.spring.goal"
 H, PERIOD, DT = 0.02, 5, 0.1  # a control step [s], control steps per plan step, an interval [s]
@@ -21,11 +21,12 @@ def mass(goal=0.0):
     k = vmc.Param("stiffness", 2.0, bounds=(0.5, 50.0), scope="stage")
     ctrl = vmc.Mechanism("ctrl")
     ctrl.add("spring", vmc.TanhSpring(x - ref, k, 5.0))
-    ctrl.add("damper", vmc.LinearDamper(x, 1.0))
+    damping = vmc.Param("damping", 1.0, bounds=(0.2, 4.0), scope="stage")
+    ctrl.add("damper", vmc.LinearDamper(x, damping))
     return vmc.VirtualMechanismSystem(robot, ctrl), x
 
 
-def program(level=None, budget=True, **kwargs):
+def program(level=None, budget=True, free=(), **kwargs):
     """A mass pulled to ``target`` by a spring (force cap 5 N) whose stiffness and reference are
     planned over 1 s; ``level`` is the tank that pays for their changes."""
     system, x = mass()
@@ -37,6 +38,7 @@ def program(level=None, budget=True, **kwargs):
     if level is not None and budget:
         problem.add(opt.TankBudget(level))
     problem.parameter("reach.target")
+    problem.free(*free)
     return system, problem, opt.MPC(problem, **kwargs)
 
 
@@ -62,7 +64,7 @@ def loop(system, mpc, seconds, level=None, cold=False, latency=0.0, references=N
 
 
 def test_the_mass_reaches_the_goal_under_the_force_cap():
-    system, problem, mpc = program()
+    system, _problem, mpc = program()
     _, plant, log = loop(system, mpc, 4.0)
     assert abs(plant.q[0] - 1.0) < 5e-3 and abs(plant.v[0]) < 5e-2
     assert (log[:, 4] == 1.0).all()  # every plan converged
@@ -72,12 +74,12 @@ def test_the_mass_reaches_the_goal_under_the_force_cap():
 
 def test_the_program_is_built_once_and_the_references_are_read_at_every_step():
     system, problem, mpc = program()
-    nlp, first = mpc.nlp, None
-    seconds = 6.0
+    nlp = mpc.nlp
     ctrl, plant, log = loop(
-        system, mpc, seconds, references=lambda t: {"reach.target": [1.0 if t < 3.0 else -0.5]}
+        system, mpc, 6.0, references=lambda t: {"reach.target": [1.0 if t < 3.0 else -0.5]}
     )
     assert mpc.nlp is nlp is problem.build()
+    assert mpc.result.references[K].item() == pytest.approx(ctrl.live_params()[K].item(), rel=0.5)
     assert abs(plant.q[0] - (-0.5)) < 1e-2  # it follows the new target
     assert abs(log[round(3.0 / (PERIOD * H)) - 1, 1] - 1.0) < 1e-2  # and had arrived at the first
 
@@ -93,20 +95,24 @@ def test_a_warm_start_from_the_shifted_plan_needs_fewer_iterations():
 
 def test_the_plan_moves_up_by_the_shift_with_its_last_values_held():
     for shift in (1, 3):
-        system, problem, mpc = program(shift=shift)
-        ctrl, plant, _ = loop(system, mpc, 0.6)
+        system, _problem, mpc = program(shift=shift)
+        _ctrl, _plant, _ = loop(system, mpc, 0.6)
         plan, warm = mpc.result, mpc._warm
         for j in range(11):
             np.testing.assert_array_equal(warm["q"][j], plan.q[min(j + shift, 10)])
             np.testing.assert_array_equal(warm["v"][j], plan.v[min(j + shift, 10)])
         for j in range(10):
             for name in (K, GOAL):
-                np.testing.assert_array_equal(warm["steps"][name][j], plan.steps[name][min(j + shift, 9)])
+                np.testing.assert_array_equal(
+                    warm["steps"][name][j], plan.steps[name][min(j + shift, 9)]
+                )
 
 
-@pytest.mark.parametrize("latency, interval", [(0.0, 0), (0.05, 0), (0.1, 1), (0.35, 3), (0.55, 5), (7.0, 9)])
+@pytest.mark.parametrize(
+    "latency, interval", [(0.0, 0), (0.05, 0), (0.1, 1), (0.35, 3), (0.55, 5), (7.0, 9)]
+)
 def test_a_late_plan_is_applied_as_of_the_time_it_was_late(latency, interval):
-    system, problem, mpc = program()
+    system, _problem, mpc = program()
     controller = vmc.VMCController(vmc.compile(system))
     plant = vmc.sim.ModelPlant(system.robot, q0=[0.0])
     controller.reset(0.0, plant.read())
@@ -135,8 +141,40 @@ def test_the_measured_solve_time_is_the_latency_by_default(monkeypatch):
     assert mpc.interval == 3
 
 
+def test_the_first_plan_starts_from_the_measured_state_and_the_next_from_the_shifted_plan(
+    monkeypatch,
+):
+    system, problem, mpc = program(free=["ctrl.damper.damping"])  # one value for the whole horizon
+    seen, solve = [], problem.solve
+
+    def spy(references=None, warm_start=None, **kwargs):
+        seen.append(warm_start)
+        return solve(references, warm_start, **kwargs)
+
+    monkeypatch.setattr(problem, "solve", spy)
+    controller = vmc.VMCController(vmc.compile(system))
+    plant = vmc.sim.ModelPlant(system.robot, q0=[0.4], v0=[0.3])
+    controller.reset(0.0, plant.read())
+    controller.step(0.0, plant.read())
+    now = {name: np.array(value) for name, value in controller.live_params().items()}
+    mpc.step(controller, plant.q, plant.v, latency=0.0)
+    first, damping = seen[0], mpc.result.params["ctrl.damper.damping"]
+    np.testing.assert_array_equal(first["q"], np.full((11, 1), 0.4))
+    np.testing.assert_array_equal(first["v"], np.full((11, 1), 0.3))
+    assert set(first["steps"]) == {K, GOAL}
+    for name, rows in first["steps"].items():
+        assert rows.shape == (10, *now[name].shape)
+        np.testing.assert_array_equal(rows[3], now[name])  # held at what the controller has
+    mpc.step(controller, plant.q, plant.v, latency=0.0)
+    np.testing.assert_array_equal(seen[1]["params"]["ctrl.damper.damping"], damping)
+    assert 0.2 <= damping.item() <= 4.0
+    np.testing.assert_allclose(
+        controller.live_params()["ctrl.damper.damping"], mpc.result.params["ctrl.damper.damping"]
+    )
+
+
 def test_the_energy_it_returns_is_the_jump_of_the_controllers_energy():
-    system, problem, mpc = program()
+    system, _problem, mpc = program()
     controller = vmc.VMCController(vmc.compile(system))
     plant = vmc.sim.ModelPlant(system.robot, q0=[0.4], v0=[0.3])
     controller.reset(0.0, plant.read())
@@ -149,7 +187,7 @@ def test_the_energy_it_returns_is_the_jump_of_the_controllers_energy():
 
 def tank_run(budget):
     """A tight tank (0.05 J): the fraction of each change that the tank paid, and the mass."""
-    system, problem, mpc = program(level=0.05, budget=budget)
+    system, _problem, mpc = program(level=0.05, budget=budget)
     tank = vmc.control.Tank(vmc.VMCController(vmc.compile(system)), level=0.05)
     plant = vmc.sim.ModelPlant(system.robot, q0=[0.0], max_step=H)
     tank.reset(0.0, plant.read())
@@ -182,16 +220,14 @@ def test_the_real_time_iteration_takes_one_sqp_step_per_plan_and_still_reaches_t
     assert abs(plant.q[0] - 1.0) < 3e-2
 
 
-def test_the_program_is_the_users_to_change_only_through_its_parameters():
-    system, problem, mpc = program()
-    controller = vmc.VMCController(vmc.compile(system))
+def test_refusals():
+    system, _ = mass()
+    plain = opt.Problem(system)
+    plain.add(opt.Collocation([0.0], 1.0, 4))
     with pytest.raises(ValueError, match="Shooting"):
-        plain = opt.Problem(system)
-        plain.add(opt.Collocation([0.0], 1.0, 4))
         opt.MPC(plain)
     with pytest.raises(ValueError, match="shift"):
         program(shift=0)
-    system, problem, mpc = program(level=1.0)
+    system, _problem, mpc = program(level=1.0)
     with pytest.raises(AttributeError):  # a tank is needed to read the level from
         mpc.step(vmc.VMCController(vmc.compile(system)), [0.0], [0.0])
-    del controller
