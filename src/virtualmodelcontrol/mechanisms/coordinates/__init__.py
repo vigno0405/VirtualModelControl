@@ -11,7 +11,7 @@ from .geometry import (
 )
 from .joints import Joint, State
 from .ops import Custom, Difference, Norm, Projection, Slice, Stack
-from .references import Ref
+from .references import Ref, Time
 
 __all__ = [
     "BoxDistance",
@@ -31,6 +31,7 @@ __all__ = [
     "SphereDistance",
     "Stack",
     "State",
+    "Time",
     "as_coordinate",
     "walk",
 ]

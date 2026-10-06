@@ -41,3 +41,16 @@ class Ref(Coordinate):
     def value(self, ctx: Context) -> Any:
         """The Param as a column."""
         return ca.reshape(ctx.param(self.param), self.dim, 1)
+
+
+class Time(Coordinate):
+    """The time of the run [s]: build a function of time from it, with ``Custom``."""
+
+    def __init__(self) -> None:
+        super().__init__(1, "s")
+
+    def value(self, ctx: Context) -> Any:
+        """The time symbol of the context."""
+        if ctx.t is None:
+            raise ValueError("this context has no time")
+        return ca.reshape(ctx.t, 1, 1)

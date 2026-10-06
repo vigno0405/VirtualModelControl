@@ -44,6 +44,7 @@ from .mechanisms import (
     Stack,
     TanhDamper,
     TanhSpring,
+    Time,
 )
 from .models import Efficiency, Kinematics
 from .system import VirtualMechanismSystem
@@ -111,6 +112,7 @@ __all__ = [
     "Stack",
     "TanhDamper",
     "TanhSpring",
+    "Time",
     "VMCController",
     "VirtualMechanismSystem",
     "__version__",

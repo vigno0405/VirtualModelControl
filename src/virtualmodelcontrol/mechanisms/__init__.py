@@ -44,6 +44,7 @@ from .coordinates import (
     SphereDistance,
     Stack,
     State,
+    Time,
     walk,
 )
 from .mechanism import Mechanism
@@ -91,5 +92,6 @@ __all__ = [
     "State",
     "TanhDamper",
     "TanhSpring",
+    "Time",
     "walk",
 ]

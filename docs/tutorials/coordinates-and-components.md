@@ -81,6 +81,78 @@ At every step the controller moves the state by its equations of motion: the ine
 a mass, and the tether and the drag push it. The same tether pulls the tip towards the
 follower, so the tip drags a virtual mass on a spring.
 
+## A cart on a rail
+
+A virtual state is only a number. To give it a geometry, take a point of any model at the
+state's value: `vmc.FramePoint(model, site, q=state)`. The model here is a `SerialChain` with a
+[rail](build-a-robot.md): a curve in front of the arm, with a cart that runs along it. A spring
+ties the arm's tip to the cart, so the tip is pulled along the curve, wherever the cart goes.
+
+The coordinate `q` is where the cart is on the rail, and anything can give it: a virtual state,
+as above, a free cart that the tip drags along; a `vmc.Ref`, a cart held where the reference
+says, which `controller.set` moves; or a function of time, built from `vmc.Time()`. We take
+the last, a smooth ramp that starts after 1.5 s and takes 4 s, so the tip follows the curve
+slowly:
+
+```{code-cell} python
+import casadi as ca
+from virtualmodelcontrol.models import SerialChain
+
+arm_up = helyx.add_dynamics(helyx.arm("290-145-145"))  # points up
+angle = np.linspace(-0.3, 0.3, 7)  # an arc about the base [rad]
+curve = 0.57 * np.column_stack([np.sin(angle), 0 * angle, np.cos(angle)])
+rail = SerialChain([("rail", curve)], axes=[None], points=[[0, 0, 0]],
+                   sites={"cart": (1, curve[0])})  # at the first point
+
+def ramp(t):  # 0 until 1.5 s, then 0 to 1 smoothly in 4 s
+    u = ca.fmin(ca.fmax((t - 1.5) / 4.0, 0.0), 1.0)
+    return 3 * u**2 - 2 * u**3
+
+cart = vmc.FramePoint(rail, "cart", q=vmc.Custom(ramp, [vmc.Time()], dim=1))
+tip_up = arm_up.point(s=1.0)
+follow = vmc.Mechanism("follow")
+follow.add("tie", vmc.LinearSpring(tip_up - cart, 600.0))  # [N/m]
+follow.add("damp", vmc.LinearDamper(tip_up, 5.0))  # [N·s/m]
+follow.add("gravity", vmc.GravityCompensation(arm_up))
+system = vmc.VirtualMechanismSystem(arm_up, follow)
+controller = vmc.VMCController(vmc.compile(system))
+
+plant = vmc.sim.ModelPlant(arm_up)
+log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 330), T=6.5)
+rows = log.arrays()
+kin = vmc.Kinematics(arm_up)
+tip_path = np.array([kin.position(q, 1.0) for q in rows["q"]])
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+along = vmc.Kinematics(rail)
+points = np.array([along.position([u], "cart") for u in np.linspace(0, 1, 200)])
+away = np.array([np.linalg.norm(points - p, axis=1).min() for p in tip_path])
+settled = np.ravel(rows["t"]) > 2.0  # the tip has caught up with the cart
+assert away[settled].max() < 0.04 and np.ptp(tip_path[:, 0]) > 0.25
+glue("rail_away", float(100 * away[settled].max()), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.plot(points[:, 0], points[:, 2], "--", label="rail")
+ax.plot(tip_path[:, 0], tip_path[:, 2], label="tip")
+ax.set_xlabel("x [m]")
+ax.set_ylabel("z [m]")
+ax.set_aspect("equal")
+ax.legend();
+```
+
+After it has caught up with the cart, the tip stays within {glue:text}`rail_away:.1f` cm of the
+curve. The arm hardly stretches or shortens, so the curve has to stay about as far from the
+base as the arm is long. A goal can move in the same way:
+`vmc.Custom(f, [vmc.Time()], dim=3)` is a point that follows $f(t)$, and a damper on the
+tip's difference to it feels the goal's velocity.
+
 ## Components
 
 A component acts on one coordinate $y$, and it is one of four kinds:
