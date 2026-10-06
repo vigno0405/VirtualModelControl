@@ -24,9 +24,9 @@ $$
 M \ddot q + D \dot q + K q = B u .
 $$
 
-The physical values are $\eta M$, $\eta D$ and $\eta K$, and the robot receives
-$\eta B u$: the same equation multiplied by $\eta$, so the motion is the same. The templates'
-stiffness and damping were identified this way, and every template has the efficiency 1: it
+The physical values are $\eta M$, $\eta D$ and $\eta K$, and the robot receives $\eta B u$.
+That is the same equation multiplied by $\eta$, so the motion is the same. The templates'
+stiffness and damping were identified this way. So every template has the efficiency 1: it
 receives each torque as the controller sends it. Controllers never divide their torques by
 the efficiency, on the real robot as in simulation.
 
@@ -39,7 +39,7 @@ $$
 M \ddot q + D \dot q + K q = B u + J^\top f / \eta .
 $$
 
-Estimating a contact force, or pressing with a chosen one, therefore needs $\eta$: a virtual
+Estimating a contact force, or pressing with a chosen one, therefore needs $\eta$. A virtual
 spring of stiffness $K_v$ pressing on an object pushes with $\eta K_v$ times its stretch, less
 what holds the robot bent. The calibrated values are in the templates, such as
 `helyx.EFFICIENCY` and `adapt.MOTOR_EFFICIENCY`, and are never the default.
@@ -54,7 +54,7 @@ $$
 $$
 
 with each coefficient one value for every motor or one per motor. A number passed as
-`efficiency=` is the linear coefficient $c_1$; `vmc.Efficiency(1.0)` is the default. The
+`efficiency=` is the linear coefficient $c_1$. `vmc.Efficiency(1.0)` is the default. The
 coefficients are Params, to change, tune or identify:
 
 ```{code-cell} python
@@ -75,9 +75,9 @@ simulator, `vmc.sim.ModelPlant(robot, runtime=["*efficiency*"])` keeps the coeff
 
 The efficiency is measured in static conditions: hold each command until the robot settles,
 and measure what the motors deliver, for example with a load cell. `plateaus` finds the
-settled end of every hold in a log, and `fit_efficiency` fits the coefficients by least
-squares through the origin: no command, no torque. Here a motor delivers less and less of its
-torque as the torque grows, and a log holds ten steps of 20 s:
+settled end of every hold in a log. `fit_efficiency` fits the coefficients by least squares
+through the origin: no command, no torque. Here a motor delivers less and less of its torque
+as the torque grows, and a log holds ten steps of 20 s:
 
 ```{code-cell} python
 from virtualmodelcontrol.identification import fit_efficiency, plateaus
@@ -135,6 +135,6 @@ The linear fit gives a constant efficiency of {glue:text}`eta_linear:.3f` ($R^2$
 
 When one quantity is measured for several motors, such as a fingertip force along a
 direction, `fit_efficiency(commanded, force, weights=w)` takes the weights that map each
-motor's delivered torque to it, for example from the robot's Jacobian; the finger's
-`adapt.MOTOR_EFFICIENCY` comes from such a fit. With `shared=True` all motors get one
+motor's delivered torque to it. They can come, for example, from the robot's Jacobian. The
+finger's `adapt.MOTOR_EFFICIENCY` comes from such a fit. With `shared=True` all motors get one
 polynomial.

@@ -48,7 +48,7 @@ smooth.
 
 The configuration stacks the segments, base to tip: $q = (\Delta_1, \dots, \Delta_n)$. The arc
 parameter $s \in [0, 1]$ of the whole arm is uniform in arc length, so segment $i$ spans
-$[b_{i-1}, b_i]$ with $b_i = \sum_{j \le i} L_{0,j} / \sum_j L_{0,j}$, and each segment's frame
+$[b_{i-1}, b_i]$ with $b_i = \sum_{j \le i} L_{0,j} / \sum_j L_{0,j}$. Each segment's frame
 starts where the previous one ends. `arm.point(s=...)` accepts a symbolic $s$ as well, so an
 attachment point can itself be optimized.
 
@@ -63,17 +63,17 @@ $$
 
 and its motor, with spool radius $r$, turns by $\theta_m = -\Delta L / r$: a positive motor
 angle pulls the tendon. With three tendons per segment this map is invertible, so the measured
-motor angles give $\Delta$ exactly, and the motor torques that realize a generalized force
-$\tau$ solve $B u = \tau$ with $B = (\partial\theta_m/\partial\Delta)^\top$. The
-transmission's [efficiency](efficiency.md), 1 by default, maps the commanded motor torques to
-the delivered ones.
+motor angles give $\Delta$ exactly. The motor torques that realize a generalized force $\tau$
+solve $B u = \tau$ with $B = (\partial\theta_m/\partial\Delta)^\top$. The transmission's
+[efficiency](efficiency.md), 1 by default, maps the commanded motor torques to the delivered
+ones.
 
 ## The templates
 
-`robots.helyx` builds Helyx arms from these equations. Three geometries are ready, the soft
+`robots.helyx` builds Helyx arms from these equations. Three geometries are ready: the soft
 arm of the [soft-arm example](../examples/soft-arm.md) (on its side), the
 [hanging soft arm](../examples/hanging-arm.md) and the arms of the
-[two-arm example](../examples/two-arms.md); their segment lengths, their mounting and the sign
+[two-arm example](../examples/two-arms.md). Their segment lengths, their mounting and the sign
 of their encoders against the convention above are:
 
 ```{code-cell} python
