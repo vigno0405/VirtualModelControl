@@ -24,11 +24,13 @@ from ..mechanisms import (
     LinearDamper,
     LinearSpring,
     Mechanism,
+    PhaseSpring,
     PlaneDistance,
     PointMass,
     Ref,
     RotationalInertia,
     SpeedRegulator,
+    Stack,
 )
 from ..models import Assembly, Direct, JointSpace, Passive, SerialChain
 
@@ -63,6 +65,10 @@ DEFAULTS = {
 }
 """Default controller parameters (starting values, not tuned)."""
 
+PHASE_SPRINGS = ("depth", "peak", "steer", "limit")
+"""Optional controller parameters: give any of them and the cranks' springs are ``PhaseSpring``s
+(depth of the stiffness swing, phase of its peak, steering, largest stretch), else plain ones."""
+
 
 @register("hardware", "turtle.hardware")
 def hardware() -> HardwareProfile:
@@ -83,19 +89,28 @@ def controller(robot: Mechanism, name: str = "ctrl", **params: Any) -> Mechanism
     """The virtual flywheel controller; each crank follows the flywheel phase through a spring.
 
     u_i = −K e_i − C ė_i + bias with e_left = q_left − φ, e_right = q_right − (φ − δ); the
-    flywheel J_v φ̈ = Σ (K e_i + C ė_i) + b_v (ω_cmd − φ̇). Keyword arguments override ``DEFAULTS``.
+    flywheel J_v φ̈ = Σ (K e_i + C ė_i) + b_v (ω_cmd − φ̇). Keyword arguments override ``DEFAULTS``;
+    with any of ``PHASE_SPRINGS`` the springs follow the phase (K_i of the paper's potential).
     """
     p = {**DEFAULTS, **params}
-    unknown = set(params) - set(DEFAULTS)
+    unknown = set(params) - set(DEFAULTS) - set(PHASE_SPRINGS)
     if unknown:
-        raise TypeError(f"unknown turtle parameters {sorted(unknown)}; known: {sorted(DEFAULTS)}")
+        known = sorted({*DEFAULTS, *PHASE_SPRINGS})
+        raise TypeError(f"unknown turtle parameters {sorted(unknown)}; known: {known}")
+    phased = {k: params[k] for k in PHASE_SPRINGS if params.get(k) is not None}
     ctrl = Mechanism(name)
     phi = ctrl.add_state("flywheel", unit="rad")
     ctrl.add("flywheel", Inertance(phi, p["inertia"]))
     phase = Ref("phase", 1, value=p["phase"], unit="rad")
+    phases = {"left": (phi, 1.0), "right": (phi - phase, -1.0)}
     errors = {"left": robot.joint(0) - phi, "right": robot.joint(1) - (phi - phase)}
     for crank, e in errors.items():
-        ctrl.add(f"spring_{crank}", LinearSpring(e, p["stiffness"]))
+        if phased:
+            at, side = phases[crank]
+            spring: Any = PhaseSpring(Stack(e, at), p["stiffness"], side=side, **phased)
+        else:
+            spring = LinearSpring(e, p["stiffness"])
+        ctrl.add(f"spring_{crank}", spring)
         ctrl.add(f"damper_{crank}", LinearDamper(e, p["damping"]))
     ctrl.add("drive", SpeedRegulator(phi, p["flywheel_damping"], p["speed"], p["ramp_time"]))
     ctrl.add("bias", ForceSource(Joint([0, 1], unit="rad"), [p["torque_bias"]] * 2))

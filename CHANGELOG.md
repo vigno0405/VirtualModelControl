@@ -177,6 +177,16 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `vmc.adaptation.DitherSeeking(controller, params, amplitude, frequency, gain, window)`: extremum
+  seeking from the cost alone, the two-tone law of the turtle paper. Each scalar live Param is held
+  at an estimate plus a sinusoidal dither at its own frequency (2π n / `window`, a whole n each, so
+  that the tones are orthogonal); the cost's correlation with a tone over the window is the slope
+  with respect to that Param, and the estimate moves downhill at `gain` times it, at most
+  `max_rate`, within the Param's bounds. On a `Tank`, the changes are paid from its energy, which is
+  the paper's passivity cap. The crawl tutorial lets the crawler find its best `peak` this way.
+- `turtle.controller(robot, depth=, peak=, steer=, limit=)`: with any of them the cranks' springs
+  are `PhaseSpring`s (the paper's phase-modulated, saturating potential); without, they are the
+  plain ones of the lab's controller, as before.
 - `vmc.optimization.MovingHorizon(system, dt, window=10, Q=, P=)`: moving-horizon estimation of a
   robot's state (q, v). Every step finds the states of the last `window` steps that best agree
   with the sensors' readings (the same `Measurement`s as the Kalman filter's), with the robot's own

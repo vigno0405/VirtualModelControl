@@ -284,6 +284,73 @@ check the sign on yours. The gait phase does not break, because both sides still
 flywheel: steering changes only how hard each side pushes. Keep $|u_s|$ below 1, or one spring
 loses all its stiffness.
 
+## Let the crawler find its gait
+
+The best `peak` depends on the body, and we do not know the body. `DitherSeeking` finds it from
+the gait's own result. It holds the Param at an estimate plus a slow sinusoidal dither, measures
+how the cost, here minus the forward speed, follows the dither, and moves the estimate downhill.
+The tone must be slow against the gait: its period is the `window`, six seconds against strides
+of a second, and `frequency` is $2\pi n/$`window` for a whole $n$, so that several Params, each with
+its own $n$, do not see one another. Every change goes through a `Tank`, whose energy comes from
+what the controller's dampers take: a change that would cost more than the tank holds is cut
+short. This is the paper's bound on a slow change of the potential. One `Param` is shared by the
+two springs, so that they move together:
+
+```{code-cell} python
+from virtualmodelcontrol.adaptation import DitherSeeking
+from virtualmodelcontrol.control import Tank
+
+peak = vmc.Param("peak", 0.0, unit="rad", scope="stage",
+                 bounds=(-np.inf, np.inf))  # one Param, both springs
+system = vmc.VirtualMechanismSystem(robot, flywheel(6.0, 0.9, peak=peak))
+tank = Tank(vmc.VMCController(vmc.compile(system)), capacity=1.0)
+window = 6.0  # [s]
+law = DitherSeeking(tank, "ctrl.spring0.peak", amplitude=0.8,
+                    frequency=2 * np.pi / window, gain=12.0, window=window)
+plant = vmc.sim.ModelPlant(turtle.crawler(), max_step=1e-3,
+                           q0=[0, 0, 0.04, 1, 0, 0, 0, 0.0, -np.pi])
+tank.reset(0.0, plant.read(), z0=turtle.initial_state(plant.read()))
+dt = 1 / turtle.CONTROL_RATE
+seen = []
+for step in range(int(120 / dt)):
+    plant.write(tank.step(plant.t, plant.read()))
+    law.step(tank, -plant.v[0], plant.t)  # the cost: minus the speed [m/s]
+    if step % 45 == 0:
+        seen.append((plant.t, plant.v[0], law.estimate[0], tank.level))
+    plant.advance(dt)
+seen = np.array(seen)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, (top, bottom) = plt.subplots(2, 1, sharex=True, figsize=(6.4, 6.0))
+speed = np.convolve(seen[:, 1], np.ones(10) / 10, mode="valid")  # a second
+top.plot(seen[9:, 0], 100 * speed)
+top.set_ylabel("speed [cm/s]")
+bottom.plot(seen[:, 0], seen[:, 2])
+bottom.set_xlabel("time [s]")
+bottom.set_ylabel(r"estimate of $\varphi_K$ [rad]");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+first, last = seen[:, 0] < 15, seen[:, 0] > 105
+v0, v1 = seen[first, 1].mean(), seen[last, 1].mean()
+assert v1 > 1.3 * v0 and seen[:, 3].min() >= -1e-9
+glue("seek_start", float(100 * v0), display=False)
+glue("seek_end", float(100 * v1), display=False)
+glue("seek_gain", float(100 * (v1 / v0 - 1)), display=False)
+glue("seek_peak", float(np.mod(seen[-1, 2], 2 * np.pi)), display=False)
+```
+
+The crawler starts at {glue:text}`seek_start:.1f` cm/s with the stiff-in-stance spring and, in two
+minutes of simulated time, learns to go at {glue:text}`seek_end:.1f` cm/s, {glue:text}`seek_gain:.0f`%
+faster. Its estimate of `peak` ends at {glue:text}`seek_peak:.1f` rad (modulo a turn), near the
+$\pi$ of the sweep above, and the tank never went empty. The estimate creeps at first because the
+cost changes little over a radian, and rings a little at the end: a higher gain rings more. On a
+real robot the cost is a measured speed, or a cost of transport from the flywheel's speed, and the
+run is a long one that you leave alone.
+
 ## Going further
 
 - `limit` is the largest stretch $e_{max}$ of a spring: with it the torque saturates at

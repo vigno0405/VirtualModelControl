@@ -483,7 +483,10 @@ turtle crawling.
   simple floating body on the ground with friction, with placeholder constants, run by the
   simulator while the controller is compiled against the two cranks), and the tutorial "Crawl with
   a flywheel". The series VSA spring needs no new component (a `LinearSpring` on the series
-  deflection, with a live stiffness `Param`). Open: extremum seeking.
+  deflection, with a live stiffness `Param`). `turtle.controller` takes the phase options, and
+  `adaptation.DitherSeeking` is the paper's two-tone extremum seeking, through a tank for the
+  passivity cap: the tutorial lets the crawler find its best peak phase with it. Open: the gait
+  search by periodic trajectory problems.
   Its gait needs periodic trajectory problems (the orbit repeats, with references that change in
   time) and free final time (the period is an unknown), both built on `vmc.optimization`. The
   force laws and the estimators work in motor coordinates and need as many velocity coordinates as
