@@ -9,6 +9,8 @@ from .control import VMCController
 from .core import SO2, Euclidean, Param, ParamSet, Product, Signals, register
 from .dynamics import Dynamics, compile_dynamics
 from .mechanisms import (
+    BoxDistance,
+    CapsuleDistance,
     ConstrainedGaussianSpring,
     ConstrainedLinearDamper,
     ConstrainedLinearSpring,
@@ -17,6 +19,7 @@ from .mechanisms import (
     ContactDamper,
     ContactSpring,
     Custom,
+    CylinderDistance,
     ForceSource,
     FramePoint,
     Gated,
@@ -64,6 +67,8 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "SO2",
+    "BoxDistance",
+    "CapsuleDistance",
     "Compiled",
     "ConstrainedGaussianSpring",
     "ConstrainedLinearDamper",
@@ -73,6 +78,7 @@ __all__ = [
     "ContactDamper",
     "ContactSpring",
     "Custom",
+    "CylinderDistance",
     "Dynamics",
     "Efficiency",
     "Euclidean",

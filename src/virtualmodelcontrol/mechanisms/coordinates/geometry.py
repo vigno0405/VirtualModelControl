@@ -72,3 +72,116 @@ class SphereDistance(Coordinate):
         """‖p − c‖ − r."""
         c = ca.reshape(ctx.param(self.center), 3, 1)
         return smooth_norm(ctx.value(self.point) - c) - ctx.param(self.radius)
+
+
+class CapsuleDistance(Coordinate):
+    """Signed distance [m] from a point to a capsule's surface: the distance to the segment from
+    ``a`` to ``b`` [m], less ``radius`` [m]; negative inside. A capsule with a = b is a sphere.
+    """
+
+    def __init__(
+        self, point: Coordinate, a: Any, b: Any, radius: Any, scope: Scope = "episode"
+    ) -> None:
+        super().__init__(1, "m")
+        self.point = point
+        free = (-np.inf, np.inf)
+        self.a = as_param(a, "a", unit="m", scope=scope, bounds=free)
+        self.b = as_param(b, "b", unit="m", scope=scope, bounds=free)
+        self.radius = as_param(radius, "radius", unit="m", scope=scope, bounds=(0.0, np.inf))
+
+    def params(self) -> dict[str, Param]:
+        """The segment's ends and the radius."""
+        return {"a": self.a, "b": self.b, "radius": self.radius}
+
+    def children(self) -> tuple[Coordinate, ...]:
+        """The point."""
+        return (self.point,)
+
+    def value(self, ctx: Context) -> Any:
+        """‖p − (a + h (b − a))‖ − r, with h the closest point of the segment."""
+        a = ca.reshape(ctx.param(self.a), 3, 1)
+        ab = ca.reshape(ctx.param(self.b), 3, 1) - a
+        p = ctx.value(self.point)
+        h = ca.fmax(0.0, ca.fmin(1.0, ca.dot(p - a, ab) / ca.fmax(ca.dot(ab, ab), 1e-18)))
+        return smooth_norm(p - a - h * ab) - ctx.param(self.radius)
+
+
+class BoxDistance(Coordinate):
+    """Signed distance [m] from a point to the surface of a box with its sides along the base
+    frame's axes: ``center`` [m] and ``half_sizes`` [m], the half of its three sides; negative
+    inside."""
+
+    def __init__(
+        self, point: Coordinate, center: Any, half_sizes: Any, scope: Scope = "episode"
+    ) -> None:
+        super().__init__(1, "m")
+        self.point = point
+        self.center = as_param(center, "center", unit="m", scope=scope, bounds=(-np.inf, np.inf))
+        self.half_sizes = as_param(
+            half_sizes, "half_sizes", unit="m", scope=scope, bounds=(0.0, np.inf)
+        )
+
+    def params(self) -> dict[str, Param]:
+        """Centre and half sides."""
+        return {"center": self.center, "half_sizes": self.half_sizes}
+
+    def children(self) -> tuple[Coordinate, ...]:
+        """The point."""
+        return (self.point,)
+
+    def value(self, ctx: Context) -> Any:
+        """The distance to the box, or minus the distance to its nearest face from inside."""
+        c = ca.reshape(ctx.param(self.center), 3, 1)
+        h = ca.reshape(ctx.param(self.half_sizes), 3, 1)
+        q = ca.fabs(ctx.value(self.point) - c) - h
+        return smooth_norm(ca.fmax(q, 0.0)) + ca.fmin(ca.fmax(ca.fmax(q[0], q[1]), q[2]), 0.0)
+
+
+class CylinderDistance(Coordinate):
+    """Signed distance [m] from a point to the surface of a solid cylinder: ``center`` [m], the
+    ``axis`` along its length (any length, a direction), ``radius`` [m] and ``half_height`` [m];
+    negative inside."""
+
+    def __init__(
+        self,
+        point: Coordinate,
+        center: Any,
+        axis: Any,
+        radius: Any,
+        half_height: Any,
+        scope: Scope = "episode",
+    ) -> None:
+        super().__init__(1, "m")
+        self.point = point
+        free = (-np.inf, np.inf)
+        self.center = as_param(center, "center", unit="m", scope=scope, bounds=free)
+        self.axis = as_param(axis, "axis", scope=scope, bounds=free)
+        self.radius = as_param(radius, "radius", unit="m", scope=scope, bounds=(0.0, np.inf))
+        self.half_height = as_param(
+            half_height, "half_height", unit="m", scope=scope, bounds=(0.0, np.inf)
+        )
+
+    def params(self) -> dict[str, Param]:
+        """Centre, axis, radius and half height."""
+        return {
+            "center": self.center,
+            "axis": self.axis,
+            "radius": self.radius,
+            "half_height": self.half_height,
+        }
+
+    def children(self) -> tuple[Coordinate, ...]:
+        """The point."""
+        return (self.point,)
+
+    def value(self, ctx: Context) -> Any:
+        """The distance to the cylinder, or minus the distance to its nearest surface inside."""
+        n = ca.reshape(ctx.param(self.axis), 3, 1)
+        n = n / ca.norm_2(n)
+        w = ctx.value(self.point) - ca.reshape(ctx.param(self.center), 3, 1)
+        z = ca.dot(w, n)
+        d = ca.vertcat(
+            smooth_norm(w - z * n) - ctx.param(self.radius),
+            ca.fabs(z) - ctx.param(self.half_height),
+        )
+        return smooth_norm(ca.fmax(d, 0.0)) + ca.fmin(ca.fmax(d[0], d[1]), 0.0)

@@ -65,6 +65,10 @@ All notable changes to this project are documented here. The format follows
   that earn their place: structure optimization, tested on a mass with three springs and on the
   soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
   keep").
+- `vmc.BoxDistance`, `CapsuleDistance` and `CylinderDistance`: signed distances from a point to a
+  box with its sides along the axes, a capsule and a cylinder, for contacts and obstacles, with the
+  same Params as `SphereDistance` (and the kinds `box_distance`, `capsule_distance` and
+  `cylinder_distance` in configuration files). The contact tutorial uses the cylinder.
 - `vmc.control.project_psd(K)`: the symmetric positive semidefinite matrix nearest to a stiffness,
   for an update that an adaptation law proposes, before it goes through `set` or a tank.
 - `vmc.sim.energy_balance(log)`: the controller's energy over a run recorded with

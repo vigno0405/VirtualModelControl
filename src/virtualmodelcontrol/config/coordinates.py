@@ -14,7 +14,10 @@ import numpy as np
 from ..core.params import Param
 from ..core.registry import get, register
 from ..mechanisms import (
+    BoxDistance,
+    CapsuleDistance,
     Coordinate,
+    CylinderDistance,
     Difference,
     Norm,
     PlaneDistance,
@@ -183,4 +186,49 @@ def sphere_distance(args: Any, scope: Scope, path: Location) -> Coordinate:
     )
     scope.track(out.center, (*path, "center"))
     scope.track(out.radius, (*path, "radius"))
+    return out
+
+
+@register("coordinate", "box_distance")
+def box_distance(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """Signed distance from a point to a box's surface: ``{point, center, half_sizes}``."""
+    keys = ("point", "center", "half_sizes")
+    check_keys(args, path, keys, required=keys)
+    out = BoxDistance(
+        scope.build(args["point"], (*path, "point")), args["center"], args["half_sizes"]
+    )
+    scope.track(out.center, (*path, "center"))
+    scope.track(out.half_sizes, (*path, "half_sizes"))
+    return out
+
+
+@register("coordinate", "capsule_distance")
+def capsule_distance(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """Signed distance from a point to a capsule's surface: ``{point, a, b, radius}``, the
+    segment from ``a`` to ``b`` and its radius."""
+    keys = ("point", "a", "b", "radius")
+    check_keys(args, path, keys, required=keys)
+    out = CapsuleDistance(
+        scope.build(args["point"], (*path, "point")), args["a"], args["b"], args["radius"]
+    )
+    for name in ("a", "b", "radius"):
+        scope.track(getattr(out, name), (*path, name))
+    return out
+
+
+@register("coordinate", "cylinder_distance")
+def cylinder_distance(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """Signed distance from a point to a cylinder's surface:
+    ``{point, center, axis, radius, half_height}``."""
+    keys = ("point", "center", "axis", "radius", "half_height")
+    check_keys(args, path, keys, required=keys)
+    out = CylinderDistance(
+        scope.build(args["point"], (*path, "point")),
+        args["center"],
+        args["axis"],
+        args["radius"],
+        args["half_height"],
+    )
+    for name in ("center", "axis", "radius", "half_height"):
+        scope.track(getattr(out, name), (*path, name))
     return out

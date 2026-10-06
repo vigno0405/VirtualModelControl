@@ -27,9 +27,12 @@ from .components import (
     TanhSpring,
 )
 from .coordinates import (
+    BoxDistance,
+    CapsuleDistance,
     Context,
     Coordinate,
     Custom,
+    CylinderDistance,
     Difference,
     FramePoint,
     Joint,
@@ -47,6 +50,8 @@ from .mechanism import Mechanism
 
 __all__ = [
     "KINDS",
+    "BoxDistance",
+    "CapsuleDistance",
     "Component",
     "ConstrainedGaussianSpring",
     "ConstrainedLinearDamper",
@@ -58,6 +63,7 @@ __all__ = [
     "Context",
     "Coordinate",
     "Custom",
+    "CylinderDistance",
     "Difference",
     "ForceSource",
     "FramePoint",

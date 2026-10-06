@@ -389,8 +389,9 @@ turtle crawling.
   mass distributed along a continuum by quadrature, force- and power-limited sources, a helper
   that adds deadzone springs at joint limits.
 - [ ] **Contact, continued:** tangential friction (smooth Coulomb); contact forces reported
-  per component by the simulator; boxes, cylinders and capsules; contact between two robot
-  points (self-contact, two arms); soft objects.
+  per component by the simulator; contact between two robot points (self-contact, two arms);
+  soft objects. Done (6 October 2026): boxes, cylinders and capsules (`BoxDistance`,
+  `CylinderDistance`, `CapsuleDistance`, also in configuration files).
 - [ ] **The turtle crawling:** its floating body on the ground in the library's own simulator;
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.

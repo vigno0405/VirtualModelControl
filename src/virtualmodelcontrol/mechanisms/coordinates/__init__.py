@@ -2,15 +2,24 @@
 
 from .base import Context, Coordinate, as_coordinate, walk
 from .frames import FramePoint
-from .geometry import PlaneDistance, SphereDistance
+from .geometry import (
+    BoxDistance,
+    CapsuleDistance,
+    CylinderDistance,
+    PlaneDistance,
+    SphereDistance,
+)
 from .joints import Joint, State
 from .ops import Custom, Difference, Norm, Projection, Slice, Stack
 from .references import Ref
 
 __all__ = [
+    "BoxDistance",
+    "CapsuleDistance",
     "Context",
     "Coordinate",
     "Custom",
+    "CylinderDistance",
     "Difference",
     "FramePoint",
     "Joint",

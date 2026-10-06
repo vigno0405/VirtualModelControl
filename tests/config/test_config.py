@@ -155,6 +155,26 @@ controller:
         difference: [{slice: {of: tip, index: 1}}, {ref: {name: level, value: [0.0]}}]
       stiffness: 7.0
     j: {type: constrained_linear_spring, coordinate: tip, stiffness: 8.0, normal: [0, 1, 0]}
+    k:
+      type: contact_spring
+      coordinate:
+        box_distance: {point: tip, center: [0.0, 0.0, 0.5], half_sizes: [0.02, 0.03, 0.04]}
+      stiffness: 100.0
+    l:
+      type: contact_spring
+      coordinate:
+        capsule_distance: {point: tip, a: [0.0, 0.0, 0.5], b: [0.1, 0.0, 0.5], radius: 0.01}
+      stiffness: 100.0
+    m:
+      type: contact_spring
+      coordinate:
+        cylinder_distance:
+          point: tip
+          center: [0.0, 0.0, 0.5]
+          axis: [0.0, 0.0, 1.0]
+          radius: 0.02
+          half_height: 0.1
+      stiffness: 100.0
     mass: {type: inertance, coordinate: follower, inertance: 0.05}
 """
 
@@ -179,6 +199,11 @@ def test_every_coordinate_kind_builds_what_python_builds(tmp_path):
     ctrl.add("h", vmc.LinearSpring(tip - follower, 6.0))
     ctrl.add("i", vmc.LinearSpring(tip[1] - vmc.Ref("level", value=[0.0]), 7.0))
     ctrl.add("j", vmc.ConstrainedLinearSpring(tip, 8.0, normal=[0, 1, 0]))
+    ctrl.add("k", vmc.ContactSpring(vmc.BoxDistance(tip, [0, 0, 0.5], [0.02, 0.03, 0.04]), 100.0))
+    capsule = vmc.CapsuleDistance(tip, [0, 0, 0.5], [0.1, 0, 0.5], 0.01)
+    ctrl.add("l", vmc.ContactSpring(capsule, 100.0))
+    cylinder = vmc.CylinderDistance(tip, [0, 0, 0.5], [0, 0, 1.0], 0.02, 0.1)
+    ctrl.add("m", vmc.ContactSpring(cylinder, 100.0))
     ctrl.add("mass", vmc.Inertance(follower, 0.05))
     law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
 
@@ -206,6 +231,9 @@ def test_saved_files_carry_the_current_values(tmp_path):
     elements["b"].coord.direction.value = [0.0, 1.0, 1.0]
     elements["f"].coord.origin.value = [0.0, 0.0, 0.25]
     elements["g"].coord.radius.value = 0.06
+    elements["k"].coord.half_sizes.value = [0.03, 0.03, 0.05]
+    elements["l"].coord.b.value = [0.2, 0.0, 0.5]
+    elements["m"].coord.half_height.value = 0.2
     elements["i"].coord.b.param.value = [0.01]
     elements["j"].coord.direction.value = [1.0, 0.0, 0.0]  # the constrained spring's normal
     data = vmc.config.load(experiment.save(tmp_path / "tuned.yaml")).to_dict()
@@ -216,6 +244,9 @@ def test_saved_files_carry_the_current_values(tmp_path):
     assert elements["b"]["coordinate"]["projection"]["direction"] == [0.0, 1.0, 1.0]
     assert elements["f"]["coordinate"]["plane_distance"]["origin"] == [0.0, 0.0, 0.25]
     assert elements["g"]["coordinate"]["sphere_distance"]["radius"] == 0.06
+    assert elements["k"]["coordinate"]["box_distance"]["half_sizes"] == [0.03, 0.03, 0.05]
+    assert elements["l"]["coordinate"]["capsule_distance"]["b"] == [0.2, 0.0, 0.5]
+    assert elements["m"]["coordinate"]["cylinder_distance"]["half_height"] == 0.2
     assert elements["i"]["coordinate"]["difference"][1]["ref"]["value"] == [0.01]
     assert elements["j"]["normal"] == [1.0, 0.0, 0.0]
 
