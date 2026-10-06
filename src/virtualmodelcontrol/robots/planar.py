@@ -187,7 +187,7 @@ def continuum(
     coupling = np.zeros((3 * n, n))
     coupling[3 * np.arange(n), np.arange(n)] = -radius  # Δx = −d φ: an arc of bend φ
     rest_angles = np.broadcast_to(np.asarray(0.0 if rest is None else rest, dtype=float), (n,))
-    body = LinearCoupling(PCC(length, radius), coupling)
+    body = LinearCoupling(PCC(list(length), list(radius)), coupling)
     robot = Mechanism(name, model=body, actuation=Underactuated(B, rest_angles, efficiency))
     g = CONTINUUM_GRAVITY if gravity is None else gravity
     robot.add_param(Param("gravity", g, unit="m/s^2", scope="design", bounds=(-np.inf, np.inf)))
