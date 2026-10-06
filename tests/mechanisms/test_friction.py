@@ -31,7 +31,8 @@ def block(surface=None, friction=0.4, speed=1e-4, smoothing=0.0, spring=True):
     k = vmc.Param("k", K, unit="N/m", scope="stage")
     if spring:
         robot.add("floor", vmc.ContactSpring(surface, k, smoothing))
-        robot.add("cushion", vmc.ContactDamper(surface, 150.0, smoothing))  # near critical: no bounce
+        # a damper near critical: no bounce
+        robot.add("cushion", vmc.ContactDamper(surface, 150.0, smoothing))
     robot.add("rub", vmc.ContactFriction(surface, k, friction, speed, smoothing))
     return robot
 
