@@ -237,6 +237,12 @@ All notable changes to this project are documented here. The format follows
 - Docs: the tutorial "Estimate the state of a soft arm" (encoders with slack, markers and IMUs
   fused by the filter, an outlier and lost frames); "A rail along a path" and the floating joint
   in "Build your own robot"; "A cart on a rail" in "Coordinates and components".
+- `vmc.PhaseSpring(coord, stiffness, depth, peak, steer, side, limit)`: a spring on a deflection e
+  whose stiffness follows a phase, on the coordinate `Stack(e, phase)`: K (1 + side steer) (1 +
+  depth cos(phase - peak)). Its force is minus the gradient of its energy, so the phase feels the
+  reaction that keeps a flywheel loop passive. With `limit` the potential saturates, and the torque
+  never goes above K (1 + |steer|) times the limit. With no depth, no steer and no limit it is a
+  `LinearSpring`. The type is `phase_spring` in configuration files.
 
 ### Removed
 
