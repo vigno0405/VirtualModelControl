@@ -70,7 +70,6 @@ print("asked", asked, "lost", lost)
 
 ```{code-cell} python
 :tags: [remove-cell]
-import pytest
 from myst_nb import glue
 
 assert abs(lost[[0, 2]]).max() < 1e-12 and abs(lost[1]) > 0.01
@@ -150,7 +149,7 @@ bare_final = {
     "frozen": float(tip_error(run(bare, "frozen"))[-1]),
     "frozen, gravity": float(tip_error(run(bare, "frozen", gravity=True))[-1]),
 }
-assert bare_final["frozen, gravity"] == pytest.approx(bare_final["naive"], rel=1e-3)
+assert np.isclose(bare_final["frozen, gravity"], bare_final["naive"], rtol=1e-3)
 assert bare_final["frozen"] > 1.5 * bare_final["naive"]
 glue("final_naive", 1000 * final["naive"], display=False)
 glue("final_frozen", 1000 * final["frozen"], display=False)
