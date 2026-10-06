@@ -131,6 +131,7 @@ tutorials/contact
 tutorials/force
 tutorials/stiffness
 tutorials/energy
+tutorials/underactuated
 ```
 
 ```{toctree}

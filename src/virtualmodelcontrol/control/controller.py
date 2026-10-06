@@ -20,12 +20,17 @@ class VMCController:
     dt. Time in the law counts from ``reset`` (or the first step), so ramps start with the
     controller. Live Params start at their values when compiled; ``set`` changes them here only.
     ``output`` lists optional output stages (``control.output``) applied in order; the returned
-    Signals also hold ``law_torque``, the torque before them.
+    Signals also hold ``law_torque``, the torque before them. An output stage with a ``reset``
+    is reset with the controller.
     """
 
     def __init__(self, compiled: Any, output: list[Any] | None = None) -> None:
         self.compiled = compiled
         self.output = list(output or [])
+        self._fast = compiled.fast
+        self._fast_energy = compiled.fast_energy
+        self._fast_power = compiled.fast_power
+        self._fast_elements = compiled.fast_elements
         self.params = compiled.live_values()
         self._slices = compiled.live_slices()
         self.z = compiled.z0.copy()
@@ -36,6 +41,9 @@ class VMCController:
     def reset(self, t: float, meas: Signals | None = None, z0: ArrayLike | None = None) -> None:
         """Restart at time ``t`` [s] from the initial virtual state (or ``z0``)."""
         self.z = self.compiled.z0.copy() if z0 is None else np.array(z0, dtype=float)
+        for stage in self.output:
+            if hasattr(stage, "reset"):
+                stage.reset()
         self.t = self.t0 = t
         self._x = None if meas is None else self._pack(meas, t)
 
@@ -45,7 +53,7 @@ class VMCController:
             self.t0 = t
         dt = 0.0 if self.t is None else t - self.t
         x = self._pack(meas, t)
-        out = np.asarray(self.compiled.fast(x)).ravel()
+        out = np.asarray(self._fast(x)).ravel()
         nu, nz = self.compiled.n_u, self.z.size // 2
         if nz:
             self.z[nz:] += dt * out[nu + nz :]
@@ -91,7 +99,7 @@ class VMCController:
         ``kinetic`` (T), ``port`` (τᵀv), ``dissipation`` and ``source``."""
         if self._x is None:
             return {}
-        values = self.compiled.fast_power.call([self._x])
+        values = self._fast_power.call([self._x])
         names = ("stored", "kinetic", "port", "dissipation", "source")
         return {name: float(value) for name, value in zip(names, values, strict=True)}
 
@@ -100,7 +108,7 @@ class VMCController:
         ``torque``, its share of the motor torques before any output stage."""
         if self._x is None:
             return {}
-        values = [np.array(v).ravel() for v in self.compiled.fast_elements.call([self._x])]
+        values = [np.array(v).ravel() for v in self._fast_elements.call([self._x])]
         quantities = ("y", "ydot", "force", "torque")
         return {
             name: dict(zip(quantities, values[4 * k : 4 * k + 4], strict=True))
@@ -126,7 +134,7 @@ class VMCController:
         x = self._x.copy()
         n = self._x.size - 1 - params.size
         x[n:-1] = params
-        return float(self.compiled.fast_energy(x))
+        return float(self._fast_energy(x))
 
     def _pack(self, meas: Signals, t: float) -> np.ndarray:
         elapsed = t - (t if self.t0 is None else self.t0)

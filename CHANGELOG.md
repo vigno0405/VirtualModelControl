@@ -53,6 +53,26 @@ tank, tuning and the calibrations), which was never released on its own.
 
 ### Added
 
+- Underactuated Virtual Model Control, for robots with fewer motors than coordinates.
+  `models.Underactuated(B)` is the actuation with an input matrix B (`Underactuated.joints` for
+  motors on some joints): motor angles Bᵀq, torques B u, the allocation B⁺ τ, the projector E and
+  the `defect` E τ it cannot realize. Its motors give the frozen configuration (the motors' part
+  of q, the rest at `q_rest`), so a `VMCController` on it is the frozen controller.
+  `control.StateController` reads (q, v) from the measurement (`meas["q"]`, `meas["v"]`, or its
+  `read`) instead of the motors, which is the naive controller and also how a controller acts
+  through an estimate of unmeasured coordinates. `control.underactuated` has `controller(compiled,
+  base="naive"|"frozen", correction=None|"passive"|"tank", gravity=)`, the `Passivation` output
+  stage (the passive and the tank correction: the motors never inject more power than the
+  robot's own dampers take, or more than the tank holds), `Frozen` (the frozen configuration,
+  also balancing the robot's gravity), `DirectionalForce` (a force along a direction by one
+  scalar of the stiffness, closed form, positive definite), `projector`, `defect` and `feasible`
+  (the wrenches the motors realize in full). An output stage with a `reset` is reset with its
+  controller. They agree with the lab's own code on its three robots (every flag, the frozen
+  point, the force law, and the closed loops).
+- `robots.planar`: `arm("three-link")` with one passive joint, `arm("five-link")` with three, and
+  `continuum()`, a three-section continuum arm driven by two tendons; `add_dynamics` and
+  `add_continuum_dynamics` give them gravity and their springs and dampers.
+- Docs: tutorial "Robots with fewer motors than joints".
 - `vmc.optimization`: plan the motion of a controller on a robot and optimize its Params.
   `Problem(system)` is built once and solved many times. `free` chooses the Params to optimize
   and `parameter` the ones set at every solve (references, say), by name or glob; bounds and
