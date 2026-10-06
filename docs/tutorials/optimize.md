@@ -261,6 +261,41 @@ lowers the cost by {glue:text}`gain:.1f` %, with a stiffness of {glue:text}`k_se
 Moving it sideways costs many times more. `found.result` is the plan, `found.references` the
 point that gave it, and `found.candidates` every point tried.
 
+## Where the arm rests
+
+A plan spends its time getting there. When only the pose at rest matters, `Equilibrium` takes the
+place of `Collocation`: it solves for a configuration where the controller's torques balance the
+arm's own forces, with the same terms and the same free Params. The spring is the optimized one
+from above, and nothing is free yet:
+
+```{code-cell} python
+def miss(rest):  # [mm] from the tip at rest to the target
+    return 1e3 * np.linalg.norm(kin.position(rest.q[0], 1.0) - target)
+
+
+rest = opt.Problem(system)
+rest.add(opt.Equilibrium(q0))  # q0 is the first guess
+rest.add(opt.Cost(tip - target, name="miss"))
+there = rest.solve()
+
+rest.free("new.pull.reference")  # now ask for the best reference
+nearest = rest.solve()
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(miss(there) - planned[-1]) < 1.0, (miss(there), planned[-1])
+assert miss(nearest) < miss(there)
+glue("there", float(miss(there)), display=False)
+glue("ms", 1e3 * float(there.seconds), display=False)
+glue("nearest", float(miss(nearest)), display=False)
+```
+
+The arm rests {glue:text}`there:.1f` mm from the target, where the plan ended, and the solve took
+{glue:text}`ms:.0f` ms. With the reference free, the nearest it can rest is
+{glue:text}`nearest:.1f` mm: the spring saturates at 2 N, so no reference pulls harder. A
+`Bound` holds at the equilibrium too. The node counts once in `Cost` and `Effort`.
+
 ## Limits
 
 `Bound` keeps a coordinate within limits at every node but the first, which is the fixed start.
@@ -507,5 +542,5 @@ another structure, so solve a few and compare.
 
 To change a running controller within an energy budget, see [Energy and
 passivity](energy.md), and to tune one by trial runs instead of a plan, see
-[Tuning](tuning.md). The next steps are in the [roadmap](../development/roadmap.md): other
-collocation schemes, shooting and structure optimization.
+[Tuning](tuning.md). The next steps are in the [roadmap](../development/roadmap.md): multiple
+shooting, a free final time and periodic motions.

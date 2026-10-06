@@ -56,6 +56,7 @@ class Collocation:
     """
 
     name = "collocation"
+    motion = True
 
     def __init__(
         self,

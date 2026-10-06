@@ -55,7 +55,7 @@ class Term:
         """Add the term to the problem."""
         trajectory = builder.trajectory
         if trajectory is None:
-            raise ValueError(f"add a Collocation before the term {self.name!r}")
+            raise ValueError(f"add a Collocation or an Equilibrium before the term {self.name!r}")
         cost = self.cost(trajectory)
         if cost is not None:
             builder.cost(self.name, cost)
@@ -126,7 +126,8 @@ class Cost(Term):
 
 class Bound(Term):
     """The coordinate stays within ``lower`` and ``upper`` (numbers, or one per entry) at the
-    nodes of the window ``t_from ≤ t ≤ t_to``, except the first, which is the fixed start."""
+    nodes of the window ``t_from ≤ t ≤ t_to``, except the first of a motion, which is the fixed
+    start."""
 
     def __init__(
         self,
@@ -153,7 +154,8 @@ class Bound(Term):
 
     def constraints(self, trajectory: Trajectory) -> list[tuple[Any, Any, Any]]:
         """The window's values of the coordinate, between the bounds."""
-        nodes = [k for k in trajectory.window(self.t_from, self.t_to) if k > 0]
+        first = 1 if trajectory.fixed_start else 0
+        nodes = [k for k in trajectory.window(self.t_from, self.t_to) if k >= first]
         if not nodes:
             raise _no_node(self.name, trajectory, self.t_from, self.t_to)
         values, _ = trajectory.coordinate(self.coordinate)

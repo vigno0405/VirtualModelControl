@@ -218,7 +218,7 @@ def test_apply_to_a_controller_needs_the_params_to_be_live_there():
 def test_blocks_are_added_in_order():
     system, _, _ = mass_spring()
     problem = opt.Problem(system)
-    with pytest.raises(ValueError, match="Collocation before the term"):
+    with pytest.raises(ValueError, match="Collocation or Equilibrium before the term"):
         problem.add(opt.Effort(1.0))
     problem.add(opt.Collocation([0.0], 1.0, 5))
     with pytest.raises(ValueError, match="one Collocation"):

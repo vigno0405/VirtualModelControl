@@ -27,6 +27,11 @@ All notable changes to this project are documented here. The format follows
   The program agrees with the lab's own optimization code to rounding error, and its solved plans
   to solver tolerance. Controllers with virtual states and non-flat configuration spaces are not
   supported yet.
+- `optimization.Equilibrium(q0)`: the closed loop at rest, as a static problem. It takes the place of
+  `Collocation`: the unknown is a configuration where the controller's torques balance the
+  robot's own forces, found with the free Params, and the terms see it as their one node.
+  `Cost` and `Effort` count it once, and a `Bound` holds there. The tutorial finds where the
+  soft arm rests, in milliseconds.
 - Docs: tutorial "Optimizing a virtual mechanism".
 - Docs: the optimization tutorial plans the soft arm around a sphere (`Bound` on `SphereDistance`),
   checks the clearance in simulation, and shows that two sets of scales give the same plan.

@@ -148,7 +148,7 @@ class Builder:
     def finish(self) -> NLP:
         """The program: variables, parameters, cost and constraints, as built."""
         if self.trajectory is None:
-            raise ValueError("add a Collocation to the problem before solving it")
+            raise ValueError("add a Collocation or an Equilibrium to the problem before solving it")
         self.make_free()
         variables = self.variables
         rows: dict[str, slice] = {}

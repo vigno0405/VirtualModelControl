@@ -15,7 +15,8 @@ Evaluate = Callable[[Any, list[Any], list[Any], np.ndarray], tuple[list[Any], li
 class Trajectory:
     """Node times ``t`` [s] (spacing ``dt``), and per node the configuration ``q``, velocity ``v``,
     acceleration ``a`` and motor torques ``u`` as CasADi columns, plus the ``blend`` weight of the
-    new controller. ``shapes`` gives the (nodes, size) of q, v and a."""
+    new controller. ``shapes`` gives the (nodes, size) of q, v and a. The first node is the fixed
+    start of a motion, unless ``fixed_start`` is off (a static problem)."""
 
     t: np.ndarray
     dt: float
@@ -26,6 +27,7 @@ class Trajectory:
     blend: np.ndarray
     shapes: dict[str, tuple[int, int]]
     evaluate: Evaluate
+    fixed_start: bool = True
 
     def coordinate(self, coord: Any) -> tuple[list[Any], list[Any]]:
         """The value ``y`` and rate ``ẏ`` of a library coordinate at every node."""

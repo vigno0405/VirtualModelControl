@@ -13,7 +13,6 @@ from ..core.params import ParamSet
 from ..mechanisms.coordinates.base import walk
 from ..system import VirtualMechanismSystem
 from .builder import Builder, param_bounds
-from .collocation import Collocation
 from .nlp import NLP
 from .result import Result
 from .solver import IterationCallback, create_solver
@@ -25,7 +24,8 @@ WARM_START = ("q", "v", "a", "params")
 class Problem:
     """Optimize the Params of a ``VirtualMechanismSystem`` over a planned motion.
 
-    Add a ``Collocation`` and terms (``Effort``, ``Cost``, ``Bound``). ``free`` chooses the Params
+    Add a ``Collocation`` (or an ``Equilibrium``) and terms (``Effort``, ``Cost``, ``Bound``).
+    ``free`` chooses the Params
     to optimize (bounds and scale come from the Param) and ``parameter`` the ones set at every
     solve (references, say). The program is built at the first ``solve`` and kept: the values of
     those Params and the bounds of the free ones are read again at every solve, every other Param
@@ -52,14 +52,16 @@ class Problem:
         self._iteration = 0
 
     def add(self, block: Any) -> Any:
-        """Add a ``Collocation`` or a term (see ``Term``); returns it, named uniquely."""
+        """Add a ``Collocation``, an ``Equilibrium`` or a term (see ``Term``); returns it, named
+        uniquely."""
         if any(block is b for b in self._blocks):
             raise ValueError(f"{block.name!r} is in the problem already; add a new term")
-        has_collocation = any(isinstance(b, Collocation) for b in self._blocks)
-        if isinstance(block, Collocation) and has_collocation:
-            raise ValueError("a problem has one Collocation")
-        if not isinstance(block, Collocation) and not has_collocation:
-            raise ValueError(f"add the Collocation before the term {block.name!r}")
+        motion = getattr(block, "motion", False)
+        has_motion = any(getattr(b, "motion", False) for b in self._blocks)
+        if motion and has_motion:
+            raise ValueError("a problem has one Collocation or Equilibrium")
+        if not motion and not has_motion:
+            raise ValueError(f"add the Collocation or Equilibrium before the term {block.name!r}")
         taken = {b.name for b in self._blocks}
         name, k = block.name, 2
         while name in taken:
