@@ -204,6 +204,26 @@ All notable changes to this project are documented here. The format follows
   that `coordinate` gives: a virtual state (a cart on a rail with a mass of its own), a
   reference, or a function of time. `vmc.Time()` is the time of the run, to build functions of
   time with `Custom`; a damper on the difference to such a goal feels its velocity.
+- More coordinates: `vmc.Sum` (and the plus sign: `tip + [0, 0, 0.05]`), `vmc.FrameRotation` (a
+  frame's rotation matrix, row by row), `vmc.OrientationError(model, site, goal=)` (the rotation
+  vector from a goal orientation to a frame's, in the goal's axes, with `goal` a live Param; a
+  spring on it is a rotational spring whose torque is exact at any error, where the one from the
+  angular Jacobian is 8 % off at 0.4 rad), `vmc.InFrame` and `vmc.FromFrame` (a vector along the
+  axes of a frame, and back: a stiffness along the tool's axes turns with the tool). They take a
+  site or an arc parameter, and a virtual model through `q=`. Configuration files build them as
+  `sum`, `rotation`, `orientation_error`, `in_frame` and `from_frame`.
+- More components: `vmc.RotationalInertia(rotation, inertia)`, the inertia of a rigid body about
+  its frame (a matrix, or three principal moments) on the frame's rotation matrix, next to a
+  `PointMass` for its mass: it follows Euler's equations, moves like the same body made of point
+  masses to rounding error, and a rotational spring on it oscillates at the square root of K over
+  I. `vmc.DiodeDamper(y, D, sign, smoothing)` damps one direction of motion only.
+  `ForceSource(y, f, max_force=, max_power=)` bounds the force smoothly, and the power it
+  delivers. `Mechanism.add_mass_along(name, mass, s0, s1, n)` spreads a mass along a model as
+  point masses at the nodes of Gauss-Legendre quadrature. An `Inertance` on a difference is an
+  inerter, tested.
+- Docs: "A spring on the tool's orientation" and "A spring along the tool's axes" in "Kinematics on
+  the UR5"; "A damper that works one way" in "Coordinates and components"; a rigid body and the
+  mass along an arm in "Build your own robot".
 - Docs: the tutorial "Estimate the state of a soft arm" (encoders with slack, markers and IMUs
   fused by the filter, an outlier and lost frames); "A rail along a path" and the floating joint
   in "Build your own robot"; "A cart on a rail" in "Coordinates and components".

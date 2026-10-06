@@ -56,8 +56,9 @@ only. The constrained elements, such as `vmc.ConstrainedLinearSpring(reach, k, n
 ready-made springs and dampers on such a projection. `PlaneDistance` and `SphereDistance` are
 signed distances to a surface, for [contacts](contact.md).
 
-A plain list works as a goal too, as in `tip - [0.1, 0.0, 0.40]`. It becomes a live parameter
-named `ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom` wraps a function
+A sum works like a difference: `tip + [0.0, 0.0, 0.05]` is the point 5 cm above the tip. A plain
+list works as a goal too, as in `tip - [0.1, 0.0, 0.40]`. It becomes a live parameter named
+`ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom` wraps a function
 written with CasADi operations ([Extend the library](extend.md)).
 
 ## Virtual states
@@ -180,16 +181,69 @@ signs. These are the components of the library:
 | `Gravity(robot)` | storage | $m_i g$ on each mass of the robot |
 | `LinearDamper(y, D)` | dissipation | $-D \dot y$ |
 | `TanhDamper(y, D, F)` | dissipation | $-F \tanh(D \dot y / F)$ per axis |
+| `DiodeDamper(y, D, sign)` | dissipation | $-D \dot y$ in one direction of motion only |
 | `ContactDamper(d, D)` | dissipation | $-D \dot d$, only in contact |
 | `PointMass(p, m)` | inertance | a mass $m$ at a point |
 | `Inertance(y, M)` | inertance | a mass or inertia $M$ on any coordinate |
-| `ForceSource(y, f)` | source | $f$, a live parameter |
+| `RotationalInertia(R, I)` | inertance | the inertia of a rigid body about its frame, on a `FrameRotation` |
+| `ForceSource(y, f)` | source | $f$, a live parameter, bounded in force and in power on request |
 | `GravityCompensation(robot)` | source | $-m_i g$ on each mass of the robot |
 | `SpeedRegulator(y, b, ω, T)` | source | $b\,(\omega r(t) - \dot y)$, the ramp $r$ rising from 0 to 1 in $T$ |
+
+An `Inertance` on a difference of two coordinates is an inerter: a mass between them, with a force
+$b\,(\ddot y_1 - \ddot y_2)$ that opposes their relative acceleration. A `LimitSpring` on a slice of
+the joints, with a lower and an upper bound per joint, gives all of them soft limits.
 
 For the sigmoid and polynomial springs, $d$ is the size of each axis of $y$, or its norm with
 `element_wise=False`. A new component only needs its energy or its force
 ([Extend the library](extend.md)).
+
+## A damper that works one way
+
+A `DiodeDamper(y, D, sign)` damps one direction of motion: the positive rates for `sign=1`, the
+negative ones for `sign=-1`, and never adds energy. A mass of 1 kg on a spring of 100 N/m, let
+go at 0.1 m, swings back and forth. Damped both ways it loses its swing at the same rate on each
+side. Damped on the way up only, it still swings down almost as far as it started:
+
+```{code-cell} python
+def swing(damper):
+    """The height of a mass on a spring, let go at 0.1 m."""
+    mass = vmc.Mechanism("mass", model=vmc.models.JointSpace(1, unit="m"))
+    y = mass.joint(0)
+    mass.add("inertia", vmc.Inertance(y, 1.0))
+    mass.add("spring", vmc.LinearSpring(y, 100.0))
+    mass.add("damper", damper(y))
+    plant = vmc.sim.ModelPlant(mass, q0=[0.1], max_step=1e-4)
+    out = []
+    for _ in range(300):
+        plant.advance(0.01)
+        out.append(plant.q[0])
+    return np.array(out)
+
+swings = {"both ways": swing(lambda y: vmc.LinearDamper(y, 2.0)),
+          "upwards only": swing(lambda y: vmc.DiodeDamper(y, 4.0))}
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+for name, x in swings.items():
+    ax.plot(0.01 * np.arange(1, 301), x, label=name)
+ax.set_xlabel("time [s]")
+ax.set_ylabel("position [m]")
+ax.legend();
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+one_way = swings["upwards only"]
+assert one_way.min() < -0.09 and swings["both ways"].min() > -0.08
+glue("lowest", float(one_way.min()), display=False)
+```
+
+Its first swing down reaches {glue:text}`lowest:.3f` m.
 
 ## The springs side by side
 

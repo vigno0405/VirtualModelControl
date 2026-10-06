@@ -1,7 +1,7 @@
 """Coordinates: what components act on, built from q, the virtual states z, Params and time."""
 
 from .base import Context, Coordinate, as_coordinate, walk
-from .frames import FramePoint
+from .frames import FramePoint, FrameRotation, FromFrame, InFrame, OrientationError
 from .geometry import (
     BoxDistance,
     CapsuleDistance,
@@ -10,7 +10,7 @@ from .geometry import (
     SphereDistance,
 )
 from .joints import Joint, State
-from .ops import Custom, Difference, Norm, Projection, Slice, Stack
+from .ops import Custom, Difference, Norm, Projection, Slice, Stack, Sum
 from .references import Ref, Time
 
 __all__ = [
@@ -22,8 +22,12 @@ __all__ = [
     "CylinderDistance",
     "Difference",
     "FramePoint",
+    "FrameRotation",
+    "FromFrame",
+    "InFrame",
     "Joint",
     "Norm",
+    "OrientationError",
     "PlaneDistance",
     "Projection",
     "Ref",
@@ -31,6 +35,7 @@ __all__ = [
     "SphereDistance",
     "Stack",
     "State",
+    "Sum",
     "Time",
     "as_coordinate",
     "walk",

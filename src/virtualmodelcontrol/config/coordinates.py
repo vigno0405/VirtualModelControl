@@ -19,13 +19,18 @@ from ..mechanisms import (
     Coordinate,
     CylinderDistance,
     Difference,
+    FrameRotation,
+    FromFrame,
+    InFrame,
     Norm,
+    OrientationError,
     PlaneDistance,
     Projection,
     Ref,
     Slice,
     SphereDistance,
     Stack,
+    Sum,
 )
 from ..mechanisms.coordinates.base import as_coordinate
 from .spec import Location, check_keys, where
@@ -139,6 +144,63 @@ def projection(args: Any, scope: Scope, path: Location) -> Coordinate:
     out = Projection(coord, args["direction"], scope=args.get("scope", "episode"))
     scope.track(out.direction, (*path, "direction"))
     return out
+
+
+@register("coordinate", "sum")
+def sum_(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """a + b; a plain list on either side is a live reference named ``ref``."""
+    if not (isinstance(args, list) and len(args) == 2):
+        raise ValueError(f"{where(path)}: a sum takes two coordinates, got {args!r}")
+    if _plain(args[0]):
+        b = scope.build(args[1], (*path, 1))
+        return Sum(scope.operand(args[0], (*path, 0), like=b), b)
+    a = scope.build(args[0], (*path, 0))
+    return Sum(a, scope.operand(args[1], (*path, 1), like=a))
+
+
+@register("coordinate", "rotation")
+def rotation(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """The rotation matrix of a frame of the robot, row by row: ``{at, s}`` as for a point."""
+    check_keys(args, path, ("at", "s"))
+    out = FrameRotation(scope.robot.model, args.get("at"), s=args.get("s"))
+    if out.s is not None:
+        scope.track(out.s, (*path, "s"))
+    return out
+
+
+@register("coordinate", "orientation_error")
+def orientation_error(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """The rotation vector of a frame of the robot from a goal: ``{at, s, goal}``."""
+    check_keys(args, path, ("at", "s", "goal"))
+    out = OrientationError(
+        scope.robot.model, args.get("at"), s=args.get("s"), goal=args.get("goal", (0.0, 0.0, 0.0))
+    )
+    scope.track(out.goal, (*path, "goal"))
+    if out.s is not None:
+        scope.track(out.s, (*path, "s"))
+    return out
+
+
+def _in_frame(cls: Any, args: Any, scope: Scope, path: Location) -> Coordinate:
+    check_keys(args, path, ("of", "at", "s"), required=("of",))
+    out = cls(
+        scope.build(args["of"], (*path, "of")), scope.robot.model, args.get("at"), s=args.get("s")
+    )
+    if out.s is not None:
+        scope.track(out.s, (*path, "s"))
+    return out
+
+
+@register("coordinate", "in_frame")
+def in_frame(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """A vector along the axes of a frame of the robot: ``{of, at, s}``."""
+    return _in_frame(InFrame, args, scope, path)
+
+
+@register("coordinate", "from_frame")
+def from_frame(args: Any, scope: Scope, path: Location) -> Coordinate:
+    """A vector given along the axes of a frame of the robot, in the base frame: ``{of, at, s}``."""
+    return _in_frame(FromFrame, args, scope, path)
 
 
 @register("coordinate", "norm")

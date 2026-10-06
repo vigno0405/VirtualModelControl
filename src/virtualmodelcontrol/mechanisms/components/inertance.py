@@ -8,8 +8,9 @@ import casadi as ca
 import numpy as np
 
 from ...core.registry import register
-from ...core.units import KG, inertance_unit
+from ...core.units import KG, KG_M2, inertance_unit
 from ..coordinates.base import Context, Coordinate
+from ..coordinates.frames import FrameRotation
 from .base import Component
 
 
@@ -54,3 +55,30 @@ class Inertance(Component):
         if M.shape[1] == 1:
             return ca.diag(M * ca.DM.ones(self.coord.dim, 1))
         return M
+
+
+@register("component", "rotational_inertia")
+class RotationalInertia(Component):
+    """The rotational inertia of a rigid body about the origin of a frame: a 3 by 3 matrix in the
+    frame's axes [kg·m²], or its three principal moments. Kinetic energy ½ tr(Ṙ Σ Ṙᵀ) with
+    Σ = ½ tr(I) − I, so it acts on the rotation matrix of the frame (a ``FrameRotation``). With a
+    ``PointMass`` at the same frame, it makes a rigid body.
+    """
+
+    kind = "inertance"
+
+    def __init__(self, rotation: Coordinate, inertia: Any) -> None:
+        if not isinstance(rotation, FrameRotation):
+            raise ValueError("a rotational inertia acts on the FrameRotation of the body's frame")
+        super().__init__(rotation)
+        inertia = getattr(inertia, "value", inertia)
+        if np.ndim(inertia) == 1:
+            inertia = np.diag(inertia)
+        free = (-np.inf, np.inf)
+        self.inertia = self._param("inertia", inertia, unit=KG_M2, scope="design", bounds=free)
+
+    def inertance(self, ctx: Context, y: Any) -> Any:
+        """kron(1, Σ): Σ for each row of the rotation matrix."""
+        I = ca.reshape(ctx.param(self.inertia), 3, 3)  # noqa: E741
+        sigma = 0.5 * (I[0, 0] + I[1, 1] + I[2, 2]) * ca.DM.eye(3) - I
+        return ca.kron(ca.DM.eye(3), sigma)

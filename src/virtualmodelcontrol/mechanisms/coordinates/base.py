@@ -86,6 +86,16 @@ class Coordinate:
 
         return Difference(as_coordinate(other, self), self)
 
+    def __add__(self, other: Any) -> Coordinate:
+        from .ops import Sum
+
+        return Sum(self, as_coordinate(other, self))
+
+    def __radd__(self, other: Any) -> Coordinate:
+        from .ops import Sum
+
+        return Sum(as_coordinate(other, self), self)
+
     def __getitem__(self, index: Any) -> Coordinate:
         from .ops import Slice
 

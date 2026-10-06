@@ -17,20 +17,43 @@ from .inertance import PointMass
 
 @register("component", "force_source")
 class ForceSource(Component):
-    """A force f on a coordinate, held in a live Param; its power f·ẏ is metered."""
+    """A force f on a coordinate, held in a live Param; its power f·ẏ is metered.
+
+    ``max_force`` F bounds each entry smoothly, F tanh(f / F); ``max_power`` P [W] bounds the
+    power, which the force is scaled by P / (P + |f·ẏ|) to keep below.
+    """
 
     kind = "source"
 
-    def __init__(self, coord: Coordinate, force: Any) -> None:
+    def __init__(
+        self, coord: Coordinate, force: Any, max_force: Any = None, max_power: Any = None
+    ) -> None:
         super().__init__(coord)
         free = (-np.inf, np.inf)
         self.force_value = self._param(
             "force", force, unit=force_unit(coord.unit), scope="stage", bounds=free
         )
+        self.max_force = (
+            None
+            if max_force is None
+            else self._param("max_force", max_force, unit=force_unit(coord.unit), scope="stage")
+        )
+        self.max_power = (
+            None
+            if max_power is None
+            else self._param("max_power", max_power, unit="W", scope="stage")
+        )
 
     def force(self, ctx: Context, y: Any, yd: Any) -> Any:
-        """The Param, as a column."""
-        return ca.reshape(ctx.param(self.force_value), self.coord.dim, 1)
+        """The Param, as a column, bounded in force and in power when asked."""
+        f = ca.reshape(ctx.param(self.force_value), self.coord.dim, 1)
+        if self.max_force is not None:
+            F = ctx.param(self.max_force)
+            f = F * ca.tanh(f / F)
+        if self.max_power is not None:
+            P = ctx.param(self.max_power)
+            f = f * P / (P + ca.fabs(ca.dot(f, yd)))
+        return f
 
 
 @register("component", "speed_regulator")
