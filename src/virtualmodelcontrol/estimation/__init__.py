@@ -7,14 +7,19 @@ from .inversion import Inversion
 from .kalman import KalmanFilter
 from .measurement import Measurement
 from .momentum import MomentumObserver
+from .sensors import Encoders, Imus, LoadCell, Markers
 from .stiffness import TaskStiffness
 from .velocity import VelocityFilter
 
 __all__ = [
     "ContactForce",
+    "Encoders",
     "ImuFilter",
+    "Imus",
     "Inversion",
     "KalmanFilter",
+    "LoadCell",
+    "Markers",
     "Measurement",
     "MomentumObserver",
     "TaskStiffness",

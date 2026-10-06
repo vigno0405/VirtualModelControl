@@ -177,6 +177,12 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `vmc.estimation.Encoders`, `Markers`, `Imus` and `LoadCell`: simulated sensors, the true state in
+  and a noisy reading out, as the estimators take it. The encoders read the motors through the
+  transmission, with noise and a constant slack per motor; the markers, the positions of points of
+  the arm; the IMUs, the angular velocity and gravity in each frame's own axes, with a constant gyro
+  bias; the load cell, a force with a bias and noise. Every one has a seed. The estimation tutorial
+  uses them in place of the lines it wrote by hand.
 - `vmc.adaptation.DitherSeeking(controller, params, amplitude, frequency, gain, window)`: extremum
   seeking from the cost alone, the two-tone law of the turtle paper. Each scalar live Param is held
   at an estimate plus a sinusoidal dither at its own frequency (2π n / `window`, a whole n each, so

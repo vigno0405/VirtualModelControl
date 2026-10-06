@@ -386,7 +386,7 @@ turtle crawling.
   the finger's and run on the hand's fingertips; the heuristic laws are `ForceRatio` (the hand's
   multiplicative law) and `Stiffening` (the finger's K(F)), equal to the lab's; the finger's page
   tracks two force levels, and the force tutorial runs the heuristic laws.
-- [ ] **Estimation:** measurement models shared by simulated sensors and estimators (encoders,
+- [x] **Estimation:** measurement models shared by simulated sensors and estimators (encoders,
   motion-capture markers, IMU relative rotations, load cells; models only, no sensor readers);
   Kalman filters (EKF and UKF) fusing encoders with motion capture or IMUs, with per-sensor
   gating, health flags and staleness; a soft arm's shape from IMUs or motion capture by
@@ -421,8 +421,8 @@ turtle crawling.
   the window's states, with an extended Kalman arrival cost; equal to the Kalman filter on a linear
   robot at every step, followed by a swing it tracks from angles alone; the estimation tutorial
   runs it on the soft arm.
-  Open: the simulated sensors as library models (encoders, motion-capture markers, IMUs, a load
-  cell: the true state in, a noisy reading out, which the tutorials now write by hand).
+  `Encoders`, `Markers`, `Imus` and `LoadCell` (6 October 2026): the simulated sensors, the true
+  state in and a noisy reading out, which the estimation tutorial now uses.
 - [x] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

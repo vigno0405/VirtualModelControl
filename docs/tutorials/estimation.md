@@ -61,35 +61,30 @@ u = rows["motor_torque"]  # what the motors were told at each step
 
 ## What the sensors read
 
-The sensors read the true motion with noise. The encoders read the motors, whose angles are
-off by a few tenths of a radian because the tendons are slack: about a millimetre of $q$. The
-three markers sit at the ends of the sections, and an IMU on the base and on each section end
-reads its angular velocity and the direction of gravity in its own axes, with a bias on the
-gyros.
+The sensors read the true motion with noise, and the library has them: `Encoders`, `Markers`,
+`Imus` and `LoadCell` take the true state and give a noisy reading, as the estimators take
+it. The encoders read the motors, whose angles are off by a few tenths of a radian because the
+tendons are slack: about a millimetre of $q$. The three markers sit at the ends of the sections,
+and an IMU on the base and on each section end reads its angular velocity and the direction of
+gravity in its own axes, with a bias on the gyros.
 
 ```{code-cell} python
-:tags: [hide-input]
-rng = np.random.default_rng(1)
+from virtualmodelcontrol.estimation import Encoders, Imus, Markers
+
 n = len(t)
-slack = rng.uniform(-0.4, 0.4, 9)  # [rad]
-theta = rows["motor_position"] + slack + rng.normal(0, 0.01, (n, 9))
-theta_dot = rows["motor_velocity"] + rng.normal(0, 0.05, (n, 9))
+encoders = Encoders(arm, noise=0.01, rate_noise=0.05, slack=0.4, seed=1)
+theta, theta_dot = (np.array(x) for x in
+                    zip(*[encoders.read(qk, vk) for qk, vk in zip(q, v)]))
 
 kin = vmc.Kinematics(arm)
 at = [0.5, 0.75, 1.0]  # markers at the ends of the three sections
-markers = np.array([[kin.position(qk, s) for s in at] for qk in q])
-markers += rng.normal(0, 3e-4, markers.shape)  # [m]
+mocap = Markers(arm, at, noise=3e-4, seed=2)  # [m]
+markers = np.array([mocap.read(qk) for qk in q])
 
 sites = ["base", "seg1", "seg2", "tip"]  # an IMU on each
-gyro, acc = np.zeros((n, 4, 3)), np.zeros((n, 4, 3))
-for k in range(n):
-    for i, site in enumerate(sites):
-        R = kin.rotation(q[k], site)
-        w = kin.angular_jacobian(q[k], site) @ v[k]
-        gyro[k, i] = R.T @ w  # in the sensor's own axes
-        acc[k, i] = R.T @ [0.0, 0.0, 9.81]
-gyro += rng.normal(0, 0.02, (4, 3)) + rng.normal(0, 0.005, gyro.shape)
-acc += rng.normal(0, 0.05, acc.shape)
+imus = Imus(arm, sites, bias=0.02, gyro_noise=0.005, acc_noise=0.05, seed=3)
+gyro, acc = (np.array(x) for x in
+             zip(*[imus.read(qk, vk) for qk, vk in zip(q, v)]))
 ```
 
 ## The filter
