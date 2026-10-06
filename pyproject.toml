@@ -141,7 +141,7 @@ source_modules = ["virtualmodelcontrol"]
 forbidden_modules = ["rclpy", "std_msgs"]
 
 [[tool.importlinter.contracts]]
-name = "Robot data, hardware, figures and configurations are edges: the layers never import them"
+name = "Robot data, hardware, figures, configurations and test helpers are edges: no layer imports them"
 type = "forbidden"
 source_modules = [
     "virtualmodelcontrol.core",
@@ -160,5 +160,6 @@ forbidden_modules = [
     "virtualmodelcontrol.hardware",
     "virtualmodelcontrol.viz",
     "virtualmodelcontrol.config",
+    "virtualmodelcontrol.testing",
     "matplotlib",
 ]

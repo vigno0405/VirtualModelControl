@@ -118,33 +118,26 @@ The templates in `virtualmodelcontrol.robots` follow the same pattern, with a se
 
 ## The tests a new robot needs
 
-A model is right when its derivatives match finite differences, it stays finite at the poses
-where it is singular, and, without friction or control, it keeps its energy. Each check takes a
-few lines:
+A model is right when its derivatives match finite differences, its rotations are rotations, it
+stays finite at the poses where it is singular, it comes back from `to_dict` as it was and,
+without friction or control, it keeps its energy. `check_model` makes these checks in one call
+and raises an `AssertionError` that lists the ones that fail. Call it from your model's own
+tests. It returns the worst error of each check:
 
 ```{code-cell} python
-kin, h = vmc.Kinematics(arm), 1e-6
-J = kin.jacobian(q, "tip")
-J_fd = np.column_stack([
-    (kin.position(q + h * e, "tip") - kin.position(q - h * e, "tip"))
-    / (2 * h)
-    for e in np.eye(2)
-])
-print("Jacobian error:", np.abs(J - J_fd).max())
-straight = kin.hessian([0.0, 0.0], "tip")
-print("finite when straight:", np.isfinite(straight).all())
+from virtualmodelcontrol.testing import check_model
 
 free = two_link()
-free.add("gravity", vmc.Gravity(free))
-plant = vmc.sim.ModelPlant(free, q0=[0.5, 0.0], max_step=1e-4)
-start = plant.energy()
-plant.advance(1.0)
-drift = abs(plant.energy() - start) / abs(start)
-print(f"energy drift over 1 s: {drift:.1e}")
+free.add("gravity", vmc.Gravity(free))  # masses and gravity, no friction
+worst = check_model(free)
+{name: f"{error:.0e}" for name, error in worst.items()}
 ```
 
-The implicit steps of `ModelPlant` lose a little energy at each step. The drift shrinks with
-`max_step`.
+The checks run at the neutral pose, where soft and rigid arms are often singular, and at a few
+random ones, for every site (`at=` picks some, and `s=` the points of a continuous body, whose
+positions must not jump). The energy check runs the simulator twice, the second time with a
+step four times smaller. The drift of its implicit steps must fall with the step, and a force
+that does work would not let it fall.
 
 ## Other kinds of robots
 

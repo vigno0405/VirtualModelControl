@@ -295,11 +295,11 @@ coordinate can be anything the library knows: a joint, a distance to a sphere or
 
 ## Around an obstacle
 
-A sphere of radius 2 cm stands next to the arm's way to a farther target. We add a repulsive
-Gaussian field on the arm, at $s = 0.6$, that pushes that point away from the sphere's centre,
-and let the optimizer choose its strength together with the spring's stiffness. `SphereDistance`
-is the signed distance from a point to the sphere's surface, and a `Bound` keeps it above 2 cm
-at every node, for 41 points along the arm:
+A sphere of radius 2 cm stands by the arm's path to a farther target. We add a repulsive
+Gaussian field on the arm, at $s = 0.6$, that pushes that point away from the sphere's centre.
+The optimizer chooses its strength together with the spring's stiffness. `SphereDistance` is the
+signed distance from a point to the sphere's surface, and a `Bound` keeps it above 2 cm at every
+node, for 41 points along the arm:
 
 ```{code-cell} python
 goal = [0.20, 0.0, 0.66]  # [m]
@@ -335,9 +335,8 @@ safe = plan_for([opt.Bound(clear, lower=0.02, name="clear")])
 ```
 
 Without the bound the optimizer has no reason to push: it keeps the field off and takes the
-cheapest spring. With it, it switches the field on. We check both plans by running them on the
-simulated arm, as before, and follow the arm's distance to the sphere's surface, at its closest
-point:
+cheapest spring. With the bound, it switches the field on. We run both plans on the simulated
+arm, as before, and follow the arm's closest distance to the sphere's surface:
 
 ```{code-cell} python
 def swap_to(plan):

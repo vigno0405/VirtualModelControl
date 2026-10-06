@@ -117,8 +117,8 @@ vmc.Kinematics(robot).jacobian([0.0], "bob")  # [m/rad]
 ```
 
 Keep `frame` smooth: no numpy and no Python `if` on symbols (use `casadi.if_else`), and
-regularize singular poses. A new model then passes the tests of
-[Build your own robot](build-a-robot.md).
+regularize singular poses. A new model must then pass `check_model`
+([Build your own robot](build-a-robot.md)).
 
 ## A new plant
 

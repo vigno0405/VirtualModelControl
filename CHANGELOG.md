@@ -65,6 +65,13 @@ All notable changes to this project are documented here. The format follows
   that earn their place: structure optimization, tested on a mass with three springs and on the
   soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
   keep").
+- `vmc.testing.check_model(model)`: the model contract in one call, for a kinematic model or a
+  robot's mechanism: everything finite (also with each Param a tenth of its default and ten times
+  it), orthonormal rotations, Jacobians, angular Jacobians and Hessians against finite
+  differences, no jump along the arc parameter `s`, `to_dict` and `from_dict` giving the model
+  back, and, for a robot with masses and no dampers, an energy drift that falls with the step. It
+  raises an `AssertionError` that lists the failed checks and returns the worst error of each. The
+  tutorials "Build your own robot" and "Extend the library" use it.
 - `vmc.BoxDistance`, `CapsuleDistance` and `CylinderDistance`: signed distances from a point to a
   box with its sides along the axes, a capsule and a cylinder, for contacts and obstacles, with the
   same Params as `SphereDistance` (and the kinds `box_distance`, `capsule_distance` and
