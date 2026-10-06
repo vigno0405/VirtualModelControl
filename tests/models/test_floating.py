@@ -78,7 +78,8 @@ def test_a_body_that_tumbles_for_many_turns_follows_eulers_equations():
         plant.advance(t - plant.t)
         rates.append(plant.v[3:].copy())
     np.testing.assert_allclose(rates, exact.y.T, atol=5e-3 * np.abs(spin).max())
-    turned = np.trapezoid(np.linalg.norm(exact.y, axis=0), times)
+    speed = np.linalg.norm(exact.y, axis=0)
+    turned = np.sum(0.5 * (speed[1:] + speed[:-1]) * np.diff(times))  # the angle it turned
     assert turned > 2 * 2 * np.pi  # two full turns and more, past where a rotation vector ends
     assert np.ptp(exact.y[0]) > 1.0  # and it flipped about the other axes on the way
     assert abs(np.linalg.norm(plant.q[3:]) - 1.0) < 1e-12
