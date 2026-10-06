@@ -130,6 +130,14 @@ def test_a_positive_steer_stiffens_one_side_and_softens_the_other():
     assert force_and_energy(swapped, e, 0.0)[0] == pytest.approx(-K * 0.6 * e)
 
 
+def test_the_defaults_are_a_stiffness_that_peaks_at_zero_phase_on_the_first_side_and_no_limit():
+    mine = spring(depth=0.5)
+    assert force_and_energy(mine, 1.0, 0.0)[0] == pytest.approx(-K * 1.5)  # peak 0
+    assert force_and_energy(mine, 1.0, np.pi)[0] == pytest.approx(-K * 0.5)
+    assert mine.steer.value == 0.0 and mine.side.value == 1.0 and mine.limit is None
+    assert mine.peak.value == 0.0 and spring().depth.value == 0.0
+
+
 def test_every_number_is_a_param_with_a_unit_and_a_scope():
     full = spring(depth=0.2, peak=0.1, steer=0.1, limit=0.4)
     params = full.params()
@@ -143,7 +151,8 @@ def test_every_number_is_a_param_with_a_unit_and_a_scope():
     assert params["peak"].unit == "rad" and params["depth"].bounds == (0.0, 0.9)
     assert params["steer"].bounds == (-1.0, 1.0)
     assert spring().limit is None and "limit" not in spring().params()
-    assert vmc.PhaseSpring is vmc.mechanisms.PhaseSpring
+    for module in (vmc, vmc.mechanisms, vmc.mechanisms.components):
+        assert module.PhaseSpring is vmc.PhaseSpring and "PhaseSpring" in module.__all__
     assert vmc.core.registry.get("component", "phase_spring") is vmc.PhaseSpring
     a, b = vmc.Param("k", 3.0, unit="N*m/rad", scope="stage"), full.stiffness
     assert vmc.PhaseSpring(coordinate(), a).stiffness is a and a is not b  # a Param is shared
