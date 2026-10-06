@@ -6,6 +6,46 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `optimization.Shooting(q0, horizon, nodes, v0=, steps=, initial=, transition=, scales=,
+  integrator=, substeps=)`: multiple shooting, a second transcription next to `Collocation`
+  with the same terms. The unknowns are q and v at the nodes; over each interval the closed
+  loop is simulated as `vmc.sim.rollout` does (the command held over each of `substeps` control
+  steps, the robot advanced by the linearly implicit step or by `"rk4"`), and constraints join
+  the end of an interval to the next node. A plan is the closed loop of a simulation at that
+  control step (a test reproduces `rollout` to rounding error), and agrees with `Collocation` as
+  the control step shrinks (first order). The start is the pair of Params `shooting.q0` and
+  `shooting.v0`, which a problem can declare as parameters. `steps` names live Params that take
+  one value in every interval, between their bounds: trajectories of stiffness and references,
+  returned in `Result.steps` (`apply(target, interval=k)` sets the values of interval k). The
+  model does not carry the force that balances the robot at q0 under `initial`, as `Collocation`
+  does.
+- `optimization.TankBudget(level, refill=True)`: the planned changes of the Params that step stay
+  within the energy of a `vmc.control.Tank`. The plan keeps the tank's level from the exact jump
+  of the controller's energy at each change, and from the energy the controller's dampers take
+  back, and keeps it at least zero; a test runs the plan through a real `Tank` and finds its level
+  to rounding error. The tank's capacity is not planned.
+- `optimization.MPC(problem, shift=1, rti=False)`: the plan as a receding-horizon controller. The
+  program is built once, with the measured state, the controller's Params now, the tank's level
+  and the references as parameters of each solve. `step(controller, q, v, references, latency=)`
+  solves from the measured state, starting from the previous plan moved up by `shift` intervals,
+  and applies the plan's Params through `controller.set` (so a `Tank` bounds them), returning
+  the energy jump as the adaptation laws do. A plan that took `latency` seconds (the measured
+  solve time by default) is applied as of that time. With `rti`, one SQP iteration per step.
+  `start` and `poll` plan in a thread and apply the plan once it is ready, as of the time since
+  the start (CasADi lets other threads run during a solve; the solver is created with the `MPC`,
+  as it is not safe to create one in a second thread). `Problem.warm_up()` builds the program and
+  the solver now, and `Problem.solve` attaches the iteration callback only when it is given a
+  `progress`.
+- Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
+  (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
+  `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the
+  `qpsol` option), `"rti"` and `"fatrop"` (as a general problem, without stages).
+  `optimization.PRESETS` lists them and `optimization.solver.available(name)` tells whether the
+  CasADi build has the plugin. `Result.status` words FATROP's endings as IPOPT's.
+- Docs: tutorial "Model predictive control".
+
 ## [0.5.0] - 2026-10-06
 
 This release also carries the work meant for 0.4.0 (optimization of virtual mechanisms, the energy
@@ -326,43 +366,6 @@ tank, tuning and the calibrations), which was never released on its own.
   it crawls forward, further the faster the flywheel is driven, and does not advance without
   friction; a positive steer of `PhaseSpring` turns it left. Docs: the tutorial "Crawl with a
   flywheel".
-- `optimization.Shooting(q0, horizon, nodes, v0=, steps=, initial=, transition=, scales=,
-  integrator=, substeps=)`: multiple shooting, a second transcription next to `Collocation`
-  with the same terms. The unknowns are q and v at the nodes; over each interval the closed
-  loop is simulated as `vmc.sim.rollout` does (the command held over each of `substeps` control
-  steps, the robot advanced by the linearly implicit step or by `"rk4"`), and constraints join
-  the end of an interval to the next node. A plan is the closed loop of a simulation at that
-  control step (a test reproduces `rollout` to rounding error), and agrees with `Collocation` as
-  the control step shrinks (first order). The start is the pair of Params `shooting.q0` and
-  `shooting.v0`, which a problem can declare as parameters. `steps` names live Params that take
-  one value in every interval, between their bounds: trajectories of stiffness and references,
-  returned in `Result.steps` (`apply(target, interval=k)` sets the values of interval k). The
-  model does not carry the force that balances the robot at q0 under `initial`, as `Collocation`
-  does.
-- `optimization.TankBudget(level, refill=True)`: the planned changes of the Params that step stay
-  within the energy of a `vmc.control.Tank`. The plan keeps the tank's level from the exact jump
-  of the controller's energy at each change, and from the energy the controller's dampers take
-  back, and keeps it at least zero; a test runs the plan through a real `Tank` and finds its level
-  to rounding error. The tank's capacity is not planned.
-- `optimization.MPC(problem, shift=1, rti=False)`: the plan as a receding-horizon controller. The
-  program is built once, with the measured state, the controller's Params now, the tank's level
-  and the references as parameters of each solve. `step(controller, q, v, references, latency=)`
-  solves from the measured state, starting from the previous plan moved up by `shift` intervals,
-  and applies the plan's Params through `controller.set` (so a `Tank` bounds them), returning
-  the energy jump as the adaptation laws do. A plan that took `latency` seconds (the measured
-  solve time by default) is applied as of that time. With `rti`, one SQP iteration per step.
-  `start` and `poll` plan in a thread and apply the plan once it is ready, as of the time since
-  the start (CasADi lets other threads run during a solve; the solver is created with the `MPC`,
-  as it is not safe to create one in a second thread). `Problem.warm_up()` builds the program and
-  the solver now, and `Problem.solve` attaches the iteration callback only when it is given a
-  `progress`.
-- Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
-  (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
-  `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the
-  `qpsol` option), `"rti"` and `"fatrop"` (as a general problem, without stages).
-  `optimization.PRESETS` lists them and `optimization.solver.available(name)` tells whether the
-  CasADi build has the plugin. `Result.status` words FATROP's endings as IPOPT's.
-- Docs: tutorial "Model predictive control".
 
 ### Removed
 
