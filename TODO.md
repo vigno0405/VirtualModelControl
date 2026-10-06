@@ -84,7 +84,7 @@ Everything still to do, in order. Each step is done when its items below are tic
 4. **0.5.0, passivity, adaptation, estimation and locomotion:** adaptation laws and passivity
    filters; grasp-force tracking on two arms and the hand's fingertip laws; Kalman filters and
    force, stiffness and shape estimates; trees, joints, floating bases, more coordinates and
-   components, more contact; the turtle crawling; parity with VMRobotControl.jl.
+   components, more contact; the turtle crawling.
 5. **0.6.0, MPC and underactuation:** MPC; underactuated VMC and its templates; robots with
    unmeasured coordinates; custom dynamics for a `FunctionModel`.
 6. **0.7.0, models in PyTorch and numpy:** every model as a numpy function and a PyTorch
@@ -121,7 +121,7 @@ Virtual Model Control must be able to control a robot from the documentation alo
 Decided (4 October 2026): the site uses the Material layout (sphinx-immaterial): five sections
 as tabs in the top bar (Getting started, Tutorials, Examples, Concepts, Reference), the pages of
 each section in the left sidebar, large type and the plain style of the best library docs
-(VMRobotControl.jl, pykoopman). Pages are complete but essential:
+(pykoopman). Pages are complete but essential:
 each fact once, linked elsewhere. Schematics and figures are drawn by code from the robots'
 Params. Robots get no pages of their own and no videos of the real hardware: each example opens
 with its robot.
@@ -492,11 +492,6 @@ turtle crawling.
   force laws and the estimators work in motor coordinates and need as many velocity coordinates as
   configuration coordinates; a floating body has fewer, so they are to be extended for it (the
   crawler avoids this: its controller never sees the body).
-- [ ] **Parity with VMRobotControl.jl** (the Julia library that shares this library's
-  vocabulary of coordinates and components): virtual mechanisms with their own kinematics (a
-  virtual cart on a rail along a path, a virtual tool); a table that maps its features to this
-  library's; examples mirroring it (reaching with obstacle avoidance, compliant path
-  following, a pendulum on a spline rail).
 - [x] **Docs:** adaptation and passivity filters; estimation; the turtle crawling; bring your
   own kinematics (a function, DH or product-of-exponentials data), each ending in a working
   controller without simulation or optimization imports. Done (6 October 2026): the tutorials
