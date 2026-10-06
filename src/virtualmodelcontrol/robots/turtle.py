@@ -122,6 +122,7 @@ CRAWLER = {
     "friction": 0.8,  # of the feet on the ground
     "belly_friction": 0.03,  # of the underside corners on the ground
     "slip_speed": 1e-3,  # [m/s] below which the friction falls linearly
+    "smoothing": 0.0,  # [m] width over which the ground's edge is rounded (0: sharp)
     "efficiency": 1.0,  # torque a crank delivers per commanded one
 }
 """Constants of ``crawler`` (SI). A simple crawler, not the lab's turtle: placeholders."""
@@ -155,9 +156,9 @@ def crawler(name: str = "crawler", **params: Any) -> Mechanism:
         )
         parts[side] = (crank, at, (0.0, 0.0, 0.0), "body/centre")
     assembly = Assembly(parts)
-    drive = {"body": Passive(body.space.nv), "left": Direct(p["efficiency"])}
-    drive["right"] = Direct(p["efficiency"])
-    robot = Mechanism(name, model=assembly, actuation=assembly.stacked_actuation(drive))
+    motors = {"body": Passive(body.space.nv), "left": Direct(p["efficiency"])}
+    motors["right"] = Direct(p["efficiency"])  # its own copy: each crank has its own efficiency
+    robot = Mechanism(name, model=assembly, actuation=assembly.stacked_actuation(motors))
     robot.add_param(Param("gravity", p["gravity"], unit="m/s^2", scope="design"))
     robot.add("body_mass", PointMass(robot.point("body/centre"), p["mass"]))
     robot.add(
@@ -180,6 +181,7 @@ def crawler(name: str = "crawler", **params: Any) -> Mechanism:
     stiffness = Param("stiffness", p["stiffness"], unit="N/m", scope="stage")
     damping = Param("damping", p["ground_damping"], unit="N*s/m", scope="stage")
     speed = Param("slip_speed", p["slip_speed"], unit="m/s", scope="episode")
+    edge = Param("smoothing", p["smoothing"], unit="m", scope="episode")
     friction = {
         "feet": Param("friction", p["friction"], scope="stage"),
         "belly": Param("belly_friction", p["belly_friction"], scope="stage"),
@@ -188,7 +190,9 @@ def crawler(name: str = "crawler", **params: Any) -> Mechanism:
     contacts |= {f"belly_{k}": (robot.point(f"body/belly_{k}"), "belly") for k in corners}
     for key, (point, rubs) in contacts.items():
         ground = PlaneDistance(point, normal, origin)
-        robot.add(key, ContactSpring(ground, stiffness))
-        robot.add(f"{key}_damper", ContactDamper(ground, damping))
-        robot.add(f"{key}_friction", ContactFriction(ground, stiffness, friction[rubs], speed))
+        robot.add(key, ContactSpring(ground, stiffness, edge))
+        robot.add(f"{key}_damper", ContactDamper(ground, damping, edge))
+        robot.add(
+            f"{key}_friction", ContactFriction(ground, stiffness, friction[rubs], speed, edge)
+        )
     return robot
