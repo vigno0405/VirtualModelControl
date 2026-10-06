@@ -65,8 +65,12 @@ pip install virtualmodelcontrol
 
 [How it works](tutorials/introduction.md) explains the idea, and
 [your first controller](tutorials/first-controller.md) puts it to work on the soft arm. The
-[tutorials](tutorials/coordinates-and-components.md) then go through the library step by step,
-up to building your own robot, and the examples apply it to complete tasks on ready-made robots:
+tutorials then go through the library by topic, each a tab of the top bar: how to
+[build](tutorials/coordinates-and-components.md) a controller and a robot, how to
+[run](tutorials/run-logs.md) it, log it, tune it and estimate its state, how to control
+[force](tutorials/contact.md) and contact within an energy budget, and how to
+[plan](tutorials/optimize.md) a motion. The examples apply it to complete tasks on ready-made
+robots:
 
 - [a soft arm](examples/soft-arm.md) that reaches past an obstacle and limits its force, and
   [one that hangs](examples/hanging-arm.md) from its base, identified from step responses;
@@ -97,26 +101,44 @@ troubleshooting
 
 ```{toctree}
 :hidden:
-:caption: Tutorials
+:caption: Build
 
 tutorials/coordinates-and-components
 tutorials/parameters
 tutorials/configurations
+tutorials/kinematics
+tutorials/build-a-robot
+tutorials/extend
+```
+
+```{toctree}
+:hidden:
+:caption: Run
+
 tutorials/run-logs
-tutorials/fit
 tutorials/real-time
 tutorials/swaps
-tutorials/energy
-tutorials/kinematics
 tutorials/tuning
-tutorials/optimize
+tutorials/estimation
+tutorials/fit
+```
+
+```{toctree}
+:hidden:
+:caption: Force
+
 tutorials/contact
 tutorials/force
 tutorials/stiffness
-tutorials/estimation
-tutorials/build-a-robot
+tutorials/energy
+```
+
+```{toctree}
+:hidden:
+:caption: Plan
+
+tutorials/optimize
 tutorials/crawl
-tutorials/extend
 ```
 
 ```{toctree}

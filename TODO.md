@@ -120,13 +120,20 @@ Virtual Model Control must be able to control a robot from the documentation alo
 
 ### Documentation overhaul (the priority)
 
-Decided (4 October 2026): the site uses the Material layout (sphinx-immaterial): five sections
-as tabs in the top bar (Getting started, Tutorials, Examples, Concepts, Reference), the pages of
+Decided (4 October 2026): the site uses the Material layout (sphinx-immaterial): sections
+as tabs in the top bar, the pages of
 each section in the left sidebar, large type and the plain style of the best library docs
 (pykoopman). Pages are complete but essential:
 each fact once, linked elsewhere. Schematics and figures are drawn by code from the robots'
 Params. Robots get no pages of their own and no videos of the real hardware: each example opens
 with its robot.
+
+Changed (6 October 2026): the tutorials are four tabs of their own instead of one, by topic:
+Build (coordinates and components, Params, configuration files, kinematics, your own robot,
+extending the library), Run (run logs, the real-time loop, swaps, tuning, estimation, fitting),
+Force (contact, force tracking, stiffness, energy and passivity) and Plan (optimization and
+locomotion). With Getting started, Examples, Concepts and Reference the top bar has eight tabs.
+A new tutorial goes into the tab of its topic; none is split further than four tutorial tabs.
 
 **Schematics.** Every concept gets a picture before any code, drawn by code (`docs/schematics/`)
 in the lab style, readable on a phone:

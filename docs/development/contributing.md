@@ -59,6 +59,7 @@ Pages are MyST notebooks: every code cell runs at each build, and an error fails
 - Open a tutorial or example with one sentence on what we build; then, for each step, a task
   heading, a few short sentences, the code, the result.
 - Keep pages essential: state each fact once and link to it elsewhere.
+- List a new tutorial in `docs/index.md`, under the tab of its topic: Build, Run, Force or Plan.
 - Visible code lines are at most 76 characters.
 - Numbers in the text come from the page's own computation, inserted with `glue`.
 - Figures use `vmc.viz` (the lab style, set by `docs/docs_setup.py`); schematics are drawn from
