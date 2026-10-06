@@ -141,7 +141,7 @@ that does work would not let it fall.
 
 ## Joints with more coordinates
 
-A joint of a `SerialChain` is one of five kinds. Its coordinates take the next entries of $q$:
+A joint of a `SerialChain` is one of six kinds. Its coordinates take the next entries of $q$:
 
 | joint | coordinates | motion |
 |---|---|---|
@@ -150,8 +150,9 @@ A joint of a `SerialChain` is one of five kinds. Its coordinates take the next e
 | `("helical", pitch)` | 1 | a turn that also slides by `pitch` [m/rad] |
 | `"spherical"` | 3 | a rotation vector, about the joint's point |
 | `"free"` | 6 | a translation, then a rotation vector: a floating base |
+| `("rail", waypoints)` | 1 | a slide along the spline through the waypoints |
 
-A spherical and a free joint have no axis: give `None`. We toss a brick on a free joint. It
+A spherical, a free and a rail joint have no axis: give `None`. We toss a brick on a free joint. It
 is four point masses at its corners, and it spins as it flies:
 
 ```{code-cell} python
@@ -205,6 +206,71 @@ The centre of mass follows the parabola of a stone to {glue:text}`error:.2f` mm 
 winds around it: nothing but gravity acts, so the spin does not change it. The orientation is
 a rotation vector, which is smooth until the body has turned once, so a body that keeps
 spinning needs its coordinates restarted.
+
+## A rail along a path
+
+A rail carries a body along a curve. Its coordinate $s$ is the parameter of the natural cubic
+spline through the waypoints: 0 at the first waypoint and 1 at the last, with the same step
+of $s$ between neighbours, so give waypoints about equally far apart. The waypoints are
+`design` Params in the frame of the joint before the rail; the body starts where its site is
+at $q = 0$, so put the site at the first waypoint to draw the path as given. A bead on a
+circular wire swings as a pendulum. The wire runs well past the swing, because a spline
+ends flat:
+
+```{code-cell} python
+radius = 0.5  # [m]
+phi = np.radians(np.linspace(-100, 100, 17))
+wire = np.column_stack([radius * np.sin(phi), 0 * phi,
+                        radius * (1 - np.cos(phi))])
+bead = vmc.Mechanism("bead", model=SerialChain(
+    [("rail", wire)], axes=[None], points=[[0, 0, 0]],
+    sites={"bead": (1, wire[0])}))  # at the first waypoint when s = 0
+bead.add_param(vmc.Param("gravity", [0.0, 0.0, -9.81], unit="m/s^2"))
+bead.add("mass", vmc.PointMass(bead.point("bead"), 0.5))
+bead.add("gravity", vmc.Gravity(bead))
+
+start = 0.8  # [rad] from the bottom of the wire
+plant = vmc.sim.ModelPlant(
+    bead, q0=[(start + phi[-1]) / (2 * phi[-1])], max_step=1e-4)
+kin = vmc.Kinematics(bead)
+times, angle = np.linspace(0, 2, 81), []
+for t in times:
+    plant.advance(t - plant.t)
+    x, _, z = kin.position(plant.q, "bead")
+    angle.append(np.arctan2(x, radius - z))
+```
+
+Its angle should be the pendulum's, $\ddot\varphi = -(g/R) \sin\varphi$, which we integrate on
+the side:
+
+```{code-cell} python
+from scipy.integrate import solve_ivp
+
+exact = solve_ivp(lambda t, y: [y[1], -9.81 / radius * np.sin(y[0])],
+                  (0, 2), [start, 0.0], t_eval=times, rtol=1e-10)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+error = np.abs(angle - exact.y[0]).max()
+assert error < 2e-3 and np.ptp(exact.y[0]) > 1.0
+glue("rail_error", float(1e3 * error), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.plot(times, np.degrees(exact.y[0]), label="pendulum")
+ax.plot(times[::3], np.degrees(angle)[::3], "o", label="bead on the rail")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("angle from the bottom [deg]")
+ax.legend();
+```
+
+The bead follows the pendulum to {glue:text}`rail_error:.1f` mrad over two seconds. A joint
+placed after the rail rides on it: a revolute joint gives a pendulum hung from a cart.
 
 ## Other kinds of robots
 

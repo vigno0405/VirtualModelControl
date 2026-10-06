@@ -13,9 +13,10 @@ from ...core.registry import register
 from ...core.space import Euclidean
 from ...core.units import M
 from ...math import exp_so3, rot
+from .spline import spline_point
 
-JOINT_TYPES = ("revolute", "prismatic", "helical", "spherical", "free")
-COORDINATES = {"revolute": 1, "prismatic": 1, "helical": 1, "spherical": 3, "free": 6}
+JOINT_TYPES = ("revolute", "prismatic", "helical", "spherical", "free", "rail")
+COORDINATES = {"revolute": 1, "prismatic": 1, "helical": 1, "spherical": 3, "free": 6, "rail": 1}
 """How many entries of q each joint type owns."""
 
 
@@ -26,11 +27,15 @@ class SerialChain:
     A joint is ``"revolute"`` or ``"prismatic"`` (one coordinate), ``"helical"`` (one, a turn that
     also slides along its axis by ``pitch`` [m/rad]; give it as ``("helical", pitch)``),
     ``"spherical"`` (three, a rotation vector about a point) or ``"free"`` (six, a translation and
-    a rotation vector: a floating base). Joint i (from 1) has ``j{i}.axis`` (direction at q = 0,
-    normalized internally; ``None`` for spherical and free) and ``j{i}.point`` [m], a point on its
-    axis, or the point a rotation turns about. A site ``(after, position[, rotation])`` has
-    ``{name}.position`` [m] and ``{name}.rotation`` (rotation vector [rad]) at q = 0 and moves with
-    the joints up to ``after`` (1-based). All are ``design`` Params.
+    a rotation vector: a floating base) or ``"rail"`` (one, a slide along the natural cubic
+    spline through the rows of ``j{i}.waypoints`` [m]; give it as ``("rail", waypoints)``; its
+    coordinate is the spline parameter, 0 at the first waypoint and 1 at the last, and its
+    waypoints are in the frame of the joint before it). Joint i (from 1) has ``j{i}.axis``
+    (direction at q = 0, normalized internally; ``None`` for spherical, free and rail) and
+    ``j{i}.point`` [m], a point on its axis, or the point a rotation turns about. A site
+    ``(after, position[, rotation])`` has ``{name}.position`` [m] and ``{name}.rotation``
+    (rotation vector [rad]) at q = 0 and moves with the joints up to ``after`` (1-based). All are
+    ``design`` Params.
     """
 
     def __init__(
@@ -51,7 +56,7 @@ class SerialChain:
         self.space = Euclidean(sum(sizes))
         self.params = ParamSet()
         free = (-np.inf, np.inf)
-        for i, ((kind, pitch), axis, point) in enumerate(zip(specs, axes, points, strict=True)):
+        for i, ((kind, extra), axis, point) in enumerate(zip(specs, axes, points, strict=True)):
             if axis is not None:
                 key = f"j{i + 1}.axis"
                 self.params.add(as_param(axis, key, scope="design", bounds=free), key)
@@ -60,8 +65,16 @@ class SerialChain:
             if kind == "helical":
                 key = f"j{i + 1}.pitch"
                 self.params.add(
-                    as_param(pitch, key, unit="m/rad", scope="design", bounds=free), key
+                    as_param(extra, key, unit="m/rad", scope="design", bounds=free), key
                 )
+            if kind == "rail":
+                key = f"j{i + 1}.waypoints"
+                if extra is None:
+                    raise ValueError("give a rail as ('rail', waypoints)")
+                waypoints = as_param(extra, key, unit=M, scope="design", bounds=free)
+                if len(waypoints.shape) != 2 or waypoints.shape[1] != 3 or waypoints.shape[0] < 2:
+                    raise ValueError("a rail needs two or more waypoints, one row [x, y, z] each")
+                self.params.add(waypoints, key)
         self.site_joint: dict[str, int] = {}
         for name, spec in sites.items():
             after, position = spec[0], spec[1]
@@ -75,8 +88,10 @@ class SerialChain:
 
     @property
     def q_unit(self) -> str:
-        """Unit of the joint coordinates (rad unless every joint is prismatic)."""
-        return M if all(kind == "prismatic" for kind in self.joints) else "rad"
+        """Unit of the joint coordinates (rad, m if all prismatic, none if all rails)."""
+        if all(kind == "prismatic" for kind in self.joints):
+            return M
+        return "" if all(kind == "rail" for kind in self.joints) else "rad"
 
     def frame(self, q: Any, at: str, p: dict[str, Any]) -> tuple[Any, Any]:
         """(R, position) of a site."""
@@ -100,6 +115,11 @@ class SerialChain:
             if kind == "free":
                 t = t + mine[:3]
             return R, t
+        if kind == "rail":
+            waypoints = self.params[f"{name}.waypoints"]
+            rows = ca.reshape(p[f"{name}.waypoints"], waypoints.shape[0], 3)
+            u = mine[0] * (waypoints.shape[0] - 1)
+            return eye, spline_point(rows, u) - rows[0, :].T
         axis = ca.reshape(p[f"{name}.axis"], 3, 1)
         axis = axis / ca.norm_2(axis)
         if kind == "prismatic":
@@ -126,7 +146,11 @@ class SerialChain:
         return {
             "type": "poe",
             "joints": [
-                [kind, self.params[f"j{i}.pitch"].value.item()] if kind == "helical" else kind
+                [kind, self.params[f"j{i}.pitch"].value.item()]
+                if kind == "helical"
+                else [kind, self.params[f"j{i}.waypoints"].value.tolist()]
+                if kind == "rail"
+                else kind
                 for i, kind in zip(n, self.joints, strict=True)
             ],
             "axes": [
