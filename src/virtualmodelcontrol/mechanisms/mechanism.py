@@ -95,9 +95,10 @@ class Mechanism:
         for cname, component in self.components.items():
             for local, param in component.params().items():
                 ps.add(param, f"{cname}.{local}", rename=True)
-            for coord in walk(component.coord):
-                for local, param in coord.params().items():
-                    ps.add(param, f"{cname}.{local}", rename=True)
+            for root in component.reads():
+                for coord in walk(root):
+                    for local, param in coord.params().items():
+                        ps.add(param, f"{cname}.{local}", rename=True)
         return ps
 
     def __repr__(self) -> str:

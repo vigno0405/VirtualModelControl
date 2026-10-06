@@ -7,9 +7,11 @@ from typing import Any
 import casadi as ca
 
 from ...core.registry import register
-from ...core.units import damping_unit
+from ...core.units import damping_unit, stiffness_unit
 from ..coordinates.base import Context, Coordinate
+from ..coordinates.geometry import SurfaceDistance
 from .base import Component, scaled
+from .storage import _penetration
 
 
 @register("component", "linear_damper")
@@ -98,3 +100,53 @@ class ContactDamper(Component):
         smooth = 0.5 * (1 - ca.tanh(y / (2 * ca.fmax(w, 1e-300))))  # σ(−d/w), no overflow
         gate = ca.if_else(w > 0, smooth, ca.if_else(y < 0, 1.0, 0.0))
         return -ctx.param(self.damping) * gate * yd
+
+
+@register("component", "contact_friction")
+class ContactFriction(Component):
+    """Coulomb friction at a contact, smoothed: f = −μ F_n v_t / √(|v_t|² + v_s²) on the point of a
+    signed distance, with v_t its velocity along the surface and F_n = k δ the contact force.
+
+    Give ``stiffness`` k the same Param as the contact spring's (and the same ``smoothing`` w): the
+    normal force is then the spring's own, without a contact damper's share. ``friction`` μ has
+    no unit; ``speed`` v_s [m/s] is the sliding speed below which the force falls linearly, so a
+    point at rest creeps.
+    """
+
+    kind = "dissipation"
+
+    def __init__(
+        self,
+        distance: SurfaceDistance,
+        stiffness: Any,
+        friction: Any,
+        speed: Any = 1e-3,
+        smoothing: Any = 0.0,
+    ) -> None:
+        super().__init__(distance.point)
+        self.distance = distance
+        self.stiffness = self._param(
+            "stiffness", stiffness, unit=stiffness_unit("m"), scope="stage"
+        )
+        self.friction = self._param("friction", friction, unit="", scope="stage")
+        self.speed = self._param("speed", speed, unit="m/s", scope="episode")
+        self.smoothing = self._param("smoothing", smoothing, unit="m", scope="episode")
+
+    def reads(self) -> tuple[Coordinate, ...]:
+        """The surface, which holds the point."""
+        return (self.distance,)
+
+    def force(self, ctx: Context, y: Any, yd: Any) -> Any:
+        """−μ F_n v_t / √(|v_t|² + v_s²)."""
+        n = self.distance.unit_normal(ctx)
+        slide = yd - n * ca.dot(n, yd)
+        d, w = ctx.value(self.distance), ctx.param(self.smoothing)
+        edge = 0.5 * (1 - ca.tanh(d / (2 * ca.fmax(w, 1e-300))))  # ∂δ/∂(−d) of the soft edge
+        slope = ca.if_else(w > 0, edge, 1.0)
+        normal_force = ctx.param(self.stiffness) * _penetration(d, w) * slope
+        return (
+            -ctx.param(self.friction)
+            * normal_force
+            * slide
+            / ca.sqrt(ca.dot(slide, slide) + ctx.param(self.speed) ** 2)
+        )

@@ -195,6 +195,13 @@ controller:
       force: [0.1, 0.0, 0.0]
       max_force: 2.0
       max_power: 5.0
+    u:
+      type: contact_friction
+      coordinate:
+        plane_distance: {point: tip, normal: [0.0, 0.0, -1.0], origin: [0.0, 0.0, 0.3]}
+      stiffness: 100.0
+      friction: 0.4
+      speed: 0.002
     mass: {type: inertance, coordinate: follower, inertance: 0.05}
 """
 
@@ -232,6 +239,8 @@ def test_every_coordinate_kind_builds_what_python_builds(tmp_path):
     ctrl.add("r", vmc.LinearSpring(vmc.FromFrame(site, arm.model, "seg1"), 12.0))
     ctrl.add("s", vmc.DiodeDamper(site, 0.5, sign=-1.0))
     ctrl.add("t", vmc.ForceSource(site, [0.1, 0.0, 0.0], max_force=2.0, max_power=5.0))
+    rub = vmc.PlaneDistance(tip, [0, 0, -1.0], [0, 0, 0.3])
+    ctrl.add("u", vmc.ContactFriction(rub, 100.0, 0.4, 0.002))
     ctrl.add("mass", vmc.Inertance(follower, 0.05))
     law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
 
@@ -266,6 +275,8 @@ def test_saved_files_carry_the_current_values(tmp_path):
     elements["j"].coord.direction.value = [1.0, 0.0, 0.0]  # the constrained spring's normal
     elements["p"].coord.goal.value = [0.0, 0.3, 0.0]
     elements["t"].max_force.value = 1.5
+    elements["u"].friction.value = 0.5
+    elements["u"].distance.origin.value = [0.0, 0.0, 0.28]  # the surface it rubs on
     data = vmc.config.load(experiment.save(tmp_path / "tuned.yaml")).to_dict()
     a = data["controller"]["elements"]["a"]
     assert a["stiffness"] == 1.5 and a["coordinate"]["difference"][0] == [0.2, 0.0, 0.3]
@@ -281,6 +292,8 @@ def test_saved_files_carry_the_current_values(tmp_path):
     assert elements["j"]["normal"] == [1.0, 0.0, 0.0]
     assert elements["p"]["coordinate"]["orientation_error"]["goal"] == [0.0, 0.3, 0.0]
     assert elements["t"]["max_force"] == 1.5
+    assert elements["u"]["friction"] == 0.5
+    assert elements["u"]["coordinate"]["plane_distance"]["origin"] == [0.0, 0.0, 0.28]
 
 
 def test_numbers_read_as_numbers(tmp_path):

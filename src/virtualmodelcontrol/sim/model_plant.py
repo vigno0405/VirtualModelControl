@@ -83,6 +83,18 @@ class ModelPlant:
         v = actuation.velocity_from_motors(q, ca.DM(np.asarray(theta_dot, dtype=float)), p)
         return np.array(ca.evalf(q)).ravel(), np.array(ca.evalf(v)).ravel()
 
+    def elements(self) -> dict[str, dict[str, np.ndarray]]:
+        """Each component of the robot that is not a mass (its springs, dampers, contacts), now:
+        its coordinate ``y``, rate ``ydot``, ``force`` and ``torque``, its share of the generalized
+        forces."""
+        out = self.dynamics.elements(self.q, self.v, self.p, self.t)
+        values = [np.array(x).ravel() for x in (out if isinstance(out, tuple) else [out])]
+        quantities = ("y", "ydot", "force", "torque")
+        return {
+            name: dict(zip(quantities, values[4 * k : 4 * k + 4], strict=True))
+            for k, name in enumerate(self.dynamics.element_names)
+        }
+
     def energy(self) -> float:
         """Kinetic plus stored energy of the robot [J]."""
         T, V = self.dynamics.energy(self.q, self.v, self.p, self.t)

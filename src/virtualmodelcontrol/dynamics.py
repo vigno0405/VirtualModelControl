@@ -27,7 +27,9 @@ class Dynamics:
     ``forward`` (q, v, u, p, t) → a; ``residual`` (q, v, a, u, p, t) → r; ``mass`` (q, p) → M;
     ``energy`` (q, v, p, t) → (T, V); ``power`` (q, v, u, p, t) → (input, dissipation, source);
     ``motors`` (q, v, p) → (θ, θ̇); ``step`` (q, v, u, p, t, h) → (q⁺, v⁺), a linearly implicit
-    Euler step, stable for stiff springs and dampers.
+    Euler step, stable for stiff springs and dampers; ``elements`` (q, v, p, t) → the coordinate,
+    its rate, the force and the generalized force of each component that is not a mass, in the
+    order of ``element_names``.
     """
 
     robot: Mechanism
@@ -40,6 +42,8 @@ class Dynamics:
     power: ca.Function
     motors: ca.Function
     step: ca.Function
+    elements: ca.Function
+    element_names: list[str]
     n_u: int
 
     def live_values(self) -> Any:
@@ -79,6 +83,8 @@ def compile_dynamics(
     M = ca.SX.zeros(space.nv, space.nv)
     f_gen = ca.SX.zeros(space.nv, 1)
     V, P_diss, P_src = ca.SX(0), ca.SX(0), ca.SX(0)
+    per_component: list[Any] = []
+    names: list[str] = []
     for name, comp in robot.components.items():
         y = ctx.value(comp.coord)
         J = ca.mtimes(ca.jacobian(y, q), G)
@@ -88,6 +94,8 @@ def compile_dynamics(
         yd = ca.mtimes(J, v) + ca.jacobian(y, t)
         f = comp.force(ctx, y, yd)
         f_gen += ca.mtimes(J.T, f)
+        per_component += [y, yd, f, ca.mtimes(J.T, f)]
+        names.append(name)
         if comp.kind == "storage":
             V += comp.energy(ctx, y)
         elif comp.kind == "dissipation":
@@ -155,5 +163,9 @@ def compile_dynamics(
             ["q_next", "v_next"],
             OPTS,
         ),
+        elements=ca.Function(
+            "elements", [q, v, p, t], per_component, ["q", "v", "p", "t"], [], OPTS
+        ),
+        element_names=names,
         n_u=n_u,
     )

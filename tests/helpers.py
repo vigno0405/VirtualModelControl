@@ -25,9 +25,10 @@ def component_params(component):
     ps = ParamSet()
     for name, param in component.params().items():
         ps.add(param, f"c.{name}", rename=True)
-    for coord in walk(component.coord):
-        for name, param in coord.params().items():
-            ps.add(param, f"c.{name}", rename=True)
+    for root in component.reads():
+        for coord in walk(root):
+            for name, param in coord.params().items():
+                ps.add(param, f"c.{name}", rename=True)
     return ps
 
 
