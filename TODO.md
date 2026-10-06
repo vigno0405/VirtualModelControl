@@ -407,8 +407,11 @@ turtle crawling.
   (damped Gauss-Newton on the robot's kinematics, any robot) and `VelocityFilter`. The shape from
   IMUs: `ImuFilter`, the complementary filter of the sections' relative rotations of the soft
   arm. The tutorial "Estimate the state of a soft arm" fuses all three sensors.
+  Object compliance by probing (6 October 2026): `object_compliance`, the lab's probe of the hand
+  (the distance over the force that stiffer settings add to a gentle one, medians of the samples),
+  equal to the lab's code; the force tutorial probes three objects with it.
   Open: EKF and UKF variants of the filter, the momentum observer, regression and nonlinear
-  least squares, moving-horizon estimation, and object compliance by probing.
+  least squares, and moving-horizon estimation.
 - [x] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

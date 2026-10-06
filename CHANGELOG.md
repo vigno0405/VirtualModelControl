@@ -177,6 +177,11 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `vmc.estimation.object_compliance(position, force, baseline_position, baseline_force)`: the
+  compliance in m/N of an object a tip presses, the distance over the force that stiffer settings
+  of the controller add to a gentle one, from the median of each setting's samples. It is the
+  lab's probe of the hand, and it agrees with the lab's code to rounding error. The force tutorial
+  shows it on three objects, with the force from `ContactForce`.
 - Docs: the contact tutorial also shows two points of a robot touching (a self-contact, the two
   arms), friction between two points and a soft object between two tips, from the pieces above.
 - `vmc.control.project_psd(K)`: the symmetric positive semidefinite matrix nearest to a stiffness,

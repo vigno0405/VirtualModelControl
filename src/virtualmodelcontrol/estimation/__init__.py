@@ -1,5 +1,6 @@
 """Estimation: the state of a running robot and quantities no sensor measures, from its model."""
 
+from .compliance import object_compliance
 from .contact import ContactForce
 from .imu import ImuFilter
 from .inversion import Inversion
@@ -16,4 +17,5 @@ __all__ = [
     "Measurement",
     "TaskStiffness",
     "VelocityFilter",
+    "object_compliance",
 ]

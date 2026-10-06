@@ -273,6 +273,84 @@ one the law believes it holds {glue:text}`blind_told:.2f` N, and the table feels
 closes this loop, because what it tells the law is the true force. It is the same call with the
 cell's reading in place of the estimate.
 
+## An object's compliance
+
+How soft is the object the finger touches? Press it at a gentle setting of the controller's
+stiffness, then at stiffer ones. The tip sinks a little further and pushes a little harder, and
+the ratio of the two changes, the distance over the force, is the object's compliance in m/N.
+Both are known without a sensor on the object: the tip's position from the joint angles, and
+the force from `ContactForce`. `object_compliance` takes the median of the samples of each
+setting and gives that ratio.
+
+Here three objects of stiffness 4000, 1000 and 250 N/m are pressed 1.5 cm in by the spring of
+the controller, at 50 N/m first and then at 100 and 200 N/m:
+
+```{code-cell} python
+from virtualmodelcontrol.estimation import ContactForce, object_compliance
+
+def probe(stiffness, press, model=None, steps=750):
+    """Samples of the tip's position and of the estimated force [N]."""
+    world = adapt.add_dynamics(adapt.finger())
+    tip = world.point("tip")
+    surface = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.06])
+    world.add("object", vmc.ContactSpring(surface, stiffness))
+    world.add("cushion", vmc.ContactDamper(surface, 5.0))
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("press", vmc.LinearSpring(tip - [0.0, 0.05, 0.075], press))
+    ctrl.add("damp", vmc.LinearDamper(tip, 1.0))
+    ctrl.add("limits", adapt.joint_limit_spring(world))
+    ctrl.add("gravity", vmc.GravityCompensation(world))
+    system = vmc.VirtualMechanismSystem(world, ctrl)
+    controller = vmc.VMCController(vmc.compile(system))
+    model = model or adapt.add_dynamics(adapt.finger())
+    estimate = ContactForce(controller, "tip", [0, 0, 1], robot=model)
+    plant = vmc.sim.ModelPlant(world, q0=[0.8, 0.8], max_step=1e-4)
+    kin, position, force = vmc.Kinematics(world), [], []
+    for _ in range(steps):  # 500 Hz
+        plant.write(controller.step(plant.t, plant.read()))
+        position.append(kin.position(plant.q, "tip"))
+        force.append(estimate(controller))
+        plant.advance(1 / 500)
+    return np.array(position[-150:]), np.array(force[-150:])  # last 0.3 s
+
+found = {}
+for stiffness in (4000.0, 1000.0, 250.0):  # [N/m]
+    gentle = probe(stiffness, 50.0)
+    stiff = [probe(stiffness, press) for press in (100.0, 200.0)]
+    found[stiffness] = [1e3 * object_compliance(*s, *gentle) for s in stiff]
+    print(f"{1e3 / stiffness:5.2f} mm/N: {found[stiffness][0]:5.2f} and "
+          f"{found[stiffness][1]:5.2f} mm/N")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+for stiffness, values in found.items():
+    assert np.allclose(values, 1e3 / stiffness, rtol=0.03), (stiffness, values)
+glue("worst_compliance", float(max(abs(np.array(v) * s / 1e3 - 1).max()
+                                   for s, v in found.items()) * 100),
+     display=False)
+```
+
+Each line gives the object's true compliance, $1/k$, then the estimates from the two stiffer
+settings. With the exact model of the finger they agree to {glue:text}`worst_compliance:.1f` %.
+
+```{code-cell} python
+lighter = adapt.add_dynamics(adapt.finger())
+lighter.params["m_dip.mass"].value = 0.015  # [kg], 10 g under the plant's
+baseline = probe(1000.0, 50.0, lighter)
+off = 1e3 * object_compliance(*probe(1000.0, 200.0, lighter), *baseline)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+glue("wrong_model", float(off), display=False)
+assert abs(off - 1.0) < 0.03
+```
+
+A model that is wrong by a constant, here a last phalanx 10 g too light, moves the forces of both
+settings by the same amount, and the difference does not see it: the same object of 1.00 mm/N
+gives {glue:text}`wrong_model:.2f` mm/N.
+
 ## Laws without a model
 
 Two more laws need no model of the robot, only a force. `ForceRatio` scales a stiffness up when
