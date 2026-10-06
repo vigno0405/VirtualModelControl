@@ -3,20 +3,20 @@
 ## Units and signs
 
 - SI everywhere: m, rad, s, N, N·m, kg. Degrees stay at the boundary with the hardware, in the
-  robot's hardware profile; a driver's raw units (encoder ticks, motor currents) never enter
+  robot's hardware profile. A driver's raw units (encoder ticks, motor currents) never enter
   the library.
 - A positive motor angle pulls its tendon. Each template states the sign of its robot's
   encoders against this convention (`helyx.ENCODER_SIGN`, `bimanual.ENCODER_SIGN`,
   `turtle.MOTOR_SIGNS`); multiply raw readings and commands by it.
 - Controllers send their torques as computed, never divided by an efficiency. A robot's
-  efficiency maps the commanded motor torques to the delivered ones; it is 1 by default,
+  efficiency maps the commanded motor torques to the delivered ones. It is 1 by default,
   because the templates' stiffness and damping were identified from the commanded torques
   (see [Transmission efficiency](efficiency.md)).
 
 ## Coordinates and forces
 
-- The configuration `q` lives on a space; the velocity `v` in its tangent space, so `q` and `v`
-  may differ in size (a floating body, for example).
+- The configuration `q` lives on a space, and the velocity `v` in its tangent space. So `q` and
+  `v` may differ in size (a floating body, for example).
 - Motor angles are `θ`, a generalized force is `τ`, actuator commands are `u`.
 - A spring's deflection is `y = x − x_ref`, so it pulls `x` towards `x_ref`. Storage gives
   `f = −∂V/∂y`, a damper `f = −D ẏ`, and every force reaches the robot as `τ = Jᵀ f`.
@@ -25,7 +25,7 @@
 ## Continuum robots
 
 - The arc parameter `s ∈ [0, 1]` runs from the base to the tip, uniformly in arc length.
-- A segment's configuration is `Δ = (Dx, Dy, Dl)` [m]; the base frame's `z` axis runs along
+- A segment's configuration is `Δ = (Dx, Dy, Dl)` [m]. The base frame's `z` axis runs along
   the straight body. See [soft-arm kinematics](pcc.md).
 
 ## Parameters

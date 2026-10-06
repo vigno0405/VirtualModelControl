@@ -33,7 +33,7 @@ glue("pip", float(adapt.COUPLING[1, 1]), display=False)
 
 The finger has three phalanges, proximal, middle and distal, of {glue:text}`a:.1f`,
 {glue:text}`b:.1f` and {glue:text}`c:.1f` mm, joined by three revolute joints, MCP, PIP and
-DIP, all turning about $x$. Straight, it points along $y$; bending it turns the tip towards $z$.
+DIP, all turning about $x$. Straight, it points along $y$. Bending it turns the tip towards $z$.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -43,7 +43,7 @@ schematic.figure();
 
 ### Motors to joints
 
-Two motors drive the three joints. The first pulls a cable on a pulley of the MCP joint; the
+Two motors drive the three joints. The first pulls a cable on a pulley of the MCP joint. The
 second drives the PIP joint through a cable, and the DIP joint follows the PIP joint. With
 motor angles $q_1, q_2$,
 
@@ -53,8 +53,9 @@ $$
 $$
 
 with $r_m$ the motor pulley's radius, $r_p$ that of the MCP pulley and $c_p$ the cable constant
-of the PIP drive: {glue:text}`mcp:.3f` and {glue:text}`pip:.3f` rad per radian of motor angle
-for the template. In matrix form $\theta = C\,q$, a `LinearCoupling` of the chain.
+of the PIP drive. For the template, $r_p/r_m$ and $r_m/c_p$ are {glue:text}`mcp:.3f` and
+{glue:text}`pip:.3f` rad per radian of motor angle. In matrix form $\theta = C\,q$, a
+`LinearCoupling` of the chain.
 
 ### Joints to the fingertip
 
@@ -98,9 +99,10 @@ coefficients = [f"{C[rows[f], spread]:+.3f}" if C[rows[f], spread] else "0" for 
 glue("spread", ", ".join(coefficients[:3]) + " and " + coefficients[3], display=False)
 ```
 
-The hand has a thumb and four fingers, each a chain of revolute joints from the hand's base:
-the thumb's CMC1, CMC2, MCP and IP joints, and each finger's spread, MCP, PIP and DIP joints.
-The origins and axes of the joints come from the hand's design files, as tables of the module.
+The hand has a thumb and four fingers, each a chain of revolute joints from the hand's base.
+The thumb has the joints CMC1, CMC2, MCP and IP, and each finger has the joints spread, MCP,
+PIP and DIP. The origins and axes of the joints come from the hand's design files, as tables
+of the module.
 {glue:text}`motors:.0f` motors drive its {glue:text}`joints:.0f` joints, $\theta = C\,q$:
 
 - each thumb joint has a motor of its own;
@@ -115,5 +117,5 @@ from schematics import hand as hand_schematic
 hand_schematic.figure();
 ```
 
-The joint ranges, in `adapt.JOINT_LIMITS` and `adapt.HAND_JOINT_LIMITS`, are what the
-joint-limit springs keep each joint within.
+The joint-limit springs keep each joint within the ranges in `adapt.JOINT_LIMITS` and
+`adapt.HAND_JOINT_LIMITS`.
