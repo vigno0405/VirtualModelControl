@@ -179,9 +179,9 @@ err = {name: rms((est - truth)[:, :9]) for name, (est, _, _) in runs.items()}
 assert err["encoders + markers"] < 0.5 * err["encoders"]
 assert err["encoders + IMUs"] < err["encoders"]
 assert err["all three"] <= err["encoders + markers"]
-glue("enc_error", err["encoders"], display=False)
-glue("mocap_error", err["encoders + markers"], display=False)
-glue("ratio", err["encoders"] / err["encoders + markers"], display=False)
+glue("enc_error", float(err["encoders"]), display=False)
+glue("mocap_error", float(err["encoders + markers"]), display=False)
+glue("ratio", float(err["encoders"] / err["encoders + markers"]), display=False)
 glue("rejected_clean", runs["all three"][1], display=False)
 glue("frames", 2 * int((n - 1) // every), display=False)
 ```
@@ -230,8 +230,8 @@ worst, gated[1], ungated[1]  # the worst error [mm], and the frames rejected
 ```{code-cell} python
 :tags: [remove-cell]
 assert worst["gate"] < 0.6 * worst["no gate"] and ungated[1] == 0
-glue("worst_gate", worst["gate"], display=False)
-glue("worst_free", worst["no gate"], display=False)
+glue("worst_gate", float(worst["gate"]), display=False)
+glue("worst_free", float(worst["no gate"]), display=False)
 glue("rejected_bad", gated[1], display=False)
 glue("rejected_same", runs["encoders + markers"][1], display=False)
 ```
