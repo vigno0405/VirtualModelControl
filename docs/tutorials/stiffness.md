@@ -8,7 +8,7 @@ kernelspec:
 
 In this tutorial we ask how stiff the soft arm is at its tip, choose the stiffness we want, and
 let the controller find the springs that give it. Then we correct a position that the arm's own
-stiffness holds back.
+stiffness holds back, with a sensor and without one.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -181,3 +181,114 @@ ax.set_ylabel("distance to the target [mm]");
 The tip starts {glue:text}`miss:.0f` mm from the target and ends {glue:text}`end:.2f` mm from it.
 To get there the goal moved {glue:text}`moved:.0f` mm away from the target. No model of the
 arm's stiffness or weight was used, only the position of the tip.
+
+## Hold a pose without a sensor
+
+The integral action needs to see the tip. Without a sensor the model can do the same job once:
+`HoldingGoals` puts each goal at the place we want its point to be, plus the offset that lets
+the spring carry the arm's own stiffness and weight. It is one Newton step on the static
+balance, taken at the pose the arm has now, and the offset is the smallest one that does it.
+
+The springs must be able to balance every motor, so we use three of them along the arm, for its
+nine motors. First we leave each goal at its point, as if the arm had no stiffness of its own:
+
+```{code-cell} python
+from virtualmodelcontrol.adaptation import HoldingGoals
+
+ctrl3 = vmc.Mechanism("ctrl")
+sites = {}  # the live goal of each spring, and the point it pulls
+for i, s in enumerate((0.5, 0.75, 1.0), 1):
+    goal = vmc.Ref(f"g{i}", 3)
+    ctrl3.add(f"s{i}", vmc.LinearSpring(arm.point(s=s) - goal, 200.0))
+    sites[f"ctrl.s{i}.g{i}"] = s
+ctrl3.add("damp", vmc.LinearDamper(tip, 5.0))
+ctrl3.add("gravity", vmc.GravityCompensation(arm))
+compiled3 = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl3))
+
+# the arm's start
+bent = 0.01 * np.array([1.0, 0.6, -0.4, 0.8, -0.6, 0.0, 0.4, 0.2, -0.4])
+kin = vmc.Kinematics(arm)
+
+def ready():
+    """A controller and a plant, at rest in the bent pose."""
+    plant = vmc.sim.ModelPlant(arm, q0=bent)
+    controller = vmc.VMCController(compiled3)
+    controller.reset(0.0, plant.read())
+    controller.step(0.0, plant.read())
+    return controller, plant
+
+def hold(offset, seconds=3.0):
+    """How far [m] the tip goes from where it started."""
+    controller, plant = ready()
+    if offset:
+        HoldingGoals(controller, sites).step(controller)
+    else:
+        controller.set(
+            {n: kin.position(bent, s) for n, s in sites.items()})
+    start, dt, away = kin.position(bent, 1.0), 1 / helyx.CONTROL_RATE, []
+    for _ in range(int(seconds / dt)):
+        plant.write(controller.step(plant.t, plant.read()))
+        plant.advance(dt)
+        away.append(np.linalg.norm(kin.position(plant.q, 1.0) - start))
+    return np.array(away)
+
+sags, held = hold(offset=False), hold(offset=True)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert sags[-1] > 0.01 > 1e-6 > held.max()
+glue("sag", float(1e3 * sags[-1]), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+t = np.arange(len(sags)) / helyx.CONTROL_RATE
+fig, ax = plt.subplots()
+ax.plot(t, 1e3 * sags, label="goals at the points")
+ax.plot(t, 1e3 * held, label="holding goals")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("tip away from its start [mm]")
+ax.legend();
+```
+
+With the goals at the points the arm's own stiffness pulls the tip {glue:text}`sag:.0f` mm away.
+With `HoldingGoals` it stays where it is, to less than a micrometre. `targets` takes other
+positions, a dictionary from each goal's name to where its point should be. The offset is
+computed at the pose the arm has now, so the arm only gets near them; applying the step again as
+the arm moves brings it closer.
+
+```{code-cell} python
+aim = {n: kin.position(1.3 * bent + 0.005, s) for n, s in sites.items()}
+
+def worst(q):
+    """The largest distance of a point to its target."""
+    return max(np.linalg.norm(aim[n] - kin.position(q, s))
+               for n, s in sites.items())
+
+def reach(again):
+    controller, plant = ready()
+    law = HoldingGoals(controller, sites)
+    law.step(controller, aim)
+    dt = 1 / helyx.CONTROL_RATE
+    for k in range(int(3.0 / dt)):
+        plant.write(controller.step(plant.t, plant.read()))
+        if again and k % int(0.1 / dt) == 0:
+            law.step(controller, aim)
+        plant.advance(dt)
+    return worst(plant.q)
+
+before, once, again = worst(bent), reach(False), reach(True)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert before > 3 * once and once > 5 * again
+glue("before", float(1e3 * before), display=False)
+glue("once", float(1e3 * once), display=False)
+glue("again", float(1e3 * again), display=False)
+```
+
+The farthest of the three points starts {glue:text}`before:.0f` mm from its target, ends
+{glue:text}`once:.0f` mm from it after one step, and {glue:text}`again:.0f` mm from it when the
+step is applied every 0.1 s.

@@ -13,6 +13,9 @@ from ..control.projection import project_psd
 TINY = 1e-12
 """Below this a step size or a force change counts as zero, so that no division blows up."""
 
+NOISE = 1e-10
+"""Singular values of a map below this share of the largest are rounding noise, not a direction."""
+
 
 def live_matching(compiled: Any, params: str | Sequence[str]) -> list[str]:
     """The live Params of ``compiled`` matching the glob patterns, in the order of its vector."""

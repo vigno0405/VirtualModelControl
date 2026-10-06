@@ -96,6 +96,11 @@ All notable changes to this project are documented here. The format follows
     that the lab's leaves out.
   - `PositionRegulation(controller, sites, gain=0.05)`: integral pose regulation. A step adds
     `gain` times the error of a point of the robot to the goal of the spring that pulls it.
+  - `HoldingGoals(controller, sites, robot=None)`: the open-loop counterpart, the lab's position
+    feedforward. It puts the goals at wanted positions (default: where the points are) plus the
+    smallest offset that lets the springs carry the robot's own stiffness and weight at the pose
+    now, one Newton step on the static balance. It agrees with the lab's to 1e-9; with as many
+    springs as motors the arm then stays where it is.
 - `vmc.estimation`: quantities of a running robot that no sensor measures. Both take the
   controller, a site (a name, an arc parameter or `(part, s)`) and a `normal`, and a `robot`:
   the model that holds the arm at rest, without the surroundings the plant may have. They use the

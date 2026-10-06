@@ -10,10 +10,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..estimation import TaskStiffness
-from .limits import admissible, live_matching
-
-NOISE = 1e-10
-"""Singular values of the map below this share of the largest are rounding noise, not stiffness."""
+from .limits import NOISE, admissible, live_matching
 
 
 class StiffnessTracking:

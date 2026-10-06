@@ -354,19 +354,19 @@ turtle crawling.
   dampers took and the sources gave, the energy injected by changes of live Params and the
   margin that stays above 0 while the controller is passive; section "The balance from a log"
   of the energy tutorial.
-- [ ] **Adaptation laws:** stiffness modulation, reference modulation, direct stiffness
+- [x] **Adaptation laws:** stiffness modulation, reference modulation, direct stiffness
   tracking, integral pose regulation, stiffness schedules K(F) and K(d), force tracking by
   reference or by stiffness gradient descent; every stiffness update symmetrized and projected
   onto positive semidefinite matrices.
-  Done so far (6 October 2026): `vmc.adaptation.ForceTracking`, gradient descent of a contact
+  Done (6 October 2026): `vmc.adaptation.ForceTracking`, gradient descent of a contact
   force error on any live Params, a spring's goal or its stiffness, the step bounded by the
   force it may change or a fixed rate, by the Param's bounds, by the positive semidefinite cone
   for a matrix, and by the tank; `ForceRatio` and `Stiffening`, the lab's laws that need no
   model (K(d) is the `SigmoidSpring` and the `PolynomialSpring`); the tutorial "Track a contact
   force" uses them; `StiffnessTracking` (direct stiffness tracking) and `PositionRegulation`
-  (integral pose regulation), in the tutorial "Shape the stiffness of the tip". Open: the
-  open-loop counterpart of the pose regulation (the lab's position feedforward), the goals that
-  hold the arm where it is.
+  (integral pose regulation), in the tutorial "Shape the stiffness of the tip"; `HoldingGoals`,
+  the open-loop counterpart of the pose regulation (the lab's position feedforward): the goals
+  that hold points of the arm at wanted positions, in the same tutorial.
 - [x] **Passivity filters:** every online update can pass through the tank or a projection,
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
