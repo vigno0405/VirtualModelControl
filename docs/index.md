@@ -110,6 +110,7 @@ tutorials/kinematics
 tutorials/tuning
 tutorials/optimize
 tutorials/contact
+tutorials/force
 tutorials/build-a-robot
 tutorials/extend
 ```

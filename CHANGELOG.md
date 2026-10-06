@@ -67,6 +67,20 @@ All notable changes to this project are documented here. The format follows
 - `identification.fit_transmission(motor, joint)`: the joint angle per motor angle of a cable drive,
   from a sweep of the joint, by least squares through the origin. It reproduces the finger's and
   the hand's transmission constants from their recorded sweeps. The finger's page shows it.
+- `vmc.adaptation.ForceTracking(controller, site, params, normal=None, max_force_step=0.01,
+  max_step=None)`: gradient descent of a contact force error on live Params of a controller. The
+  force is the one the motors deliver through the contact point's Jacobian, along `normal` or in
+  3D. `params` are glob patterns: references move the springs' goals, stiffnesses change the
+  springs. `step(controller, f_meas, f_des)` takes the largest step that keeps the predicted
+  force change below `max_force_step` [N] and each Param's change below `max_step`; pass a `Tank`
+  in place of the controller and it applies only the part of the step the tank pays for.
+  `direction` gives the descent direction without applying it. The gradient comes from automatic
+  differentiation of the controller's delivered torque and agrees with the lab's hand-derived
+  one to 1e-8 (reference and stiffness, tip and mid-arm contacts, with and without a normal), and
+  its step with the lab's, which finds the force cap by a finite-difference probe. The
+  energy bound is the tank's exact jump, so there is no safety factor. `VMCController.inputs()`
+  gives what the law read at the last step. The tutorial "Track a contact force" presses a
+  fingertip on a table with a chosen force, free and through a tank.
 - `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
   `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
   that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements

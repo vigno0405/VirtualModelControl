@@ -65,6 +65,11 @@ class VMCController:
         """The jump of the controller's energy [J] that ``set`` would give, changing nothing."""
         return self._jump(self._changed(values, kwargs))
 
+    def inputs(self) -> np.ndarray | None:
+        """What the law read at the last step: motor angles and rates, virtual state, live Params
+        and time, packed in one vector (``None`` before the first step)."""
+        return self._x
+
     def energy(self) -> float:
         """Energy of the controller at the last step [J] (stored plus virtual kinetic)."""
         return 0.0 if self._x is None else self._energy(self.params)

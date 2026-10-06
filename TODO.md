@@ -360,6 +360,11 @@ turtle crawling.
   tracking, integral pose regulation, stiffness schedules K(F) and K(d), force tracking by
   reference or by stiffness gradient descent; every stiffness update symmetrized and projected
   onto positive semidefinite matrices.
+  Done so far (6 October 2026): `vmc.adaptation.ForceTracking`, gradient descent of a contact
+  force error on any live Params (a spring's goal, or its stiffness), the step bounded by the
+  force it may change and by the tank; the tutorial "Track a contact force" uses the goal. Open:
+  the stiffness variant with the projection onto positive semidefinite matrices in the loop and
+  its page, direct stiffness tracking, integral pose regulation, the schedules K(F) and K(d).
 - [x] **Passivity filters:** every online update can pass through the tank or a projection,
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
