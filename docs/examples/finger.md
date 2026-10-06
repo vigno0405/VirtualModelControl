@@ -81,6 +81,21 @@ longer = adapt.finger(link_lengths=(0.045, 0.035, 0.02),  # [m]
 longer.params["coupling"].value.round(3)
 ```
 
+A new pulley comes with a new ratio, which a sweep measures: set the MCP joint to known angles,
+read the motor's, and `fit_transmission` gives the joint angle per motor angle, the first entry
+of the coupling. Here is the finger's own sweep (the motor angles that went with joints at 0° to
+75° in steps of 15°):
+
+```{code-cell} python
+from virtualmodelcontrol.identification import fit_transmission
+
+joint = [0, 15, 30, 45, 60, 75]  # [deg], set
+motor = [0, 40.07, 69.96, 99.93, 129.99, 170.07]  # [deg], read
+ratio = fit_transmission(motor, joint)
+radius = 1e3 * adapt.MOTOR_RADIUS * ratio  # [mm]
+f"ratio {ratio:.4f}, pulley radius {radius:.2f} mm"
+```
+
 ## A stiff fingertip
 
 A spring pulls the fingertip to a goal, a damper on the tip slows it down, and gravity

@@ -331,9 +331,13 @@ the soft arm among obstacles.
   `identification.Steps` runs the torque steps on any plant and marks the training ones, the
   fit takes its log as it is, `friction=True` adds a static friction torque per motor, and
   `validate` simulates the held-out steps with `vmc.sim.rollout`; the hanging arm's page shows
-  it. The arm on its side is still to be identified, on the arm.
-- [ ] **Calibration:** transmission ratios, base transforms between arms, Stribeck friction for
-  the compensation stage.
+  it. The arm on its side keeps another arm's values until someone runs the experiment on it.
+- [x] **Calibration:** transmission ratios and base transforms between arms. Done (6 October
+  2026): the templates carry the constants of the lab's models (the transmissions fitted from the
+  finger's and the hand's sweeps, the arm bases of the bimanual kinematics, placed by hand, not
+  measured), and `identification.fit_transmission` fits a new drive's ratio from a sweep and
+  reproduces them. No calibration protocol for friction: the compensation stage keeps its
+  Stribeck defaults.
 - [x] **Docs:** optimizing a virtual mechanism (the tutorial ends with the soft arm planned around a
   sphere), the energy tank, the step experiment (the hanging arm's page), rollouts (Real-time
   runs) and tuning with a search (Tuning stiffness and damping). Done (6 October 2026); each
@@ -513,8 +517,9 @@ new designs against these themes, so nothing they need is made hard:
 - matplotlib 3.11 drops minus signs from LaTeX-rendered PDFs; render paper figures with 3.10 until
   it is fixed.
 - The arm mounted on its side (`145-145-145`) uses the stiffness and damping identified on
-  another Helyx arm: its closed-loop runs cannot identify it, since its tendons go slack under
-  small torques. Identify it with the step experiment (0.4.0).
+  another Helyx arm, an assumption: its closed-loop runs cannot identify it, since its tendons go
+  slack under small torques. The step experiment (`identification.Steps`) identifies it on the arm
+  when someone runs it.
 - The hanging arm's bus (`helyx.hardware("145-290-290")`): IDs 1 to 9 at 4 Mbaud with the
   motor constant 0.001783, from its start script; its documentation says IDs 11 to 19. Confirm
   on the arm.

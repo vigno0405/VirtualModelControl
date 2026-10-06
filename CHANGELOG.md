@@ -64,6 +64,9 @@ All notable changes to this project are documented here. The format follows
   `vmc.sim.rollout` takes `u`, motor torques with a row per step, to simulate open loop.
 - Docs: the hanging arm's page identifies its stiffness and damping with `Steps`, checks them on
   held-out steps and shows the friction option.
+- `identification.fit_transmission(motor, joint)`: the joint angle per motor angle of a cable drive,
+  from a sweep of the joint, by least squares through the origin. It reproduces the finger's and
+  the hand's transmission constants from their recorded sweeps. The finger's page shows it.
 - `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
   `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
   that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements
