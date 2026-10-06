@@ -10,6 +10,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..control.projection import project_psd
 from ..core.params import constants
 from ..models.kinematics import Kinematics
 
@@ -21,6 +22,8 @@ class ForceTracking:
     change the springs. The contact is at ``site`` of the robot; with a ``normal`` the force is the
     one along it. A step ``p ← p + α g`` takes the largest α that keeps the predicted change of the
     force below ``max_force_step`` [N] and the change of each Param (its norm) below ``max_step``.
+    A new value stays within the Param's bounds, and a square matrix stays symmetric and positive
+    semidefinite.
     """
 
     def __init__(
@@ -43,6 +46,7 @@ class ForceTracking:
         self.names, self.max_force_step, self.max_step = names, max_force_step, max_step
         slices = compiled.live_slices()
         self._shapes = {n: compiled.params[n].shape for n in names}
+        self._bounds = {n: self._flat_bounds(compiled.params[n]) for n in names}
         self._slices = {n: slices[n] for n in names}
         n_angles, n_rates = compiled.n_motors
         self._offset = n_angles + n_rates + compiled.z0.size
@@ -85,8 +89,25 @@ class ForceTracking:
             largest = max(float(np.linalg.norm(b)) for b in blocks.values())
             alpha = min(alpha, self.max_step / max(largest, 1e-12))
         live = controller.live_params()
-        new = {n: np.ravel(live[n], order="F") + alpha * b for n, b in blocks.items()}
+        new = {
+            n: self._admissible(n, np.ravel(live[n], order="F") + alpha * b)
+            for n, b in blocks.items()
+        }
         return alpha, float(controller.set(new))
+
+    @staticmethod
+    def _flat_bounds(param: Any) -> tuple[np.ndarray, np.ndarray]:
+        lo, hi = (np.broadcast_to(np.asarray(b, dtype=float), param.shape) for b in param.bounds)
+        return np.ravel(lo, order="F"), np.ravel(hi, order="F")
+
+    def _admissible(self, name: str, value: np.ndarray) -> np.ndarray:
+        """``value`` within the Param's bounds; a square matrix is also made symmetric PSD."""
+        lo, hi = self._bounds[name]
+        value = np.clip(value, lo, hi)
+        shape = self._shapes[name]
+        if len(shape) == 2 and shape[0] == shape[1]:
+            value = np.ravel(project_psd(np.reshape(value, shape, order="F")), order="F")
+        return value
 
     def _gradient(
         self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike

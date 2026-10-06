@@ -18,8 +18,8 @@ import docs_setup
 
 A spring pulls the fingertip to a goal, and the table pushes back. The force on the table is a
 function of the goal, so we can ask which way to move the goal to bring the force closer to the
-wanted one. `ForceTracking` answers it: it moves live Params of the controller, here the
-spring's goal, by gradient descent of $\tfrac12 \lVert f - f_\mathrm{des} \rVert^2$. At every
+wanted one. `ForceTracking` answers it: it moves live Params of the controller, first the
+spring's goal, then its stiffness, by gradient descent of $\tfrac12 \lVert f - f_\mathrm{des} \rVert^2$. At every
 control step it moves them by the largest step that changes the force by less than
 `max_force_step` [N].
 
@@ -61,21 +61,22 @@ goal. The wanted force is 2 N along $+z$, into the table.
 wanted = np.array([0.0, 0.0, 2.0])  # [N]
 kin = vmc.Kinematics(finger)
 
-def press(controller, steps=3000):  # 6 s at 500 Hz
-    goal = "ctrl.press.goal"
-    law = ForceTracking(controller, "tip", goal, normal=[0, 0, 1])
+def press(controller, adapted="ctrl.press.goal", steps=3000):  # 500 Hz
+    law = ForceTracking(controller, "tip", adapted, normal=[0, 0, 1])
     plant = vmc.sim.ModelPlant(finger, q0=[0.8, 0.8], max_step=1e-4)
-    log = {"t": [], "force": [], "depth": [], "level": []}
+    names = ["t", "force", "depth", "stiffness", "level"]
+    log = {name: [] for name in names}
     for step in range(steps):
         plant.write(controller.step(plant.t, plant.read()))
         below = kin.position(plant.q, "tip")[2] - 0.06  # [m]
         measured = np.array([0.0, 0.0, k * max(0.0, below)])
         if step > 100:  # let the finger settle on the table first
             law.step(controller, measured, wanted)
-        depth = controller.live_params()[goal][2] - 0.06
+        live = controller.live_params()
         level = getattr(controller, "level", 0.0)  # a tank's budget [J]
-        row = (plant.t, measured[2], depth, level)
-        for name, value in zip(log, row):
+        row = (plant.t, measured[2], live["ctrl.press.goal"][2] - 0.06,
+               float(live["ctrl.press.stiffness"]), level)
+        for name, value in zip(names, row):
             log[name].append(value)
         plant.advance(1 / 500)
     return {name: np.array(values) for name, values in log.items()}
@@ -109,10 +110,11 @@ glue("late_std", float(late.std()), display=False)
 glue("depth_end", float(1e3 * free["depth"][-1]), display=False)
 ```
 
-From {glue:text}`settled:.1f` s on, the force stays within 0.1 N of the wanted one. At the end it is
-{glue:text}`late_mean:.2f` N, with a ripple of {glue:text}`late_std:.2f` N: the step always
-changes the force by about `max_force_step`, so near the target it steps over it and back. The
-goal ends {glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A
+The spike at the start is the finger landing on the table. From {glue:text}`settled:.1f` s on,
+the force stays within 0.1 N of the wanted one. At the end it is {glue:text}`late_mean:.2f` N,
+with a ripple of {glue:text}`late_std:.2f` N: the step always changes the force by about
+`max_force_step`, so near the target it steps over it and back. The goal ends
+{glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A
 smaller `max_force_step` gives a smaller ripple and a slower approach. `max_step` [m] also caps
 how far a goal moves in one step.
 
@@ -156,6 +158,47 @@ The tank with 0.05 J gets there, with {glue:text}`spent:.3f` J of it spent on th
 empty one stalls at {glue:text}`stalled:.2f` N, where the finger rests and nothing refills it. A
 tank lets the controller's energy rise only by what it holds, so a law running through one
 cannot pump energy into the controller, whatever force it is asked for.
+
+## By stiffness
+
+The law moves any live Param, so the stiffness of the spring can do the work of its goal. We
+fix the goal 20 mm below the table and start with a spring that is too soft:
+
+```{code-cell} python
+soft = vmc.VMCController(compiled)
+soft.set({"ctrl.press.stiffness": 40.0,  # [N/m]
+          "ctrl.press.goal": [0.0, 0.05, 0.08]})  # [m]
+stiff = press(soft, "ctrl.press.stiffness")
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, (top, bottom) = plt.subplots(2, 1, sharex=True)
+top.plot(stiff["t"], stiff["force"])
+top.axhline(wanted[2], color="0.5", linestyle="--")
+top.set_ylim(-0.2, 3.0)  # leaves out the finger's landing on the table
+top.set_ylabel("force [N]")
+bottom.plot(stiff["t"], stiff["stiffness"])
+bottom.set_ylabel("stiffness [N/m]")
+bottom.set_xlabel("time [s]");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+depth = 0.02  # [m] the goal is below the table
+series = wanted[2] * k / (k * depth - wanted[2])  # [N/m]
+final = float(stiff["stiffness"][-500:].mean())
+assert abs(final - series) < 2.0
+assert abs(stiff["force"][-500:].mean() - wanted[2]) < 0.05
+glue("k_end", final, display=False)
+glue("k_series", float(series), display=False)
+```
+
+The stiffness settles at {glue:text}`k_end:.0f` N/m. The spring and the table push in series,
+so the force is $K k d / (K + k)$ for a goal at depth $d$, and 2 N at 20 mm needs
+{glue:text}`k_series:.0f` N/m. A new value stays within the Param's bounds, so a stiffness never
+goes below zero. A stiffness given as a matrix stays symmetric and positive semidefinite, so the
+spring cannot store negative energy.
 
 ## What the law needs
 

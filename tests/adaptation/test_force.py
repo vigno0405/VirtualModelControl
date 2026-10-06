@@ -142,3 +142,67 @@ def test_the_normal_may_have_any_length(setup):
     a, b = unit.direction(controller, f_meas, f_des), long.direction(controller, f_meas, f_des)
     for name in a:
         np.testing.assert_allclose(b[name], a[name], rtol=1e-12)
+
+
+@pytest.fixture(scope="module")
+def scalar_setup():
+    """The same two springs with one stiffness each, the isotropic gains the lab adapts."""
+    arm = helyx.arm("290-145-145", efficiency=float(DATA["eta"]))
+    ctrl = vmc.Mechanism("ctrl")
+    for i, s in enumerate((0.5, 1.0), 1):
+        ctrl.add(f"s{i}", vmc.LinearSpring(arm.point(s=s) - vmc.Ref(f"goal{i}", 3), 1.0))
+    return vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl), runtime=["ctrl.*"])
+
+
+def stiff_controller(compiled, key):
+    controller = vmc.VMCController(compiled)
+    values = {}
+    for i in (0, 1):
+        values[f"ctrl.s{i + 1}.stiffness"] = DATA[f"{key}/k"][i]
+        values[f"ctrl.s{i + 1}.goal{i + 1}"] = DATA[f"{key}/d_ref"][i] - T_WB
+    controller.set(values)
+    meas = vmc.Signals(0.0, motor_position=DATA[f"{key}/q"], motor_velocity=np.zeros(9))
+    controller.reset(0.0, meas)
+    controller.step(0.0, meas)
+    return controller
+
+
+@pytest.mark.parametrize("key", ["stiff/0", "stiff/1", "stiff/2"])
+@pytest.mark.parametrize("cap, max_step", [("cap", None), ("geo", 0.5)])
+def test_stiffness_steps_agree_with_the_labs_step_without_a_tank(scalar_setup, key, cap, max_step):
+    controller = stiff_controller(scalar_setup, key)
+    force = ForceTracking(
+        controller, 1.0, "ctrl.*.stiffness", DATA[f"{key}/normal"], max_step=max_step
+    )
+    alpha, _ = force.step(controller, DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"])
+    assert alpha == pytest.approx(float(DATA[f"{key}/{cap}/alpha"]), rel=1e-5)
+    live = controller.live_params()
+    new = [float(live["ctrl.s1.stiffness"]), float(live["ctrl.s2.stiffness"])]
+    np.testing.assert_allclose(new, DATA[f"{key}/{cap}/new"], rtol=1e-9, atol=1e-12)
+
+
+def test_a_stiffness_never_goes_negative(scalar_setup):
+    key = "stiff/2"  # the second spring is at 0.2 N/m and the step takes more than that
+    controller = stiff_controller(scalar_setup, key)
+    force = ForceTracking(controller, 1.0, "ctrl.*.stiffness", DATA[f"{key}/normal"])
+    f_meas, f_des = DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"]
+    g = force.direction(controller, f_meas, f_des)
+    alpha, _ = force.step(controller, f_meas, f_des)
+    assert 0.2 + alpha * float(g["ctrl.s2.stiffness"]) < 0.0  # the raw step goes below zero
+    assert float(controller.live_params()["ctrl.s2.stiffness"]) == 0.0
+
+
+def test_a_stiffness_matrix_stays_symmetric_and_positive_semidefinite(setup):
+    key = "tip_normal/0"
+    f_meas, f_des = DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"]
+    controller = controller_at(setup, key)
+    force = law(setup, key, "ctrl.*.stiffness", max_force_step=1e4)  # a step far too large
+    start, g = controller.live_params(), force.direction(controller, f_meas, f_des)
+    alpha, _ = force.step(controller, f_meas, f_des)
+    for name in ("ctrl.s1.stiffness", "ctrl.s2.stiffness"):
+        raw = start[name] + alpha * g[name]
+        assert np.linalg.eigvalsh(0.5 * (raw + raw.T)).min() < 0.0  # the raw step breaks it
+        new = controller.live_params()[name]
+        np.testing.assert_allclose(new, new.T, atol=1e-12)
+        assert np.linalg.eigvalsh(new).min() >= -1e-9
+        np.testing.assert_allclose(new, vmc.control.project_psd(raw), rtol=1e-9, atol=1e-9)

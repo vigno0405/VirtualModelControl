@@ -275,25 +275,23 @@ the soft arm among obstacles.
   pyserial, and the ROS CI job. Done (5 October 2026): the ROS package, the Dynamixel plant,
   homing and bus modules, their tests and the CI job are gone, the two dependencies leave the
   install, and the real-time test runs on a plain plant. Hardware profiles stay.
-- [ ] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
-  new language: trajectories (trapezoidal and Hermite-Simpson collocation are done, in
-  `vmc.optimization`; multiple shooting, free final time, periodic), equilibria (done:
-  `Equilibrium`), data fits (identification, moving-horizon estimation); solver presets that work
-  on these problems
-  (IPOPT with L-BFGS and `expand=True` is done; FATROP, SQP and QP solvers; acados optional).
-- [ ] **Automatic scales:** the trajectory problem derives the typical sizes of q, v and a
-  itself, so that the solver works on variables of order one on any robot. Today they are given
-  by hand (`Collocation(scales=...)`, `(1, 1, 1)` when omitted). Measured on the soft arm (20
-  nodes): on the reaching problems every choice reaches the same plan in 14 to 34 iterations.
-  On the avoidance problem with free placement, the lab's hand-tuned scales `(0.05, 0.3, 20)`
-  take 29 iterations and stop at a poor local optimum (the spring near the base); no scaling
-  takes 123 iterations and finds another optimum with less than a quarter of the cost; the
-  motion's typical sizes `(0.003, 0.02, 12)` take 92. So the scales also decide which optimum is
-  found, and a derivation (from a simulation of the closed loop under the starting design, or by
-  equilibrating the Jacobian columns) has to be judged on many problems and robots. Done when
-  the automatic scales need as few iterations as the best hand-tuned ones on the soft arm's
-  problems and no number is given for the other robots. If no simple derivation holds up,
-  `(1, 1, 1)` stays the default and the scales stay an option.
+- [x] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
+  new language. Done (6 October 2026): trajectories by trapezoidal and Hermite-Simpson
+  collocation, and equilibria (`Equilibrium`), in `vmc.optimization`, with IPOPT (L-BFGS and
+  `expand=True`) as the preset. Multiple shooting, free final time, periodic problems and the
+  other solver presets (FATROP, SQP, QP solvers, acados) wait for what needs them: periodic
+  problems and free final time for the turtle's gait (0.5.0), multiple shooting and the solver
+  presets for MPC (0.6.0), data fits for estimation (0.5.0).
+- [x] **Automatic scales:** the trajectory problem could derive the typical sizes of q, v and a
+  itself. Decided (6 October 2026): no simple derivation holds up, so `(1, 1, 1)` stays the
+  default and `Collocation(scales=...)` stays an option. Measured on the soft arm (20 nodes): on
+  the reaching problems every choice reaches the same plan in 14 to 34 iterations. On the
+  avoidance problem with free placement, the lab's hand-tuned scales `(0.05, 0.3, 20)` take 29
+  iterations and stop at a poor local optimum (the spring near the base); no scaling takes 123
+  iterations and finds another optimum with less than a quarter of the cost; the motion's typical
+  sizes `(0.003, 0.02, 12)` take 92. The scales decide which optimum is found, so a derivation
+  would have to be judged on many problems and robots, and the tutorial says to try two scalings
+  and compare.
 - [x] **Integrators and rollouts:** RK4, the linearly implicit step and CVODES through
   CasADi, an `ode()` that returns f(t, x) for SciPy's `solve_ivp`; closed-loop rollouts
   compiled with `mapaccum`, fast and differentiable. Done (6 October 2026): `vmc.sim.rollout`
@@ -361,10 +359,10 @@ turtle crawling.
   reference or by stiffness gradient descent; every stiffness update symmetrized and projected
   onto positive semidefinite matrices.
   Done so far (6 October 2026): `vmc.adaptation.ForceTracking`, gradient descent of a contact
-  force error on any live Params (a spring's goal, or its stiffness), the step bounded by the
-  force it may change and by the tank; the tutorial "Track a contact force" uses the goal. Open:
-  the stiffness variant with the projection onto positive semidefinite matrices in the loop and
-  its page, direct stiffness tracking, integral pose regulation, the schedules K(F) and K(d).
+  force error on any live Params, a spring's goal or its stiffness, the step bounded by the
+  force it may change, by the Param's bounds, by the positive semidefinite cone for a matrix,
+  and by the tank; the tutorial "Track a contact force" uses both. Open: direct stiffness
+  tracking, integral pose regulation, the schedules K(F) and K(d).
 - [x] **Passivity filters:** every online update can pass through the tank or a projection,
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
@@ -382,7 +380,7 @@ turtle crawling.
   virtual springs (virtual work) and from motor torques; task-space stiffness (congruence
   transformation, Hessian terms included); object compliance by probing; a momentum observer
   for external forces; linear-in-parameters regression from the dynamics residual, and
-  nonlinear least squares.
+  nonlinear least squares, and moving-horizon estimation as a problem of `vmc.optimization`.
 - [ ] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,
@@ -410,6 +408,8 @@ turtle crawling.
 - [ ] **The turtle crawling:** its floating body on the ground in the library's own simulator;
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.
+  Its gait needs periodic trajectory problems (the orbit repeats, with references that change in
+  time) and free final time (the period is an unknown), both built on `vmc.optimization`.
 - [ ] **Parity with VMRobotControl.jl** (the Julia library that shares this library's
   vocabulary of coordinates and components): virtual mechanisms with their own kinematics (a
   virtual cart on a rail along a path, a virtual tool); a table that maps its features to this
@@ -429,6 +429,8 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   stiffness and reference trajectories under passivity (tank) constraints; runs asynchronously
   and applies its result through `controller.set` with the measured latency; a
   real-time-iteration option.
+  It brings multiple shooting (one rollout per interval, as in `vmc.sim.rollout`) and the solver
+  presets that suit it (FATROP, SQP with a QP solver, acados optional).
 - [ ] **Underactuated VMC:** actuation projector, torque defect, feasible force set; naive and
   frozen-base controllers; passive and tank corrections; direction-constrained force tracking;
   each a flag, so the old and new behaviour compare; an underactuated allocation that reports

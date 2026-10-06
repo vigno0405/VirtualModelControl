@@ -77,10 +77,13 @@ All notable changes to this project are documented here. The format follows
   `direction` gives the descent direction without applying it. The gradient comes from automatic
   differentiation of the controller's delivered torque and agrees with the lab's hand-derived
   one to 1e-8 (reference and stiffness, tip and mid-arm contacts, with and without a normal), and
-  its step with the lab's, which finds the force cap by a finite-difference probe. The
-  energy bound is the tank's exact jump, so there is no safety factor. `VMCController.inputs()`
-  gives what the law read at the last step. The tutorial "Track a contact force" presses a
-  fingertip on a table with a chosen force, free and through a tank.
+  its steps, for the goal and for an isotropic stiffness, with the lab's, which finds the force
+  cap by a finite-difference probe. A new value stays within the Param's bounds (a stiffness
+  stops at zero), and a square matrix is made symmetric and positive semidefinite
+  (`control.project_psd`). The energy bound is the tank's exact jump, so there is no safety
+  factor. `VMCController.inputs()` gives what the law read at the last step. The tutorial
+  "Track a contact force" presses a fingertip on a table with a chosen force, by the goal and by
+  the stiffness, free and through a tank.
 - `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
   `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
   that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements
