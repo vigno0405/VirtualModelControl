@@ -126,6 +126,94 @@ print("error with both terms:", np.abs(geometric + stretched - fd).max())
 print("error without the Hessian term:", np.abs(geometric - fd).max())
 ```
 
+## A spring on the tool's orientation
+
+The tool's orientation is a coordinate too. `OrientationError` is the rotation vector $\phi$
+that takes a goal orientation to the tool's, in the goal's axes, and a spring on it is a
+rotational spring of stiffness $K_r$ [N·m/rad], with energy $\tfrac12 \phi^\top K_r \phi$. The
+joints feel the torque $-(\partial\phi/\partial q)^\top K_r \phi$. The derivative of $\phi$ is
+not the angular Jacobian $J_\omega$: the two agree near the goal only. The library differentiates
+the error exactly, so the torque is the gradient of the energy at any error. Here the goal is
+0.8 rad from the tool:
+
+```{code-cell} python
+Kr = np.diag([30.0, 20.0, 10.0])  # [N·m/rad], in the goal's axes
+axis = np.array([0.3, -0.5, 0.8]) / np.linalg.norm([0.3, -0.5, 0.8])
+none = np.zeros(0)
+
+def spring(angle):
+    """The compiled spring, and the goal orientation ``angle`` away."""
+    R_goal = R @ vmc.math.exp_so3(angle * axis).T
+    error = vmc.OrientationError(arm.model, "tool",
+                                 goal=vmc.math.log_so3(R_goal))
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("turn", vmc.LinearSpring(error, Kr))
+    return vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl)), R_goal
+
+def torque(law, q):
+    return np.array(law.tau(q, 0 * q, none, law.live_values(), 0.0)).ravel()
+
+def energy(law, q):
+    return float(law.energy(q, 0 * q, none, law.live_values(), 0.0)[0])
+
+law, R_goal = spring(0.8)
+gradient = np.array([(energy(law, q + h * e) - energy(law, q - h * e)) / (2 * h)
+                     for e in eye])
+print("torque + gradient of the energy:", np.abs(torque(law, q) + gradient).max())
+```
+
+The torque from $J_\omega$ instead, $-(R_\text{goal}^\top J_\omega)^\top K_r \phi$, is the right
+one only near the goal. We compare the two as the goal moves away:
+
+```{code-cell} python
+angles = np.linspace(0.05, 2.2, 12)  # [rad]
+share = []
+for angle in angles:
+    law, R_goal = spring(angle)
+    phi = vmc.math.log_so3(R_goal.T @ R)
+    naive = -(R_goal.T @ Jw).T @ Kr @ phi
+    exact = torque(law, q)
+    share.append(np.abs(naive - exact).max() / np.abs(exact).max())
+
+fig, ax = plt.subplots()
+ax.plot(angles, 100 * np.array(share), "o-")
+ax.set_xlabel("angle from the goal [rad]")
+ax.set_ylabel(r"error of the $J_\omega$ torque [%]")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+assert share[0] < 0.03 and share[-1] > 0.3
+glue("naive_far", float(100 * share[7]), display=False)
+glue("naive_angle", float(angles[7]), display=False)
+```
+
+At {glue:text}`naive_angle:.1f` rad the torque from $J_\omega$ is off by
+{glue:text}`naive_far:.0f` %. A damper on the same coordinate damps the rate of the error, which is
+the tool's angular velocity relative to the goal near it.
+
+## A spring along the tool's axes
+
+A stiffness is often wanted along the tool's own axes: stiff across a tool, soft along it.
+`vmc.InFrame(c, model, site)` is a vector coordinate $c$ taken along the axes of a frame,
+$R^\top c$, and `vmc.FromFrame` does the opposite. A spring $K$ on `InFrame(tool - goal, ...)`
+has the stiffness $R K R^\top$ in the base frame, which turns with the tool. At the goal it gives
+the joints $J^\top R K R^\top J$, as a finite difference of the torque confirms:
+
+```{code-cell} python
+Kt = np.diag([400.0, 40.0, 400.0])  # [N/m] along the tool's x, y and z
+goal = kin.position(q, "tool")  # the tool is on its goal
+ctrl = vmc.Mechanism("ctrl")
+along = vmc.InFrame(arm.point("tool") - goal, arm.model, "tool")
+ctrl.add("hold", vmc.LinearSpring(along, Kt))
+law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
+fd = -np.column_stack([(torque(law, q + h * e) - torque(law, q - h * e)) / (2 * h)
+                       for e in eye])
+print("error:", np.abs(J.T @ R @ Kt @ R.T @ J - fd).max())
+```
+
 ## Moving the joints
 
 A log needs only the time and the configurations, so `viz.animate` can replay any motion, even

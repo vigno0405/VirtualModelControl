@@ -50,6 +50,34 @@ class TanhDamper(Component):
         return -F * ca.tanh(d * yd / F)
 
 
+@register("component", "diode_damper")
+class DiodeDamper(Component):
+    """A damper that acts in one direction of motion only: f = −D gate(σ ẏ) ẏ per axis.
+
+    ``sign`` σ is +1 to damp positive rates and −1 to damp negative ones; the gate is a step, or
+    a smooth one over ``smoothing`` [coordinate unit/s]. It never adds energy.
+    """
+
+    kind = "dissipation"
+
+    def __init__(
+        self, coord: Coordinate, damping: Any, sign: Any = 1.0, smoothing: Any = 0.0
+    ) -> None:
+        super().__init__(coord)
+        self.damping = self._param("damping", damping, unit=damping_unit(coord.unit), scope="stage")
+        self.sign = self._param("sign", sign, unit="", scope="episode", bounds=(-1.0, 1.0))
+        self.smoothing = self._param(
+            "smoothing", smoothing, unit=f"{coord.unit}/s", scope="episode"
+        )
+
+    def force(self, ctx: Context, y: Any, yd: Any) -> Any:
+        """−D gate(σ ẏ) ẏ."""
+        w, x = ctx.param(self.smoothing), ctx.param(self.sign) * yd
+        smooth = 0.5 * (1 + ca.tanh(x / (2 * ca.fmax(w, 1e-300))))
+        gate = ca.if_else(w > 0, smooth, ca.if_else(x > 0, 1.0, 0.0))
+        return -scaled(ctx.param(self.damping), gate * yd)
+
+
 @register("component", "contact_damper")
 class ContactDamper(Component):
     """Damper active only in contact (d < 0) on a signed distance d: f = −D σ(−d/w) ḋ.

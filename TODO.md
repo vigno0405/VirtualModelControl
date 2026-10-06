@@ -434,12 +434,20 @@ turtle crawling.
   `Custom`), which a controller uses as a cart on a rail. A robot's own joint is driven the same
   way, by a stiff spring to a reference or to a function of time.
 
-- [ ] **More coordinates and components:** the sum of coordinates, an orientation error, the
+- [x] **More coordinates and components:** the sum of coordinates, an orientation error, the
   angular velocity of a frame, a vector expressed in a frame and back; one-sided springs and
   dampers, a diode damper (damps one direction of motion only), a linear inerter, rigid-body
   inertias with an angular-velocity coordinate, rotational springs on an orientation error,
   mass distributed along a continuum by quadrature, force- and power-limited sources, a helper
   that adds deadzone springs at joint limits.
+  Done (6 October 2026): `Sum` and the plus sign, `FrameRotation`, `OrientationError` (a rotational
+  spring is a spring on it; a damper on it damps the frame's angular velocity relative to its goal,
+  and there is no coordinate of the angular velocity itself, which is not the derivative of any
+  function of q), `InFrame` and `FromFrame`, `RotationalInertia` (a rigid body's inertia on the
+  frame's rotation matrix, with a `PointMass`, in place of an angular-velocity coordinate),
+  `DiodeDamper`, a `ForceSource` bounded in force and in power, `Mechanism.add_mass_along`. The
+  one-sided springs and dampers are the contact ones, the linear inerter is an `Inertance` on a
+  difference, and soft joint limits are a `LimitSpring` on a slice of the joints.
 - [ ] **Contact, continued:** tangential friction (smooth Coulomb); contact forces reported
   per component by the simulator; contact between two robot points (self-contact, two arms);
   soft objects. Done (6 October 2026): boxes, cylinders and capsules (`BoxDistance`,

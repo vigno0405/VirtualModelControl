@@ -234,6 +234,66 @@ glue("turns", float(turns), display=False)
 
 It turned {glue:text}`turns:.1f` times, and its quaternion is still a unit.
 
+A body does not need its point masses. A `PointMass` at its centre gives its mass, and a
+`RotationalInertia` on the `FrameRotation` of its frame gives the inertia about that point:
+a 3 by 3 matrix in the frame's axes, or its three principal moments. We replace the brick's four
+corners by their total mass and the inertia about their centre, and give both the same spin:
+
+```{code-cell} python
+names = list(corners)
+m = np.array([mass[n] for n in names])
+r = np.array([corners[n] for n in names])
+centre = m @ r / m.sum()  # [m]
+inertia = sum(mk * (x @ x * np.eye(3) - np.outer(x, x))
+              for mk, x in zip(m, r - centre))  # [kg·m²], about the centre
+
+def brick():
+    """A floating brick that turns about its centre of mass."""
+    sites = {n: (1, c) for n, c in corners.items()} | {"centre": (1, centre)}
+    chain = SerialChain(["floating"], axes=[None], points=[centre],
+                        sites=sites)
+    return vmc.Mechanism("brick", model=chain)
+
+corner_masses, rigid = brick(), brick()
+for n in names:
+    corner_masses.add(f"m_{n}", vmc.PointMass(corner_masses.point(n), mass[n]))
+rigid.add("mass", vmc.PointMass(rigid.point("centre"), m.sum()))
+rigid.add("spin", vmc.RotationalInertia(
+    vmc.FrameRotation(rigid.model, "centre"), inertia))
+
+spins = {}
+for name, robot in (("four corners", corner_masses), ("one body", rigid)):
+    plant = vmc.sim.ModelPlant(robot, v0=[0, 0, 0, 3.0, 12.0, -2.0],
+                               max_step=1e-4)
+    spin = []
+    for _ in range(40):
+        plant.advance(0.025)
+        spin.append(plant.v[3:].copy())
+    spins[name] = np.array(spin)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+error = np.abs(spins["four corners"] - spins["one body"]).max()
+assert error < 1e-6 and np.ptp(spins["one body"][:, 0]) > 1.0
+glue("rigid_error", float(error), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+time = 0.025 * np.arange(1, 41)
+for i, axis_name in enumerate("xyz"):
+    line, = ax.plot(time, spins["four corners"][:, i], label=f"$\\omega_{axis_name}$")
+    ax.plot(time[::2], spins["one body"][::2, i], "o", color=line.get_color())
+ax.set_xlabel("time [s]")
+ax.set_ylabel("angular velocity [rad/s]")
+ax.legend();
+```
+
+The brick of four corners (lines) and the one body (dots) turn alike, to
+{glue:text}`rigid_error:.0e` rad/s: they have the same mass and the same inertia.
+
 ## A rail along a path
 
 A rail carries a body along a curve. Its coordinate $s$ is the parameter of the natural cubic
@@ -311,6 +371,44 @@ soft = vmc.Mechanism("soft", model=PCC([0.2, 0.2], 0.03),
                      actuation=TendonTransmission(angles, 0.003))
 soft.actuation.motor_sizes(soft.space)  # motor angles, motor rates
 ```
+
+The arm's mass is not lumped by itself. `soft.add_mass_along(name, mass, s0, s1, n)` spreads a mass
+evenly between two arc parameters as $n$ point masses at the nodes of Gauss-Legendre quadrature,
+which is exact for any polynomial of degree $2n - 1$ in the arc length. Here the height of the
+centre of the mass of a rod bent through 1.2 rad in all converges with $n$ to rounding error:
+
+```{code-cell} python
+q_bent = np.array([0.018, 0, 0, 0.018, 0, 0])  # 0.6 rad in each segment
+kin_soft = vmc.Kinematics(soft)
+
+def moment(n):
+    """The mass times the height of its centre [kg·m], with n masses."""
+    rod = vmc.Mechanism("rod", model=soft.model)
+    parts = [rod.components[k] for k in rod.add_mass_along("rod", 1.0, 0.0, 1.0, n)]
+    return sum(float(c.mass.value) * kin_soft.position(q_bent, float(c.coord.s.value))[2]
+               for c in parts)
+
+counts = np.arange(1, 9)
+fine = moment(64)
+mistake = [abs(moment(n) - fine) / fine for n in counts]
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert mistake[0] > 1e-2 and mistake[3] < 1e-8
+glue("one_mass", float(100 * mistake[0]), display=False)
+glue("four_masses", float(mistake[3]), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.semilogy(counts, np.maximum(mistake, 1e-16), "o-")
+ax.set_xlabel("masses $n$")
+ax.set_ylabel("error of the centre's height")
+```
+
+One mass is {glue:text}`one_mass:.0f` % off, four masses {glue:text}`four_masses:.0e`.
 
 A robot known only by its joints, such as the turtle's cranks, is a `JointSpace` model: its
 controllers act on `robot.joint(i)`. A `LinearCoupling` lets one motor drive several joints.

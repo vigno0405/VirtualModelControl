@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 from numpy.typing import ArrayLike
 
 from ..core.params import Param, ParamSet
 from .components.base import Component
+from .components.inertance import PointMass
 from .coordinates.base import walk
 from .coordinates.frames import FramePoint
 from .coordinates.joints import Joint, State
@@ -54,6 +56,20 @@ class Mechanism:
         if self.model is None:
             raise ValueError(f"{self.name!r} has no kinematic model")
         return FramePoint(self.model, at, s=s, offset=offset)
+
+    def add_mass_along(
+        self, name: str, mass: float, s0: float = 0.0, s1: float = 1.0, n: int = 4
+    ) -> list[str]:
+        """Spread ``mass`` [kg] evenly along the model between the arc parameters ``s0`` and
+        ``s1``, as ``n`` point masses at the nodes of Gauss-Legendre quadrature; returns their
+        names, ``name1`` to ``name{n}``."""
+        nodes, weights = np.polynomial.legendre.leggauss(n)
+        names = []
+        for k, (x, w) in enumerate(zip(nodes, weights, strict=True)):
+            names.append(f"{name}{k + 1}")
+            point = self.point(s=s0 + (x + 1) / 2 * (s1 - s0))
+            self.add(names[-1], PointMass(point, mass * w / 2))
+        return names
 
     def joint(self, index: Any) -> Joint:
         """Entries of the robot's generalized coordinates."""

@@ -175,6 +175,26 @@ controller:
           radius: 0.02
           half_height: 0.1
       stiffness: 100.0
+    n: {type: linear_spring, coordinate: {sum: [site, [0.0, 0.0, 0.05]]}, stiffness: 9.0}
+    o: {type: linear_spring, coordinate: {rotation: {at: tip}}, stiffness: 10.0}
+    p:
+      type: linear_spring
+      coordinate:
+        orientation_error: {at: tip, goal: [0.1, 0.0, 0.2]}
+      stiffness: 11.0
+    q:
+      type: linear_spring
+      coordinate:
+        in_frame: {of: site, at: tip}
+      stiffness: [1.0, 2.0, 3.0]
+    r: {type: linear_spring, coordinate: {from_frame: {of: site, at: seg1}}, stiffness: 12.0}
+    s: {type: diode_damper, coordinate: site, damping: 0.5, sign: -1.0}
+    t:
+      type: force_source
+      coordinate: site
+      force: [0.1, 0.0, 0.0]
+      max_force: 2.0
+      max_power: 5.0
     mass: {type: inertance, coordinate: follower, inertance: 0.05}
 """
 
@@ -204,6 +224,14 @@ def test_every_coordinate_kind_builds_what_python_builds(tmp_path):
     ctrl.add("l", vmc.ContactSpring(capsule, 100.0))
     cylinder = vmc.CylinderDistance(tip, [0, 0, 0.5], [0, 0, 1.0], 0.02, 0.1)
     ctrl.add("m", vmc.ContactSpring(cylinder, 100.0))
+    ctrl.add("n", vmc.LinearSpring(site + np.array([0.0, 0.0, 0.05]), 9.0))
+    ctrl.add("o", vmc.LinearSpring(vmc.FrameRotation(arm.model, "tip"), 10.0))
+    error = vmc.OrientationError(arm.model, "tip", goal=[0.1, 0.0, 0.2])
+    ctrl.add("p", vmc.LinearSpring(error, 11.0))
+    ctrl.add("q", vmc.LinearSpring(vmc.InFrame(site, arm.model, "tip"), [1.0, 2.0, 3.0]))
+    ctrl.add("r", vmc.LinearSpring(vmc.FromFrame(site, arm.model, "seg1"), 12.0))
+    ctrl.add("s", vmc.DiodeDamper(site, 0.5, sign=-1.0))
+    ctrl.add("t", vmc.ForceSource(site, [0.1, 0.0, 0.0], max_force=2.0, max_power=5.0))
     ctrl.add("mass", vmc.Inertance(follower, 0.05))
     law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
 
@@ -236,6 +264,8 @@ def test_saved_files_carry_the_current_values(tmp_path):
     elements["m"].coord.half_height.value = 0.2
     elements["i"].coord.b.param.value = [0.01]
     elements["j"].coord.direction.value = [1.0, 0.0, 0.0]  # the constrained spring's normal
+    elements["p"].coord.goal.value = [0.0, 0.3, 0.0]
+    elements["t"].max_force.value = 1.5
     data = vmc.config.load(experiment.save(tmp_path / "tuned.yaml")).to_dict()
     a = data["controller"]["elements"]["a"]
     assert a["stiffness"] == 1.5 and a["coordinate"]["difference"][0] == [0.2, 0.0, 0.3]
@@ -249,6 +279,8 @@ def test_saved_files_carry_the_current_values(tmp_path):
     assert elements["m"]["coordinate"]["cylinder_distance"]["half_height"] == 0.2
     assert elements["i"]["coordinate"]["difference"][1]["ref"]["value"] == [0.01]
     assert elements["j"]["normal"] == [1.0, 0.0, 0.0]
+    assert elements["p"]["coordinate"]["orientation_error"]["goal"] == [0.0, 0.3, 0.0]
+    assert elements["t"]["max_force"] == 1.5
 
 
 def test_numbers_read_as_numbers(tmp_path):

@@ -30,6 +30,24 @@ class Difference(Coordinate):
         return ctx.value(self.a) - ctx.value(self.b)
 
 
+class Sum(Coordinate):
+    """a + b, e.g. a point and an offset that moves."""
+
+    def __init__(self, a: Coordinate, b: Coordinate) -> None:
+        if a.dim != b.dim:
+            raise ValueError(f"cannot add a {b.dim}-entry coordinate to a {a.dim}-entry one")
+        super().__init__(a.dim, a.unit)
+        self.a, self.b = a, b
+
+    def children(self) -> tuple[Coordinate, ...]:
+        """The two operands."""
+        return (self.a, self.b)
+
+    def value(self, ctx: Context) -> Any:
+        """a + b."""
+        return ctx.value(self.a) + ctx.value(self.b)
+
+
 class Slice(Coordinate):
     """Some entries of a coordinate."""
 
