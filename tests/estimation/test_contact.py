@@ -5,7 +5,7 @@ import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.core.params import Param
-from virtualmodelcontrol.estimation import ContactForce
+from virtualmodelcontrol.estimation import ContactForce, TaskStiffness
 from virtualmodelcontrol.robots import adapt, helyx
 
 DATA = np.load(Path(__file__).parents[1] / "data" / "estimation.npz")
@@ -117,3 +117,65 @@ def test_a_fingertip_at_rest_on_a_table_reads_the_tables_force():
     true = FINGER_TABLE * (kin.position(plant.q, "tip")[2] - 0.06)
     assert true > 1.0  # pressing on it
     assert force(controller)[2] == pytest.approx(true, rel=0.02)
+
+
+def stiffness(controller, key, **kwargs):
+    normal = DATA[f"{key}/normal"]
+    return TaskStiffness(
+        controller, SITES[key.split("/")[0]], None if not normal.any() else normal, **kwargs
+    )
+
+
+@pytest.mark.parametrize("key", CASES)
+def test_the_stiffness_agrees_with_the_labs_exact_apparent_stiffness(setup, key):
+    controller = controller_at(setup, key)
+    K = stiffness(controller, key)(controller)  # the model's own contact force is the default
+    np.testing.assert_allclose(K, DATA[f"{key}/cct"], rtol=1e-8, atol=1e-9)
+
+
+def test_the_stiffness_takes_a_contact_force_from_outside(setup):
+    key = "tip_free/0"
+    controller = controller_at(setup, key)
+    law = stiffness(controller, key)
+    own = law(controller)
+    given = law(controller, f_ext=estimator(controller, key)(controller))
+    np.testing.assert_allclose(given, own, rtol=1e-12)
+    pushed = law(controller, f_ext=[0.0, 0.0, 5.0])
+    assert np.abs(pushed - own).max() > 1e-3  # the Hessian terms depend on the force
+
+
+def test_the_stiffness_is_the_derivative_of_the_force_along_a_displacement(setup):
+    """K is the exact derivative: the force of a displaced arm changes by -K dx (small dx)."""
+    key = "tip_normal/1"
+    controller = controller_at(setup, key)
+    K = stiffness(controller, key)(controller)
+    n = DATA[f"{key}/normal"]
+    arm = soft_arm()
+    # push the tip by 0.1 mm along the normal and read the force the model then reports
+    kin = vmc.Kinematics(arm, coordinates="motors")
+    theta = DATA[f"{key}/q"]
+    J = kin.jacobian(theta, 1.0)
+    dtheta = np.linalg.pinv(np.outer(n, n) @ J) @ (1e-4 * n)  # moves the tip 0.1 mm along n
+    moved = vmc.VMCController(setup)
+    moved.set(controller.live_params())
+    meas = vmc.Signals(0.0, motor_position=theta + dtheta, motor_velocity=np.zeros(9))
+    moved.reset(0.0, meas)
+    moved.step(0.0, meas)
+    f0, f1 = estimator(controller, key)(controller), estimator(moved, key)(moved)
+    # moving into the contact (towards the normal) is a displacement of the contact point of
+    # +1e-4 along n, whose reaction is that the arm pushes less: df = -K dx
+    np.testing.assert_allclose(f1 - f0, -K @ (1e-4 * n), rtol=2e-2, atol=1e-6)
+
+
+def test_along_a_normal_only_the_part_of_the_force_along_it_counts(setup):
+    key = "tip_normal/1"
+    controller = controller_at(setup, key)
+    law, n = stiffness(controller, key), DATA[f"{key}/normal"]
+    f = np.array([1.0, -2.0, 3.0])
+    np.testing.assert_allclose(law(controller, f_ext=f), law(controller, f_ext=n * (n @ f)))
+
+
+def test_the_stiffness_leaves_velocities_out(setup):
+    key = "tip_normal/2"
+    still, moving = controller_at(setup, key), controller_at(setup, key, velocity=3.0)
+    np.testing.assert_array_equal(stiffness(still, key)(still), stiffness(moving, key)(moving))

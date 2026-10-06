@@ -363,8 +363,9 @@ turtle crawling.
   force it may change or a fixed rate, by the Param's bounds, by the positive semidefinite cone
   for a matrix, and by the tank; `ForceRatio` and `Stiffening`, the lab's laws that need no
   model (K(d) is the `SigmoidSpring` and the `PolynomialSpring`); the tutorial "Track a contact
-  force" uses them. Open: direct stiffness tracking and integral pose regulation, which need the
-  apparent stiffness of the arm.
+  force" uses them; `StiffnessTracking` (direct stiffness tracking) and `PositionRegulation`
+  (integral pose regulation), in the tutorial "Shape the stiffness of the tip". Open: the
+  open-loop counterpart of the pose regulation, the goals that hold the arm where it is.
 - [x] **Passivity filters:** every online update can pass through the tank or a projection,
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
@@ -392,7 +393,9 @@ turtle crawling.
   nonlinear least squares, and moving-horizon estimation as a problem of `vmc.optimization`.
   Done so far (6 October 2026): `vmc.estimation.ContactForce`, the contact force from the
   controller's command and the robot's model, which gives the open-loop force of the adaptation
-  laws; the tutorial "Track a contact force" uses it.
+  laws; `TaskStiffness`, the task-space stiffness with the Hessian terms (the exact one of the
+  lab; the first-order one is not provided); the tutorials "Track a contact force" and "Shape
+  the stiffness of the tip" use them.
 - [ ] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

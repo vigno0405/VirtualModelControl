@@ -87,6 +87,25 @@ All notable changes to this project are documented here. The format follows
   "Track a contact force" presses a fingertip on a table with a chosen force, by the goal and by
   the stiffness, free and through a tank. The finger's page presses with the two fixed-rate
   laws in joint space, between two force levels.
+- `vmc.estimation.TaskStiffness(controller, site, normal=None, robot=None)`: the stiffness [N/m]
+  that a robot held at rest by its controller shows at a site, as a 3 by 3 matrix (along `normal`
+  if given). It is the stiffness of the motors' static balance, by automatic differentiation,
+  with the changes of the Jacobians counted (the congruence transformation, the Hessians of the
+  site and of the springs included), carried to the site through the contact map. It agrees
+  with the lab's exact apparent stiffness to 1e-8, for the tip and a mid-arm point, along a normal
+  and in 3D, and is the derivative of the force of the model along a displacement of the site.
+  The lab's first-order version leaves out the Hessian terms and is not provided.
+- `adaptation.StiffnessTracking(controller, site, params, normal=None, robot=None, rate=1.0)`:
+  direct stiffness tracking. The task-space stiffness is affine in the springs' stiffness, so
+  `target` solves a linear system for the Params that give a wanted matrix, the solution of
+  smallest norm as in the lab's stiffness inversion, and `step` moves them `rate` of the way,
+  within their bounds and positive semidefinite. Where no spring pulls it agrees with the lab's
+  inversion to 1e-6; where they do pull it counts the Hessian terms, which the lab's leaves out.
+- `adaptation.PositionRegulation(controller, sites, rate=0.05)`: integral pose regulation. Each
+  step adds `rate` times the error of a point of the robot to the goal of the spring that pulls
+  it, so the tip reaches its target whatever the arm's own stiffness and weight hold back.
+- The tutorial "Shape the stiffness of the tip" estimates the stiffness of the soft arm's tip,
+  asks for another one and regulates the position.
 - `adaptation.ForceRatio(controller, params, max_change=0.05)` and `adaptation.Stiffening(controller,
   params, low, high, rate)`: the two laws of the lab's hand and finger that need no model. The
   ratio law scales stiffnesses by the wanted force over the measured one, by at most `max_change`

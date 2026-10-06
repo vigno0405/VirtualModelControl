@@ -111,6 +111,7 @@ tutorials/tuning
 tutorials/optimize
 tutorials/contact
 tutorials/force
+tutorials/stiffness
 tutorials/build-a-robot
 tutorials/extend
 ```
