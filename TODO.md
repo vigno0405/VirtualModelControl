@@ -382,9 +382,10 @@ turtle crawling.
   differences, orthonormal rotations, continuity across links and segments, energy
   conservation without damping, no NaN at the defaults, the bounds and singular poses,
   serialization round trip).
-  Done so far (6 October 2026): `vmc.testing.check_model(model)`, the model contract in one call
-  for a model or a robot's mechanism (finite, rotations, derivatives against finite
-  differences, continuity along `s`, serialization round trip, energy).
+  Done so far (6 October 2026): `vmc.models.FunctionModel` (a model from a function) and
+  `vmc.testing.check_model(model)`, the model contract in one call for a model or a robot's
+  mechanism (finite, rotations, derivatives against finite differences, continuity along `s`,
+  serialization round trip, energy).
 
 - [ ] **More coordinates and components:** the sum of coordinates, an orientation error, the
   angular velocity of a frame, a vector expressed in a frame and back; one-sided springs and

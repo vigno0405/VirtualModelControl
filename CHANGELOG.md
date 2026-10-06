@@ -65,6 +65,10 @@ All notable changes to this project are documented here. The format follows
   that earn their place: structure optimization, tested on a mass with three springs and on the
   soft arm with five repulsive fields, and shown in the optimization tutorial ("Which fields to
   keep").
+- `vmc.models.FunctionModel(frame, space, params, sites, q_unit)`: a kinematic model from a function
+  `frame(q, at, p)` that returns the rotation and the position of a site, as CasADi values or as
+  lists and arrays. It works in `Kinematics`, mechanisms and `check_model`; a function cannot be
+  written to a file, so it has no `to_dict`.
 - `vmc.testing.check_model(model)`: the model contract in one call, for a kinematic model or a
   robot's mechanism: everything finite (also with each Param a tenth of its default and ten times
   it), orthonormal rotations, Jacobians, angular Jacobians and Hessians against finite

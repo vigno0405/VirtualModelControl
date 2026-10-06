@@ -116,9 +116,31 @@ robot = vmc.Mechanism("pendulum", model=Pendulum(0.5))
 vmc.Kinematics(robot).jacobian([0.0], "bob")  # [m/rad]
 ```
 
+A function does as well, when the model needs no class of its own. `FunctionModel` takes the
+function, the configuration space (here one joint), the Params and the sites. The function may
+return lists of CasADi values:
+
+```{code-cell} python
+def swing(q, at, p):
+    c, s = ca.cos(q[0]), ca.sin(q[0])
+    return [[c, -s, 0], [s, c, 0], [0, 0, 1]], [p["L"] * c, p["L"] * s, 0]
+
+
+L = vmc.Param("L", 0.5, unit="m", scope="design")
+bob = vmc.models.FunctionModel(swing, 1, [L], sites=("bob",))
+vmc.Kinematics(bob).position([0.3], "bob")  # [m]
+```
+
 Keep `frame` smooth: no numpy and no Python `if` on symbols (use `casadi.if_else`), and
-regularize singular poses. A new model must then pass `check_model`
-([Build your own robot](build-a-robot.md)).
+regularize singular poses. A new model must then pass `check_model`, which checks this and the
+rest of the contract ([Build your own robot](build-a-robot.md)):
+
+```{code-cell} python
+from virtualmodelcontrol.testing import check_model
+
+worst = check_model(bob)
+{name: f"{error:.0e}" for name, error in worst.items()}
+```
 
 ## A new plant
 

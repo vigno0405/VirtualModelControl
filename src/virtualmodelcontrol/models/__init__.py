@@ -4,6 +4,7 @@ from .actuation import Actuation, Direct, TendonTransmission
 from .assembly import Assembly, StackedActuation
 from .continuum import PCC, segment_frame
 from .efficiency import Efficiency
+from .function import FunctionModel
 from .joint_space import JointSpace
 from .kinematic import KinematicModel, evaluate_frame, from_dict
 from .kinematics import Kinematics
@@ -15,6 +16,7 @@ __all__ = [
     "Assembly",
     "Direct",
     "Efficiency",
+    "FunctionModel",
     "JointSpace",
     "KinematicModel",
     "Kinematics",
