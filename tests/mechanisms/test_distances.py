@@ -1,10 +1,11 @@
 """Signed distances to a box, a capsule and a cylinder: known values, and the distance property."""
 
+import casadi as ca
 import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from helpers import component_function
+from helpers import component_function, component_params, make_context
 
 P = vmc.Joint(slice(0, 3), unit="m")
 rng = np.random.default_rng(11)
@@ -119,3 +120,21 @@ def test_the_distances_are_params_that_a_controller_can_change():
     cyl = vmc.CylinderDistance(P, [0, 0, 0], [0, 0, 1], 0.5, 1.0)
     assert set(cyl.params()) == {"center", "axis", "radius", "half_height"}
     assert all(p.scope == "episode" for p in cyl.params().values())
+
+
+def test_the_unit_normal_points_out_of_the_surface_where_the_distance_grows():
+    side = {"center": [0, 0, 0], "axis": [0, 0, 1.0], "radius": 0.5, "half_height": 1.0}
+    cases = [  # a surface, a point and the way out of it there
+        (vmc.PlaneDistance(P, [0, 0, 2.0], [0, 0, 0.1]), [0.3, -0.2, 0.4], [0, 0, 1]),
+        (vmc.SphereDistance(P, [0.1, 0, 0], 0.2), [0.5, 0, 0], [1, 0, 0]),
+        (vmc.SphereDistance(P, [0.1, 0, 0], 0.2), [0.1, -0.5, 0], [0, -1, 0]),
+        (vmc.BoxDistance(P, [0, 0, 0], [1, 2, 3]), [2.0, 0.0, 0.0], [1, 0, 0]),
+        (vmc.BoxDistance(P, [0, 0, 0], [1, 2, 3]), [-0.9, 0.0, 0.0], [-1, 0, 0]),  # inside
+        (vmc.CylinderDistance(P, **side), [0.0, 0.0, 2.0], [0, 0, 1]),
+        (vmc.CylinderDistance(P, **side), [0.0, 1.0, 0.0], [0, 1, 0]),
+        (vmc.CapsuleDistance(P, [0, 0, 0], [0, 0, 1], 0.2), [0.0, 0.5, 0.5], [0, 1, 0]),
+    ]
+    for surface, at, out in cases:
+        ctx = make_context(component_params(vmc.ContactSpring(surface, 1.0)), 3)
+        normal = np.array(ca.Function("n", [ctx.q], [surface.unit_normal(ctx)])(at)).ravel()
+        np.testing.assert_allclose(normal, out, atol=1e-6, err_msg=f"{surface!r} at {at}")

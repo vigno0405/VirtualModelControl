@@ -8,6 +8,7 @@ import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.control.output import apply
+from virtualmodelcontrol.models import SerialChain
 from virtualmodelcontrol.robots import adapt, helyx
 
 DT = 1 / 330
@@ -202,3 +203,21 @@ def test_a_swap_changes_what_is_recorded_without_misaligning_the_log():
     reach, hold = rows["element/ctrl.reach/force"], rows["element/other.hold/force"]
     assert np.isfinite(reach[:7]).all() and np.isnan(reach[7:]).all()  # until the swap is done
     assert np.isnan(hold[:7]).all() and np.isfinite(hold[7:]).all()  # and after it
+
+
+def test_an_elements_torque_is_its_force_through_the_jacobian():
+    chain = SerialChain(
+        ["revolute"], axes=[[0, 0, 1]], points=[[0, 0, 0]], sites={"tip": (1, [1.0, 0, 0])}
+    )
+    robot = vmc.Mechanism("pendulum", model=chain)
+    robot.add("m", vmc.PointMass(robot.point("tip"), 1.0))
+    robot.add("spring", vmc.LinearSpring(robot.point("tip") - [1.0, 0.3, 0.0], 10.0))
+    element = vmc.sim.ModelPlant(robot).elements()["spring"]
+    np.testing.assert_allclose(element["force"], [0.0, 3.0, 0.0], atol=1e-12)  # at the tip
+    np.testing.assert_allclose(element["torque"], [3.0], atol=1e-12)  # about the joint, 1 m away
+
+
+def test_recording_the_robot_needs_a_simulated_plant():
+    _, controller = soft_arm()
+    with pytest.raises(ValueError, match="simulated plant"):
+        vmc.sim.run(object(), controller, vmc.sim.SimClock(DT), T=0.1, record="robot")

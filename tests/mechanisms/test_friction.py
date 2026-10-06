@@ -91,6 +91,21 @@ def test_the_friction_force_is_in_the_surface_against_the_motion_and_below_mu_ti
     np.testing.assert_allclose(plant.elements()["rub"]["force"], 0.0, atol=1e-15)  # in the air
 
 
+def test_the_friction_falls_linearly_below_its_speed_and_is_the_limit_far_above_it():
+    mu, depth, speed = 0.5, 2e-3, 0.1
+    plant = vmc.sim.ModelPlant(block(friction=mu, speed=speed))
+    limit = mu * K * depth
+    for v, share in ((1e-3 * speed, 1e-3), (speed, 2**-0.5), (1e3 * speed, 1.0)):
+        plant.q, plant.v = np.array([0.0, 0.0, -depth]), np.array([v, 0.0, 0.0])
+        assert plant.elements()["rub"]["force"][0] == pytest.approx(-limit * share, rel=1e-5)
+
+
+def test_the_friction_speed_is_a_millimetre_per_second_unless_given():
+    point = vmc.Joint(slice(0, 3), unit="m")
+    rub = vmc.ContactFriction(vmc.PlaneDistance(point, [0, 0, 1]), K, 0.4)
+    assert np.ravel(rub.speed.value)[0] == 1e-3
+
+
 def test_friction_takes_the_normal_of_each_kind_of_surface():
     mu, v = 0.5, np.array([0.3, -0.4, 0.2])
     side = {"axis": [0, 0, 1.0], "radius": 0.1, "half_height": 0.5}
