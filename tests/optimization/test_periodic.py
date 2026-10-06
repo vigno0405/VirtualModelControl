@@ -42,10 +42,11 @@ def orbit(horizon, nodes):
 def swing(nodes, start, free_time=None, scheme=HS, guess=False, **kwargs):
     """The oscillator's orbit from x(0) = X: its horizon starts at ``start`` periods.
 
-    The amplitude is pinned at the first node and a small cost on x keeps the smallest orbit that
-    reaches it, so the orbit is the one with x(0) = X and v(0) = 0. At a fixed horizon the pin is
-    only a lower bound: with an equality there are more equations than unknowns, which IPOPT
-    does not accept (the cost holds it at the bound).
+    The amplitude is pinned at the first node and a small cost on x asks for the smallest orbit
+    that reaches it, the one that turns there (v(0) = 0). The cost is flat in the phase, so the
+    solver may stop a little off it: the tests assert what does not depend on that, the period
+    and the energy. At a fixed horizon the pin is only a lower bound: with an equality there are
+    more equations than unknowns, which IPOPT does not accept (the cost holds it at the bound).
     """
     system, x = oscillator()
     problem = opt.Problem(system)

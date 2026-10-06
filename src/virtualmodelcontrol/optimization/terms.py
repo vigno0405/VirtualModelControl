@@ -127,8 +127,8 @@ class Cost(Term):
 
 class Bound(Term):
     """The coordinate stays within ``lower`` and ``upper`` (numbers, or one per entry) at the
-    nodes of the window ``t_from ≤ t ≤ t_to``, except the first of a motion, which is the fixed
-    start."""
+    nodes of the window ``t_from ≤ t ≤ t_to``, except the first node when it is the fixed start
+    (a periodic motion has none)."""
 
     def __init__(
         self,
