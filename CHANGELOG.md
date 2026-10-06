@@ -84,6 +84,18 @@ All notable changes to this project are documented here. The format follows
   factor. `VMCController.inputs()` gives what the law read at the last step. The tutorial
   "Track a contact force" presses a fingertip on a table with a chosen force, by the goal and by
   the stiffness, free and through a tank.
+- `vmc.estimation.ContactForce(controller, site, normal=None, robot=None)`: the force a robot
+  exerts at a site when it rests, from what its controller commands. At rest the robot's dynamics
+  balance the delivered motor torques against its own stiffness and weight, and what is left goes
+  through the site's Jacobian by the pseudo-inverse (along `normal` if given). Called with the
+  controller, it reads the Params as they are, and leaves velocities out. `robot` is the model
+  that holds the arm, without the surroundings the plant may have. It agrees with the lab's
+  contact force from the virtual springs and the structural stiffness (the efficiency on the
+  springs' term only) to 1e-9, for the tip and a mid-arm point, along a normal and in 3D, and
+  with its torque-based variant. A fingertip at rest on a simulated table reads the table's force
+  to 2 %. The tutorial "Track a contact force" feeds the law with it, and shows that a wrong
+  mass in the model goes straight into the force. `VMCController.inputs()` returns the vector
+  the law reads, with the live Params as they are now.
 - `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
   `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
   that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements

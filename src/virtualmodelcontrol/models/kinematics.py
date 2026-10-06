@@ -16,6 +16,17 @@ def _vee(S: Any) -> Any:
     return ca.vertcat(S[2, 1], S[0, 2], S[1, 0])
 
 
+def contact_map(J: Any, normal: ArrayLike | None = None) -> Any:
+    """The matrix A of f = A τ: the force at a point from the torques on the coordinates its
+    Jacobian ``J`` (3, n) is taken in, by the pseudo-inverse. With a ``normal`` (any length) the
+    force is the one along it. Works on CasADi symbols and numbers."""
+    if normal is None:
+        return ca.solve(ca.mtimes(J, J.T), J)
+    n = ca.DM(np.asarray(normal, dtype=float).ravel())
+    j = ca.mtimes(J.T, n)
+    return ca.mtimes(n, j.T) / ca.dot(j, j)
+
+
 class Kinematics:
     """Positions, rotations, Jacobians and Hessians of a robot's points, exact by automatic
     differentiation, at the Params' current values.

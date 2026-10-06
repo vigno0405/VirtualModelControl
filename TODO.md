@@ -381,6 +381,9 @@ turtle crawling.
   transformation, Hessian terms included); object compliance by probing; a momentum observer
   for external forces; linear-in-parameters regression from the dynamics residual, and
   nonlinear least squares, and moving-horizon estimation as a problem of `vmc.optimization`.
+  Done so far (6 October 2026): `vmc.estimation.ContactForce`, the contact force from the
+  controller's command and the robot's model, which gives the open-loop force of the adaptation
+  laws; the tutorial "Track a contact force" uses it.
 - [ ] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

@@ -24,7 +24,8 @@ control step it moves them by the largest step that changes the force by less th
 `max_force_step` [N].
 
 The force $f$ is the one the motors push through the contact point. The law needs the measured
-force too, from a load cell on a real robot. Here it comes from the simulated table.
+force too. On a real robot it comes from a load cell, or from an estimate. Here it comes from
+the simulated table first.
 
 ## Press with a chosen force
 
@@ -61,21 +62,23 @@ goal. The wanted force is 2 N along $+z$, into the table.
 wanted = np.array([0.0, 0.0, 2.0])  # [N]
 kin = vmc.Kinematics(finger)
 
-def press(controller, adapted="ctrl.press.goal", steps=3000):  # 500 Hz
+def press(controller, adapted="ctrl.press.goal", sensor=None, steps=3000):
     law = ForceTracking(controller, "tip", adapted, normal=[0, 0, 1])
     plant = vmc.sim.ModelPlant(finger, q0=[0.8, 0.8], max_step=1e-4)
-    names = ["t", "force", "depth", "stiffness", "level"]
+    names = ["t", "force", "told", "depth", "stiffness", "level"]
     log = {name: [] for name in names}
-    for step in range(steps):
+    for step in range(steps):  # 500 Hz
         plant.write(controller.step(plant.t, plant.read()))
         below = kin.position(plant.q, "tip")[2] - 0.06  # [m]
-        measured = np.array([0.0, 0.0, k * max(0.0, below)])
+        table = np.array([0.0, 0.0, k * max(0.0, below)])
+        told = table if sensor is None else sensor(controller)
         if step > 100:  # let the finger settle on the table first
-            law.step(controller, measured, wanted)
+            law.step(controller, told, wanted)
         live = controller.live_params()
         level = getattr(controller, "level", 0.0)  # a tank's budget [J]
-        row = (plant.t, measured[2], live["ctrl.press.goal"][2] - 0.06,
-               float(live["ctrl.press.stiffness"]), level)
+        depth = live["ctrl.press.goal"][2] - 0.06  # [m]
+        stiffness = float(live["ctrl.press.stiffness"])  # [N/m]
+        row = (plant.t, table[2], told[2], depth, stiffness, level)
         for name, value in zip(names, row):
             log[name].append(value)
         plant.advance(1 / 500)
@@ -200,7 +203,64 @@ so the force is $K k d / (K + k)$ for a goal at depth $d$, and 2 N at 20 mm need
 goes below zero. A stiffness given as a matrix stays symmetric and positive semidefinite, so the
 spring cannot store negative energy.
 
-## What the law needs
+## Without a force sensor
+
+A load cell is not always there. The controller knows what it commands, and a model knows what
+the arm's own stiffness and weight hold. The rest of the balance is the contact. `ContactForce`
+computes it, for the controller's Params as they are at its last step. The plant has the table,
+so the model it uses is a second finger without one. The law is told the estimate, and never
+the table's force:
+
+```{code-cell} python
+from virtualmodelcontrol.estimation import ContactForce
+
+def blind(model):
+    controller = vmc.VMCController(compiled)
+    estimate = ContactForce(controller, "tip", [0, 0, 1], robot=model)
+    return press(controller, sensor=estimate)
+
+exact = blind(adapt.add_dynamics(adapt.finger()))
+```
+
+An estimate is as good as its model. We run it again with a distal phalanx that weighs 15 g in
+the model and 25 g in the plant:
+
+```{code-cell} python
+light = adapt.add_dynamics(adapt.finger())
+light.params["m_dip.mass"].value = 0.015  # [kg]
+wrong = blind(light)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.plot(exact["t"], exact["force"], label="exact model")
+ax.plot(wrong["t"], wrong["force"], label="tip 10 g too light")
+ax.axhline(wanted[2], color="0.5", linestyle="--")
+ax.set_ylim(-0.2, 3.0)
+ax.set_xlabel("time [s]")
+ax.set_ylabel("table's force [N]")
+ax.legend(loc="lower right");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+good, bad = exact["force"][-500:].mean(), wrong["force"][-500:].mean()
+told = wrong["told"][-500:].mean()
+assert abs(good - wanted[2]) < 0.02 and abs(told - wanted[2]) < 0.02
+assert 0.05 < bad - wanted[2] < 0.15
+glue("blind_exact", float(good), display=False)
+glue("blind_wrong", float(bad), display=False)
+glue("blind_told", float(told), display=False)
+```
+
+With the exact model the table's force settles at {glue:text}`blind_exact:.2f` N. With the wrong
+one the law believes it holds {glue:text}`blind_told:.2f` N, and the table feels
+{glue:text}`blind_wrong:.2f` N: the model's error goes straight into the force. A load cell
+closes this loop, because what it tells the law is the true force. It is the same call with the
+cell's reading in place of the estimate.
+
+## What the calls need
 
 - `ForceTracking(controller, site, params, normal=None)`: `site` is where the contact is, a name
   or an arc parameter `s`, and `params` are glob patterns of the controller's live Params. Compile
@@ -210,3 +270,6 @@ spring cannot store negative energy.
 - `step(controller, f_meas, f_des)` makes one step and returns the step size and the jump of the
   controller's energy. `direction(...)` gives the descent direction of each Param without
   applying it.
+- `ContactForce(controller, site, normal=None, robot=None)` estimates the force from the
+  controller's command and the model of the robot. Call it with the controller. `robot` is the
+  model that holds the arm at rest, without the surroundings. It leaves velocities out.

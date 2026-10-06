@@ -12,7 +12,7 @@ from numpy.typing import ArrayLike
 
 from ..control.projection import project_psd
 from ..core.params import constants
-from ..models.kinematics import Kinematics
+from ..models.kinematics import Kinematics, contact_map
 
 
 class ForceTracking:
@@ -63,12 +63,7 @@ class ForceTracking:
         q = act.config_from_motors(theta, pa)
         tau = act.allocate(act.generalized_force(u, q, pa), q, pa)  # delivered, as motor torques
         J = Kinematics(system.robot, coordinates="motors").functions(site)(theta)[2]
-        if normal is None:
-            A = ca.solve(ca.mtimes(J, J.T), J)
-        else:
-            n = np.asarray(normal, dtype=float).ravel()
-            j = ca.mtimes(J.T, ca.DM(n / np.linalg.norm(n)))
-            A = ca.mtimes(ca.DM(n / np.linalg.norm(n)), j.T) / ca.dot(j, j)
+        A = contact_map(J, normal)
         f = ca.mtimes(A, tau)
         return ca.Function("force", [x], [f, ca.jacobian(f, x[columns.tolist()])])
 
@@ -112,10 +107,7 @@ class ForceTracking:
     def _gradient(
         self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike
     ) -> tuple[np.ndarray, np.ndarray]:
-        x = np.array(controller.inputs(), dtype=float)
-        n = x.size - 1 - controller.params.size
-        x[n:-1] = controller.params
-        _, dfdp = self._force(x)
+        _, dfdp = self._force(controller.inputs())
         dfdp = np.array(dfdp)
         error = np.asarray(f_meas, dtype=float).ravel() - np.asarray(f_des, dtype=float).ravel()
         return -dfdp.T @ error, dfdp

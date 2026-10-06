@@ -124,7 +124,7 @@ include_external_packages = true
 name = "Layers: each layer imports only from the layers below it"
 type = "layers"
 layers = [
-    "virtualmodelcontrol.adaptation | virtualmodelcontrol.identification | virtualmodelcontrol.optimization",
+    "virtualmodelcontrol.adaptation | virtualmodelcontrol.estimation | virtualmodelcontrol.identification | virtualmodelcontrol.optimization",
     "virtualmodelcontrol.sim",
     "virtualmodelcontrol.control",
     "virtualmodelcontrol.compiler | virtualmodelcontrol.dynamics",
@@ -153,6 +153,7 @@ source_modules = [
     "virtualmodelcontrol.control",
     "virtualmodelcontrol.sim",
     "virtualmodelcontrol.adaptation",
+    "virtualmodelcontrol.estimation",
     "virtualmodelcontrol.identification",
     "virtualmodelcontrol.optimization",
 ]
