@@ -417,7 +417,12 @@ turtle crawling.
   `identification.fit_params` (6 October 2026): regression and nonlinear least squares in one
   call, on the residual of the robot's own dynamics, with standard errors, equal to ordinary least
   squares where the residual is linear; the tutorial "Fit Params to a run".
-  Open: moving-horizon estimation.
+  `optimization.MovingHorizon` (6 October 2026): moving-horizon estimation as a least squares over
+  the window's states, with an extended Kalman arrival cost; equal to the Kalman filter on a linear
+  robot at every step, followed by a swing it tracks from angles alone; the estimation tutorial
+  runs it on the soft arm.
+  Open: the simulated sensors as library models (encoders, motion-capture markers, IMUs, a load
+  cell: the true state in, a noisy reading out, which the tutorials now write by hand).
 - [x] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

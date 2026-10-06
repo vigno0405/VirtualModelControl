@@ -281,6 +281,53 @@ print(f"{dropout[2]} frames missing, error {dropped:.2f} mm")
 assert dropout[2] > 30 and dropped < err["encoders"]
 ```
 
+## A window of readings
+
+The filter keeps one state and its covariance and forgets the readings once it has used them.
+`MovingHorizon` keeps the last few steps instead. At every step it finds the states of the
+window that agree best with all the readings in it, with the arm's own dynamics (up to the
+process noise `Q`) and with the estimate the window started from, each weighted by its
+covariance. When the window slides on, the state before it goes one step of an extended Kalman
+filter, so that what the window forgets is not lost. It takes the same `Measurement`s as the
+filter, and `encoder` the same way:
+
+```{code-cell} python
+from virtualmodelcontrol.optimization import MovingHorizon
+
+first = 330  # the first second only: the window costs more than a filter
+mhe = MovingHorizon(system, dt, window=3, Q=Q, P=1e-4)
+inversion = Inversion(arm, at)
+mhe.reset(mhe.encoder(theta[0], None, 1.5e-3**2).y)
+window = []
+for k in range(1, first):
+    seen = [mhe.encoder(theta[k], theta_dot[k], 1.5e-3**2, 1e-2**2)]
+    if k % every == 0:
+        qm = inversion(markers[k])
+        seen.append(Measurement(qm, None, 0.5e-3**2, name="mocap"))
+    window.append(mhe.step(u[k - 1], seen))
+window = np.array(window)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+late = t[1:first] > 0.5
+e_window = 1e3 * np.sqrt(np.mean((window[:, :9] - q[1:first])[late] ** 2))
+filtered = runs["encoders + markers"][0][1:first, :9] - q[1:first]
+e_filter = 1e3 * np.sqrt(np.mean(filtered[late] ** 2))
+assert e_window < 0.5 * err["encoders"] and e_window < 1.5 * e_filter
+glue("window_error", float(e_window), display=False)
+glue("filter_error", float(e_filter), display=False)
+```
+
+With the encoders and the markers, from half a second to one second, the window's error in $q$
+is {glue:text}`window_error:.2f` mm and the filter's {glue:text}`filter_error:.2f` mm. They are
+close, as they must be: this arm stays near one pose, and for a linear robot the window is the
+filter. The window pays off where the arm is not near a pose, or the readings are not Gaussian,
+and a longer window follows them better. It costs more, since each step solves a least squares of
+every state in the window, and that grows with the window. It is for offline fits, for slow robots
+and for checking a filter. `iterations` bounds the solver,
+and `cost` and `P` tell how well the last window fits and how sure the estimate is.
+
 ## On a real arm
 
 The numbers here come from sensors we simulated. For a real arm, take the noise of each sensor

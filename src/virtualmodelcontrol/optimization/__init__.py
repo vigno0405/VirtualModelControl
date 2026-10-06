@@ -3,6 +3,7 @@
 from .asktell import CMAES, Bayes, ExtremumSeeking, Grid, Random, bounds_of, tune
 from .collocation import Collocation
 from .equilibrium import Equilibrium
+from .horizon import MovingHorizon
 from .nlp import NLP
 from .problem import Problem
 from .result import Result
@@ -24,6 +25,7 @@ __all__ = [
     "Equilibrium",
     "ExtremumSeeking",
     "Grid",
+    "MovingHorizon",
     "Problem",
     "Random",
     "Result",

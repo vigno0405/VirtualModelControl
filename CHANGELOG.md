@@ -177,6 +177,13 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `vmc.optimization.MovingHorizon(system, dt, window=10, Q=, P=)`: moving-horizon estimation of a
+  robot's state (q, v). Every step finds the states of the last `window` steps that best agree
+  with the sensors' readings (the same `Measurement`s as the Kalman filter's), with the robot's own
+  dynamics up to the process noise `Q`, and with the state before the window, which goes one step of
+  an extended Kalman filter whenever the window slides. It is solved by Gauss-Newton with a trust
+  region. With a linear robot it is the Kalman filter, to rounding error, however short the window;
+  it also gives `cost` and the covariance `P`. The estimation tutorial runs it on the soft arm.
 - `vmc.identification.fit_params(robot, names, runs)`: any Params of a robot, by name or glob,
   fitted to logged runs by least squares on the residual of its own dynamics, within the Params'
   bounds. A residual linear in the Params (masses, stiffnesses, dampings, efficiencies) is solved
