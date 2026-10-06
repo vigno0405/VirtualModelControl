@@ -33,23 +33,31 @@ def test_the_ratio_moves_towards_the_wanted_force_by_the_step_times_the_relative
     law = ForceRatio(c, "ctrl.*.stiffness", max_change=0.5)
 
     def ratio(measured, wanted):
-        return law.step(c, [0.0, 0.0, measured], [0.0, 0.0, wanted])
+        law.step(c, [0.0, 0.0, measured], [0.0, 0.0, wanted])
+        return law.ratio
 
     # the relative error is |measured - wanted| / the larger of the two
     assert ratio(0.5, 0.4) == pytest.approx(0.9)  # too much force: softer by 0.5 * 0.2
     assert ratio(1.0, 0.5) == pytest.approx(0.75)  # by 0.5 * 0.5
     assert ratio(0.25, 0.5) == pytest.approx(1.25)  # too little: stiffer by 0.5 * 0.5
     assert ratio(0.49, 0.5) == pytest.approx(1.01)  # by 0.5 * 0.02
-    # a step of 1 reaches the wanted force when the force is too large
-    assert ForceRatio(c, "ctrl.*.stiffness", max_change=1.0).step(
-        c, [0.0, 0.0, 1.0], [0.0, 0.0, 0.5]
-    ) == pytest.approx(0.5)
+
+
+def test_the_wanted_over_the_measured_force_counts_only_where_the_step_allows_more():
+    """For a step up to 1 the cap is always the one that binds; above it, the ratio can."""
+    c = controller(np.diag([40.0, 40.0, 40.0]))
+    law = ForceRatio(c, "ctrl.*.stiffness", max_change=2.0)
+    law.step(c, [0.0, 0.0, 0.4], [0.0, 0.0, 0.5])  # relative error 0.2, cap 1 +- 0.4
+    assert law.ratio == pytest.approx(1.25)  # wanted over measured, inside the cap
+    law.step(c, [0.0, 0.0, 0.1], [0.0, 0.0, 0.5])  # relative error 0.8, cap 1 +- 1.6
+    assert law.ratio == pytest.approx(2.6)  # the cap, below 0.5 / 0.1 = 5
 
 
 def test_nothing_happens_while_the_force_is_near_zero():
     c = controller(np.diag([40.0, 40.0, 40.0]))
     before = c.live_params()["ctrl.tip.stiffness"].copy()
-    assert ForceRatio(c, "ctrl.*.stiffness").step(c, [0.0, 0.0, 1e-9], [0.0, 0.0, 0.5]) == 1.0
+    law = ForceRatio(c, "ctrl.*.stiffness")
+    assert law.step(c, [0.0, 0.0, 1e-9], [0.0, 0.0, 0.5]) == 0.0 and law.ratio == 1.0
     np.testing.assert_array_equal(c.live_params()["ctrl.tip.stiffness"], before)
 
 
@@ -83,7 +91,8 @@ def test_through_a_tank_the_step_is_paid_for():
 def test_the_stiffening_agrees_with_the_labs_function(alpha, force, k):
     c = controller(np.full(3, 0.1))  # one stiffness per axis, as in the lab's finger
     law = Stiffening(c, "ctrl.*.stiffness", float(DATA["k_min"]), float(DATA["k_max"]), alpha)
-    assert law.step(c, force) == pytest.approx(k, rel=1e-12)
+    law.step(c, force)
+    assert law.k == pytest.approx(k, rel=1e-12)
     np.testing.assert_allclose(c.live_params()["ctrl.tip.stiffness"], np.full(3, k), rtol=1e-12)
 
 
@@ -113,8 +122,34 @@ def test_both_laws_keep_a_stiffness_below_its_upper_bound():
 def test_a_matrix_that_is_not_symmetric_comes_out_as_its_symmetric_part_scaled():
     start = np.array([[40.0, 10.0, 0.0], [0.0, 40.0, 0.0], [0.0, 0.0, 40.0]])
     c = controller(start)
-    ratio = ForceRatio(c, "ctrl.*.stiffness").step(c, [0.0, 0.0, 0.4], [0.0, 0.0, 0.5])
+    law = ForceRatio(c, "ctrl.*.stiffness")
+    law.step(c, [0.0, 0.0, 0.4], [0.0, 0.0, 0.5])
+    ratio = law.ratio
     assert ratio == pytest.approx(1.01)  # 0.05 times the relative error 0.2
     np.testing.assert_allclose(
         c.live_params()["ctrl.tip.stiffness"], ratio * 0.5 * (start + start.T), rtol=1e-12
     )
+
+
+def test_the_ratio_law_scales_a_vector_of_stiffnesses_as_it_does_a_matrix():
+    c = controller(np.array([10.0, 20.0, 30.0]))  # one stiffness per axis
+    law = ForceRatio(c, "ctrl.*.stiffness")
+    law.step(c, [0.0, 0.0, 0.4], [0.0, 0.0, 0.5])
+    np.testing.assert_allclose(c.live_params()["ctrl.tip.stiffness"], 1.01 * np.array([10, 20, 30]))
+
+
+def test_the_stiffening_through_a_tank_applies_what_the_tank_pays_for():
+    c = controller(np.full(3, 10.0))
+    c.set({"ctrl.tip.goal": [0.1, 0.0, 0.0]})  # the spring is stretched
+    meas = vmc.Signals(0.0, motor_position=np.zeros(3), motor_velocity=np.zeros(3))
+    c.reset(0.0, meas)
+    c.step(0.0, meas)
+    tank = vmc.control.Tank(c, level=0.0)
+    law = Stiffening(tank, "ctrl.*.stiffness", 10.0, 100.0, 1.0)
+    jump = law.step(tank, 1.0)  # stiffer: stores energy, which the empty tank cannot pay
+    assert law.k > 10.0 and tank.fraction < 1e-9 and abs(jump) < 1e-9
+    np.testing.assert_allclose(c.live_params()["ctrl.tip.stiffness"], np.full(3, 10.0))
+    tank.level = 10.0
+    jump = law.step(tank, 1.0)
+    assert jump > 0 and tank.fraction == 1.0
+    np.testing.assert_allclose(c.live_params()["ctrl.tip.stiffness"], np.full(3, law.k))

@@ -10,6 +10,9 @@ import numpy as np
 
 from ..control.projection import project_psd
 
+TINY = 1e-12
+"""Below this a step size or a force change counts as zero, so that no division blows up."""
+
 
 def live_matching(compiled: Any, params: str | Sequence[str]) -> list[str]:
     """The live Params of ``compiled`` matching the glob patterns, in the order of its vector."""
@@ -28,7 +31,6 @@ def admissible(param: Any, value: np.ndarray) -> np.ndarray:
         for b in param.bounds
     )
     value = np.clip(value, lo, hi)
-    shape = param.shape
-    if len(shape) == 2 and shape[0] == shape[1]:
-        value = np.ravel(project_psd(np.reshape(value, shape, order="F")), order="F")
+    if len(param.shape) == 2 and param.shape[0] == param.shape[1]:
+        value = np.ravel(project_psd(np.reshape(value, param.shape, order="F")), order="F")
     return value

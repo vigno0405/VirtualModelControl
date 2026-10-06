@@ -124,7 +124,7 @@ then moves a little, which changes the matrix, so a few steps close the gap: aft
 diagonal is within {glue:text}`k_after:.1%` of the wanted one. The spring along $z$ ends at
 {glue:text}`spring_z:.0f` N/m. The stiffness the arm has by itself stays, so a stiffness below
 that is out of reach: the springs cannot be negative, and a step stops at zero. The step
-keeps every stiffness matrix symmetric and positive semidefinite. `rate` moves only a part of the
+keeps every stiffness matrix symmetric and positive semidefinite. `fraction` moves only a part of the
 way at each step, and a [tank](energy.md) takes the controller's energy into account when
 passed in place of the controller.
 
@@ -152,7 +152,7 @@ is at its target.
 from virtualmodelcontrol.adaptation import PositionRegulation
 
 regulate = PositionRegulation(controller, {"ctrl.reach.goal": 1.0},
-                              rate=0.02)
+                              gain=0.02)
 errors = []
 for _ in range(int(4.0 * helyx.CONTROL_RATE)):
     plant.write(controller.step(plant.t, plant.read()))

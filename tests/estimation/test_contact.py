@@ -179,3 +179,23 @@ def test_the_stiffness_leaves_velocities_out(setup):
     key = "tip_normal/2"
     still, moving = controller_at(setup, key), controller_at(setup, key, velocity=3.0)
     np.testing.assert_array_equal(stiffness(still, key)(still), stiffness(moving, key)(moving))
+
+
+def test_the_efficiency_comes_from_the_system_and_the_model_only_holds_the_arm():
+    """A model with another efficiency (here 1) must not change what the motors deliver."""
+    finger = adapt.finger(efficiency=adapt.MOTOR_EFFICIENCY)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add(
+        "press",
+        vmc.LinearSpring(finger.point("tip") - vmc.Ref("goal", 3, value=[0, 0.05, 0.08]), 100.0),
+    )
+    controller = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(finger, ctrl)))
+    meas = vmc.Signals(0.0, motor_position=[0.8, 0.8], motor_velocity=[0.0, 0.0])
+    controller.reset(0.0, meas)
+    controller.step(0.0, meas)
+    own = ContactForce(controller, "tip", [0, 0, 1])(controller)
+    other = ContactForce(controller, "tip", [0, 0, 1], robot=adapt.finger())(controller)
+    np.testing.assert_allclose(other, own, rtol=1e-12)
+    lossless = ContactForce(controller, "tip", [0, 0, 1], robot=adapt.finger(efficiency=1.0))
+    np.testing.assert_allclose(lossless(controller), own, rtol=1e-12)
+    assert abs(own[2]) > 0.1

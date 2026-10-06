@@ -6,7 +6,7 @@ import pytest
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.adaptation import StiffnessTracking
 from virtualmodelcontrol.core.params import Param
-from virtualmodelcontrol.estimation import TaskStiffness
+from virtualmodelcontrol.estimation import ContactForce, TaskStiffness
 from virtualmodelcontrol.robots import helyx
 
 DATA = np.load(Path(__file__).parents[1] / "data" / "adaptation.npz")
@@ -80,10 +80,10 @@ def test_a_step_all_the_way_gives_the_wanted_stiffness(compiled, key, tolerance)
         assert np.linalg.eigvalsh(new).min() >= -1e-9 and np.allclose(new, new.T)
 
 
-def test_a_step_moves_the_part_of_the_way_the_rate_says(compiled):
+def test_a_step_moves_the_part_of_the_way_the_fraction_says(compiled):
     key = "inv/0"
     controller = controller_at(compiled, key)
-    tracking = law(controller, key, rate=0.25)
+    tracking = law(controller, key, fraction=0.25)
     before = controller.live_params()
     aim = tracking.target(controller, DATA[f"{key}/K_des"], np.zeros(3))
     tracking.step(controller, DATA[f"{key}/K_des"], np.zeros(3))
@@ -126,7 +126,7 @@ def test_without_a_force_the_one_of_the_model_is_used(compiled):
     goals = DATA[f"{key}/d_ref"] - T_WB + rng.normal(0, 0.02, (2, 3))  # the springs pull
     controller = controller_at(compiled, key, goals)
     tracking = law(controller, key)
-    model_force = TaskStiffness(controller, 1.0, None).force(controller)
+    model_force = ContactForce(controller, 1.0)(controller)
     assert np.abs(model_force).max() > 0.1
     by_default = tracking.target(controller, DATA[f"{key}/K_des"])
     given = tracking.target(controller, DATA[f"{key}/K_des"], model_force)

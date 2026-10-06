@@ -11,18 +11,15 @@ from numpy.typing import ArrayLike
 
 from ..core.params import constants
 from ..models.kinematics import Kinematics, contact_map
-from .limits import admissible, live_matching
+from .limits import TINY, admissible, live_matching
 
 
 class ForceTracking:
-    """Gradient descent of the contact force error ½‖f − f_des‖² on a controller's live Params.
+    """Gradient descent of a contact force error on live Params of a controller, step by step.
 
-    ``params`` are glob patterns of live Params: references move the springs' goals, stiffnesses
-    change the springs. The contact is at ``site`` of the robot; with a ``normal`` the force is the
-    one along it. A step ``p ← p + α g`` takes the largest α that keeps the predicted change of the
-    force below ``max_force_step`` [N] and the change of each Param (its norm) below ``max_step``;
-    with a ``rate``, α is that fixed number instead. A new value stays within the Param's bounds,
-    and a square matrix stays symmetric and positive semidefinite.
+    ``params`` are glob patterns of the Params (goals, stiffnesses); ``normal`` keeps the force
+    along it. A step is the largest that changes the force by ``max_force_step`` [N], or by
+    ``max_step`` in a Param (its norm), or ``rate`` if given. See the force tutorial.
     """
 
     def __init__(
@@ -37,19 +34,22 @@ class ForceTracking:
         rate: float | None = None,
     ) -> None:
         compiled = controller.compiled
-        names = live_matching(compiled, params)
-        self.names, self.max_force_step = names, max_force_step
-        self.max_step, self.rate = max_step, rate
+        self.names = live_matching(compiled, params)
+        self.max_force_step, self.max_step, self.rate = max_force_step, max_step, rate
+        self.alpha = 0.0
+        """The step size of the last step."""
         slices = compiled.live_slices()
-        self._shapes = {n: compiled.params[n].shape for n in names}
-        self._params = {n: compiled.params[n] for n in names}
-        self._slices = {n: slices[n] for n in names}
+        self._shapes = {n: compiled.params[n].shape for n in self.names}
+        self._params = {n: compiled.params[n] for n in self.names}
+        self._slices = {n: slices[n] for n in self.names}
         n_angles, n_rates = compiled.n_motors
         offset = n_angles + n_rates + compiled.z0.size  # where the live Params start in x
         picked = np.concatenate([np.arange(s.start, s.stop) for s in self._slices.values()])
-        self._force = self._build(compiled, site, normal, picked + offset)
+        self._normal = normal
+        self._terms = self._build(compiled, site, picked + offset)
 
-    def _build(self, compiled: Any, site: Any, normal: Any, columns: np.ndarray) -> ca.Function:
+    @staticmethod
+    def _build(compiled: Any, site: Any, columns: np.ndarray) -> ca.Function:
         system = compiled.system
         act, pa = system.actuation, constants(system.actuation.params)
         x = ca.SX.sym("x", compiled.fast.size1_in(0))
@@ -58,42 +58,44 @@ class ForceTracking:
         q = act.config_from_motors(theta, pa)
         tau = act.allocate(act.generalized_force(u, q, pa), q, pa)  # delivered, as motor torques
         J = Kinematics(system.robot, coordinates="motors").functions(site)(theta)[2]
-        A = contact_map(J, normal)
-        f = ca.mtimes(A, tau)
-        return ca.Function("force", [x], [f, ca.jacobian(f, x[columns.tolist()])])
+        return ca.Function("terms", [x], [tau, ca.jacobian(tau, x[columns.tolist()]), J])
 
     def direction(self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike) -> dict[str, Any]:
-        """The descent direction g = −(∂f/∂p)ᵀ (f_meas − f_des) of each Param, in its own shape."""
+        """The descent direction of each Param, in its own shape, without applying it."""
         return self._split(self._gradient(controller, f_meas, f_des)[0])
 
-    def step(self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike) -> tuple[float, float]:
-        """One step on ``controller`` (or a ``Tank`` around it), after its last ``step``: returns
-        the step size α and the jump of the controller's energy [J]. A tank applies only the
-        fraction of the step it pays for."""
+    def step(self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike) -> float:
+        """One step on ``controller`` (or a ``Tank`` around it), after its last ``step``.
+
+        ``f_meas`` and ``f_des`` are forces [N], vectors of three entries. Returns the jump of
+        the controller's energy [J] that was applied; a tank applies only the part it pays for.
+        """
         g, dfdp = self._gradient(controller, f_meas, f_des)
         if not np.any(g):
-            return 0.0, 0.0
+            self.alpha = 0.0
+            return 0.0
         if self.rate is None:
-            alpha = self.max_force_step / max(float(np.linalg.norm(dfdp @ g)), 1e-12)
+            alpha = self.max_force_step / max(float(np.linalg.norm(dfdp @ g)), TINY)
         else:
             alpha = self.rate
         blocks = self._split(g, shaped=False)
         if self.max_step is not None:
             largest = max(float(np.linalg.norm(b)) for b in blocks.values())
-            alpha = min(alpha, self.max_step / max(largest, 1e-12))
+            alpha = min(alpha, self.max_step / max(largest, TINY))
+        self.alpha = alpha
         live = controller.live_params()
         new = {
             n: admissible(self._params[n], np.ravel(live[n], order="F") + alpha * b)
             for n, b in blocks.items()
         }
-        return alpha, float(controller.set(new))
+        return float(controller.set(new))
 
     def _gradient(
         self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike
     ) -> tuple[np.ndarray, np.ndarray]:
-        _, dfdp = self._force(controller.inputs())
-        dfdp = np.array(dfdp)
-        error = np.asarray(f_meas, dtype=float).ravel() - np.asarray(f_des, dtype=float).ravel()
+        _, dtau, J = (np.array(m) for m in self._terms(controller.inputs()))
+        dfdp = contact_map(J, self._normal) @ dtau
+        error = np.reshape(np.asarray(f_meas, float), 3) - np.reshape(np.asarray(f_des, float), 3)
         return -dfdp.T @ error, dfdp
 
     def _split(self, g: np.ndarray, shaped: bool = True) -> dict[str, Any]:

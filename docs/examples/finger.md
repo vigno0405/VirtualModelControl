@@ -190,16 +190,17 @@ keeps the joints closer to their ranges.
 ## Press with a chosen force
 
 The lab tracks a fingertip force on a load cell with two laws that both descend the force error
-at a fixed learning rate. One changes the joint-space stiffness, which changes the slope of the
-force against the displacement. The other moves the joint reference and leaves the stiffness
-alone. Here the load cell is a table, 6 cm below the finger's base, that the fingertip touches
-at joint angles of 30°. A joint-space spring holds the finger 12° beyond that, which presses on
-it.
+at a fixed learning rate: at every control step a Param moves by the learning rate times its
+gradient ([the force tracking tutorial](../tutorials/force.md) explains the law). One law changes
+the joint-space stiffness, which changes the slope of the force against the displacement. The
+other moves the joint reference and leaves the stiffness alone. Here the load cell is a table,
+{glue:text}`table_cm:.1f` cm below the finger's base, that the fingertip touches at joint angles
+of 30°. A joint-space spring holds the finger 12° beyond that, which presses on it.
 
 ```{code-cell} python
 from virtualmodelcontrol.adaptation import ForceTracking
 
-rate = adapt.FINGER_CONTROL_RATE  # [Hz]
+hz = adapt.FINGER_CONTROL_RATE  # [Hz]
 rig = adapt.add_dynamics(adapt.finger(), damping=0.001)
 touch = np.radians([30.0, 30.0, 30.0])  # joint angles at first contact
 q_touch = np.linalg.lstsq(adapt.COUPLING, touch, rcond=None)[0]
@@ -220,8 +221,16 @@ ctrl.add("gravity", vmc.GravityCompensation(rig))
 compiled = vmc.compile(vmc.VirtualMechanismSystem(rig, ctrl))
 ```
 
-The wanted force alternates between two levels. The loop reads the table's force, as the load
-cell does, and starts the law after a second:
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+glue("table_cm", float(100 * table_z), display=False)
+```
+
+The wanted force steps from 0.5 N to 0.8 N after 10 s. The loop reads the table's force, as the
+load cell does, and starts the law after a second. The learning rates, 1e-4 for the stiffness
+and 5e-5 for the reference, are the lab's for this finger at 900 Hz:
 
 ```{code-cell} python
 levels = (0.5, 0.8)  # [N]
@@ -232,7 +241,7 @@ def track(adapted, learning_rate, hold=10.0):
                         rate=learning_rate)
     plant = vmc.sim.ModelPlant(rig, q0=0.8 * q_touch, max_step=2e-4)
     kin, log = vmc.Kinematics(rig), []
-    for _ in range(int(len(levels) * hold * rate)):
+    for _ in range(int(len(levels) * hold * hz)):
         plant.write(controller.step(plant.t, plant.read()))
         below = kin.position(plant.q, "tip")[2] - table_z  # [m]
         force = np.array([0.0, 0.0, k_table * max(0.0, below)])
@@ -240,7 +249,7 @@ def track(adapted, learning_rate, hold=10.0):
         if plant.t > 1.0:
             law.step(controller, force, [0.0, 0.0, wanted])
         log.append((plant.t, force[2], wanted))
-        plant.advance(1 / rate)
+        plant.advance(1 / hz)
     return np.array(log), controller.live_params()
 
 by_stiffness, stiffness = track("ctrl.hold.stiffness", 1e-4)
@@ -268,21 +277,23 @@ n = len(by_stiffness) // 2
 for run in (by_stiffness, by_reference):
     for part, level in ((slice(n // 2, n), 0.5), (slice(3 * n // 2, None), 0.8)):
         assert abs(run[part, 1].mean() - level) < 0.03, (level, run[part, 1].mean())
-k_end = stiffness["ctrl.hold.stiffness"]
 before = by_stiffness[(by_stiffness[:, 0] > 0.8) & (by_stiffness[:, 0] < 1.0), 1]
 glue("preload", float(before.mean()), display=False)
-glue("k_start", 0.2, display=False)
-glue("k_end", float(np.trace(k_end) / 3), display=False)
-glue("ref_end", float(np.degrees(reference["ctrl.hold.theta_ref"]).mean()), display=False)
+glue("k_start", float(K[0, 0]), display=False)
+for i, value in enumerate(np.diag(stiffness["ctrl.hold.stiffness"])):
+    glue(f"k_end{i}", float(value), display=False)
+for i, value in enumerate(np.degrees(reference["ctrl.hold.theta_ref"])):
+    glue(f"ref_end{i}", float(value), display=False)
 ```
 
 The finger lands on the table (the spike at the start, cut off in the plot) and holds
-{glue:text}`preload:.2f` N until the laws start. Both laws then reach each level. They get
-there differently. The stiffness law ends with a mean
-diagonal stiffness of {glue:text}`k_end:.3f` N·m/rad, from {glue:text}`k_start:.1f`, and
-leaves the reference where it was, at 42°. The reference law moves the joint targets to
-{glue:text}`ref_end:.1f`° and leaves the stiffness alone. A real fingertip needs `rate` to be
-tuned for its sensor and its rate: the numbers above are the lab's.
+{glue:text}`preload:.2f` N until the laws start. Both laws then reach each level, and they get
+there differently. The stiffness law ends with the diagonal of its stiffness at
+{glue:text}`k_end0:.3f`, {glue:text}`k_end1:.3f` and {glue:text}`k_end2:.3f` N·m/rad, from
+{glue:text}`k_start:.1f` each, and leaves the reference at 42°. The reference law ends with the
+joint targets at {glue:text}`ref_end0:.1f`°, {glue:text}`ref_end1:.1f`° and
+{glue:text}`ref_end2:.1f`°, and leaves the stiffness alone. A different finger, sensor or rate
+needs learning rates of its own.
 
 ## Animate
 

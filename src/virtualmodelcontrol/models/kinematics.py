@@ -16,15 +16,18 @@ def _vee(S: Any) -> Any:
     return ca.vertcat(S[2, 1], S[0, 2], S[1, 0])
 
 
-def contact_map(J: Any, normal: ArrayLike | None = None) -> Any:
-    """The matrix A of f = A τ: the force at a point from the torques on the coordinates its
-    Jacobian ``J`` (3, n) is taken in, by the pseudo-inverse. With a ``normal`` (any length) the
-    force is the one along it. Works on CasADi symbols and numbers."""
+def contact_projection(normal: ArrayLike | None = None) -> np.ndarray:
+    """The matrix that keeps the part of a force along ``normal`` (any length); identity without."""
     if normal is None:
-        return ca.solve(ca.mtimes(J, J.T), J)
-    n = ca.DM(np.asarray(normal, dtype=float).ravel())
-    j = ca.mtimes(J.T, n)
-    return ca.mtimes(n, j.T) / ca.dot(j, j)
+        return np.eye(3)
+    n = np.asarray(normal, dtype=float).ravel()
+    return np.outer(n, n) / (n @ n)
+
+
+def contact_map(J: ArrayLike, normal: ArrayLike | None = None) -> np.ndarray:
+    """The matrix A of f = A τ: the force at a point from the torques on the coordinates its
+    Jacobian ``J`` (3, n) is taken in, by the pseudo-inverse (along ``normal`` if given)."""
+    return np.linalg.pinv(contact_projection(normal) @ np.asarray(J, dtype=float)).T
 
 
 class Kinematics:

@@ -73,7 +73,7 @@ def hold(world, make_sensor, seconds=5.0, level=None):
 def test_each_arm_tracks_its_force_from_the_model_alone(world):
     log = hold(world, estimated)
     late = log[-500:]
-    assert late[:, 1].mean() == pytest.approx(WANTED, abs=0.02)  # the object's true force
+    assert late[:, 1].mean() == pytest.approx(WANTED, abs=0.005)  # the object's true force
     for column in (2, 3):  # what each arm believed
         assert late[:, column].mean() == pytest.approx(WANTED, abs=0.02)
     assert np.ptp(late[:, 1]) < 0.05
@@ -90,3 +90,10 @@ def test_through_a_tank_the_grasp_is_paid_for_by_its_energy(world):
     funded = hold(world, estimated, level=0.2)[-500:, 1].mean()
     assert empty < 0.5 * WANTED  # the goals can move only as far as the arms' dampers paid
     assert funded == pytest.approx(WANTED, abs=0.02)
+
+
+def test_with_a_sensor_on_the_object_the_tank_also_decides_how_far_the_grasp_gets(world):
+    empty = hold(world, measured, level=0.0)[-500:, 1].mean()
+    funded = hold(world, measured, level=0.2)[-500:, 1].mean()
+    assert empty < 0.5 * WANTED
+    assert funded == pytest.approx(WANTED, abs=0.06)

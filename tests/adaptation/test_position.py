@@ -22,7 +22,7 @@ def world():
 def run(world, regulate, seconds=6.0, gain=0.02):
     arm, compiled = world
     controller = vmc.VMCController(compiled)
-    law = PositionRegulation(controller, {"ctrl.reach.goal": 1.0}, rate=gain)
+    law = PositionRegulation(controller, {"ctrl.reach.goal": 1.0}, gain=gain)
     plant = vmc.sim.ModelPlant(arm)
     kin = vmc.Kinematics(arm)
     dt = 1 / helyx.CONTROL_RATE
@@ -56,7 +56,7 @@ def test_a_step_adds_the_rate_times_the_error_to_the_goal(world):
     meas = vmc.Signals(0.0, motor_position=theta, motor_velocity=np.zeros(9))
     controller.reset(0.0, meas)
     controller.step(0.0, meas)
-    law = PositionRegulation(controller, {"ctrl.reach.goal": 1.0}, rate=0.25)
+    law = PositionRegulation(controller, {"ctrl.reach.goal": 1.0}, gain=0.25)
     tip = vmc.Kinematics(arm, coordinates="motors").position(theta, 1.0)
     target = np.array([0.1, 0.02, 0.35])
     law.step(controller, {"ctrl.reach.goal": target})

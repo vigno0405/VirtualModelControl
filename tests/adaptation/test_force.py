@@ -69,8 +69,8 @@ def test_stiffness_directions_agree_with_the_symmetric_part_of_the_labs_gradient
 def test_steps_agree_with_the_labs_step_without_a_tank(setup, key, cap, max_step):
     controller = controller_at(setup, key)
     force = law(setup, key, "ctrl.*.goal*", max_step=max_step)
-    alpha, _ = force.step(controller, DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"])
-    assert alpha == pytest.approx(float(DATA[f"{key}/{cap}/alpha"]), rel=1e-5)
+    force.step(controller, DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"])
+    assert force.alpha == pytest.approx(float(DATA[f"{key}/{cap}/alpha"]), rel=1e-5)
     live = controller.live_params()
     new = np.array([live["ctrl.s1.goal1"], live["ctrl.s2.goal2"]]) + T_WB
     np.testing.assert_allclose(new, DATA[f"{key}/{cap}/new"], rtol=1e-9, atol=1e-10)
@@ -93,7 +93,8 @@ def test_no_step_where_the_force_is_already_right(setup):
     controller = controller_at(setup, key)
     before = controller.live_params()
     force = law(setup, key, "ctrl.*.goal*")
-    assert force.step(controller, DATA[f"{key}/f_des"], DATA[f"{key}/f_des"]) == (0.0, 0.0)
+    assert force.step(controller, DATA[f"{key}/f_des"], DATA[f"{key}/f_des"]) == 0.0
+    assert force.alpha == 0.0
     for name, value in controller.live_params().items():
         np.testing.assert_array_equal(value, before[name])
 
@@ -102,16 +103,16 @@ def test_a_tank_applies_the_part_of_the_step_it_pays_for(setup):
     key = "tip_normal/0"
     f_meas, f_des = DATA[f"{key}/f_des"], DATA[f"{key}/f_meas"]  # the opposite of the lab's case
     free = controller_at(setup, key)
-    alpha, jump = law(setup, key, "ctrl.*.goal*").step(free, f_meas, f_des)
+    jump = law(setup, key, "ctrl.*.goal*").step(free, f_meas, f_des)
     assert jump > 0  # this step stores energy in the springs
 
     rich = vmc.control.Tank(controller_at(setup, key), level=10.0 * jump)
-    assert law(setup, key, "ctrl.*.goal*").step(rich, f_meas, f_des) == (alpha, jump)
+    assert law(setup, key, "ctrl.*.goal*").step(rich, f_meas, f_des) == pytest.approx(jump)
     assert rich.fraction == 1.0 and rich.level == pytest.approx(9.0 * jump)
 
     poor = vmc.control.Tank(controller_at(setup, key), level=0.25 * jump)
     start = poor.live_params()
-    _, paid = law(setup, key, "ctrl.*.goal*").step(poor, f_meas, f_des)
+    paid = law(setup, key, "ctrl.*.goal*").step(poor, f_meas, f_des)
     assert 0.0 < poor.fraction < 1.0 and paid == pytest.approx(0.25 * jump, rel=1e-6)
     for name in ("ctrl.s1.goal1", "ctrl.s2.goal2"):
         moved = poor.live_params()[name] - start[name]
@@ -128,7 +129,7 @@ def test_a_step_that_releases_energy_goes_through_a_tank_and_refills_it(setup):
     key = "tip_normal/0"
     f_meas, f_des = DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"]
     empty = vmc.control.Tank(controller_at(setup, key), level=0.0)
-    _, jump = law(setup, key, "ctrl.*.goal*").step(empty, f_meas, f_des)
+    jump = law(setup, key, "ctrl.*.goal*").step(empty, f_meas, f_des)
     assert jump < 0 and empty.fraction == 1.0
     assert empty.level == pytest.approx(-jump)
 
@@ -174,8 +175,8 @@ def test_stiffness_steps_agree_with_the_labs_step_without_a_tank(scalar_setup, k
     force = ForceTracking(
         controller, 1.0, "ctrl.*.stiffness", DATA[f"{key}/normal"], max_step=max_step
     )
-    alpha, _ = force.step(controller, DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"])
-    assert alpha == pytest.approx(float(DATA[f"{key}/{cap}/alpha"]), rel=1e-5)
+    force.step(controller, DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"])
+    assert force.alpha == pytest.approx(float(DATA[f"{key}/{cap}/alpha"]), rel=1e-5)
     live = controller.live_params()
     new = [float(live["ctrl.s1.stiffness"]), float(live["ctrl.s2.stiffness"])]
     np.testing.assert_allclose(new, DATA[f"{key}/{cap}/new"], rtol=1e-9, atol=1e-12)
@@ -187,8 +188,8 @@ def test_a_stiffness_never_goes_negative(scalar_setup):
     force = ForceTracking(controller, 1.0, "ctrl.*.stiffness", DATA[f"{key}/normal"])
     f_meas, f_des = DATA[f"{key}/f_meas"], DATA[f"{key}/f_des"]
     g = force.direction(controller, f_meas, f_des)
-    alpha, _ = force.step(controller, f_meas, f_des)
-    assert 0.2 + alpha * float(g["ctrl.s2.stiffness"]) < 0.0  # the raw step goes below zero
+    force.step(controller, f_meas, f_des)
+    assert 0.2 + force.alpha * float(g["ctrl.s2.stiffness"]) < 0.0  # the raw step goes below zero
     assert float(controller.live_params()["ctrl.s2.stiffness"]) == 0.0
 
 
@@ -198,11 +199,21 @@ def test_a_stiffness_matrix_stays_symmetric_and_positive_semidefinite(setup):
     controller = controller_at(setup, key)
     force = law(setup, key, "ctrl.*.stiffness", max_force_step=1e4)  # a step far too large
     start, g = controller.live_params(), force.direction(controller, f_meas, f_des)
-    alpha, _ = force.step(controller, f_meas, f_des)
+    force.step(controller, f_meas, f_des)
     for name in ("ctrl.s1.stiffness", "ctrl.s2.stiffness"):
-        raw = start[name] + alpha * g[name]
+        raw = start[name] + force.alpha * g[name]
         assert np.linalg.eigvalsh(0.5 * (raw + raw.T)).min() < 0.0  # the raw step breaks it
         new = controller.live_params()[name]
         np.testing.assert_allclose(new, new.T, atol=1e-12)
         assert np.linalg.eigvalsh(new).min() >= -1e-9
         np.testing.assert_allclose(new, vmc.control.project_psd(raw), rtol=1e-9, atol=1e-9)
+
+
+def test_a_force_must_be_a_vector_of_three(setup):
+    key = "tip_normal/0"
+    controller = controller_at(setup, key)
+    force = law(setup, key, "ctrl.*.goal*")
+    with pytest.raises(ValueError):
+        force.step(controller, DATA[f"{key}/f_meas"], 1.0)  # a scalar would broadcast
+    with pytest.raises(ValueError):
+        force.direction(controller, [0.0, 1.0], DATA[f"{key}/f_des"])

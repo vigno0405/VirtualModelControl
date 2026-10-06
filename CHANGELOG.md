@@ -67,70 +67,58 @@ All notable changes to this project are documented here. The format follows
 - `identification.fit_transmission(motor, joint)`: the joint angle per motor angle of a cable drive,
   from a sweep of the joint, by least squares through the origin. It reproduces the finger's and
   the hand's transmission constants from their recorded sweeps. The finger's page shows it.
-- `vmc.adaptation.ForceTracking(controller, site, params, normal=None, max_force_step=0.01,
-  max_step=None)`: gradient descent of a contact force error on live Params of a controller. The
-  force is the one the motors deliver through the contact point's Jacobian, along `normal` or in
-  3D. `params` are glob patterns: references move the springs' goals, stiffnesses change the
-  springs. `step(controller, f_meas, f_des)` takes the largest step that keeps the predicted
-  force change below `max_force_step` [N] and each Param's change below `max_step`; pass a `Tank`
-  in place of the controller and it applies only the part of the step the tank pays for.
-  `direction` gives the descent direction without applying it. The gradient comes from automatic
-  differentiation of the controller's delivered torque and agrees with the lab's hand-derived
-  one to 1e-8 (reference and stiffness, tip and mid-arm contacts, with and without a normal), and
-  its steps, for the goal and for an isotropic stiffness, with the lab's, which finds the force
-  cap by a finite-difference probe. A new value stays within the Param's bounds (a stiffness
-  stops at zero), and a square matrix is made symmetric and positive semidefinite
-  (`control.project_psd`). With `rate=`, α is a fixed learning rate in place of the force cap,
-  as in the finger's experiments: its joint-space stiffness and reference descent agree with
-  the lab's, at the lab's rates, and its tip force with `ContactForce`. The energy bound is the tank's exact jump, so there is no safety
-  factor. `VMCController.inputs()` gives what the law read at the last step. The tutorial
-  "Track a contact force" presses a fingertip on a table with a chosen force, by the goal and by
-  the stiffness, free and through a tank. The finger's page presses with the two fixed-rate
-  laws in joint space, between two force levels.
-- `vmc.estimation.TaskStiffness(controller, site, normal=None, robot=None)`: the stiffness [N/m]
-  that a robot held at rest by its controller shows at a site, as a 3 by 3 matrix (along `normal`
-  if given). It is the stiffness of the motors' static balance, by automatic differentiation,
-  with the changes of the Jacobians counted (the congruence transformation, the Hessians of the
-  site and of the springs included), carried to the site through the contact map. It agrees
-  with the lab's exact apparent stiffness to 1e-8, for the tip and a mid-arm point, along a normal
-  and in 3D, and is the derivative of the force of the model along a displacement of the site.
-  The lab's first-order version leaves out the Hessian terms and is not provided.
-- `adaptation.StiffnessTracking(controller, site, params, normal=None, robot=None, rate=1.0)`:
-  direct stiffness tracking. The task-space stiffness is affine in the springs' stiffness, so
-  `target` solves a linear system for the Params that give a wanted matrix, the solution of
-  smallest norm as in the lab's stiffness inversion, and `step` moves them `rate` of the way,
-  within their bounds and positive semidefinite. Where no spring pulls it agrees with the lab's
-  inversion to 1e-6; where they do pull it counts the Hessian terms, which the lab's leaves out.
-- `adaptation.PositionRegulation(controller, sites, rate=0.05)`: integral pose regulation. Each
-  step adds `rate` times the error of a point of the robot to the goal of the spring that pulls
-  it, so the tip reaches its target whatever the arm's own stiffness and weight hold back.
-- The tutorial "Shape the stiffness of the tip" estimates the stiffness of the soft arm's tip,
-  asks for another one and regulates the position.
-- `adaptation.ForceRatio(controller, params, max_change=0.05)` and `adaptation.Stiffening(controller,
-  params, low, high, rate)`: the two laws of the lab's hand and finger that need no model. The
-  ratio law scales stiffnesses by the wanted force over the measured one, by at most `max_change`
-  times the relative error (the hand's multiplicative law, equal to the lab's update); the
-  stiffening sets k(F) = low + (high - low)(1 - exp(-rate F)) from the measured force (the
-  finger's law, equal to the lab's function). Both apply their values within the Params' bounds,
-  and through a `Tank` when given one. The stiffness as a function of the deflection, K(d), is
-  the `SigmoidSpring` and the `PolynomialSpring`. The force tutorial runs both.
-- `vmc.estimation.ContactForce(controller, site, normal=None, robot=None)`: the force a robot
-  exerts at a site when it rests, from what its controller commands. At rest the robot's dynamics
-  balance the delivered motor torques against its own stiffness and weight, and what is left goes
-  through the site's Jacobian by the pseudo-inverse (along `normal` if given). Called with the
-  controller, it reads the Params as they are, and leaves velocities out. `robot` is the model
-  that holds the arm, without the surroundings the plant may have. It agrees with the lab's
-  contact force from the virtual springs and the structural stiffness (the efficiency on the
-  springs' term only) to 1e-9, for the tip and a mid-arm point, along a normal and in 3D, and
-  with its torque-based variant. A fingertip at rest on a simulated table reads the table's force
-  to 2 %. The tutorial "Track a contact force" feeds the law with it, and shows that a wrong
-  mass in the model goes straight into the force. `VMCController.inputs()` returns the vector
-  the law reads, with the live Params as they are now.
-- Grasp-force tracking on two arms is these two together: each arm has its own goal spring, its
-  own `ForceTracking` along the line between the tips and its own `ContactForce`. Open loop, each
-  arm is told its estimate and the object feels the wanted force to 0.2 %; closed loop, both
-  are told a sensor on the object; and either runs through a `Tank`. The "Two arms" example
-  holds an object with a chosen force this way, and its integration tests cover the three runs.
+- `vmc.adaptation`: laws that change a running controller's live Params, a step at a time. Every
+  `step` returns the jump of the controller's energy [J] that was applied, and a `Tank` passed in
+  place of the controller applies only the part it pays for. A new value stays within the Param's
+  bounds (a stiffness stops at zero), and a square matrix stays symmetric and positive
+  semidefinite (`control.project_psd`).
+  - `ForceTracking(controller, site, params, normal=None, max_force_step=0.01, max_step=None,
+    rate=None)` descends the error of a contact force: `params` are glob patterns of live Params
+    (a spring's goal or its stiffness), `normal` keeps the force along it. The gradient is exact,
+    by automatic differentiation of the delivered torque, and agrees with the lab's hand-derived
+    one to 1e-8 for the goal and the stiffness, at the tip and mid-arm, along a normal and in 3D,
+    also where the point's Jacobian has rank below 3 (the two-motor finger). A step is the largest
+    that changes the force by `max_force_step` [N] (the lab finds it by a finite-difference probe
+    and agrees to 1e-5), or `rate`, a fixed learning rate as in the finger's experiments, where
+    it agrees with the lab's joint-space stiffness and reference descent at the lab's rates.
+    `direction` gives the descent direction without applying it.
+  - `ForceRatio(controller, params, max_change=0.05)` and `Stiffening(controller, params, low,
+    high, alpha)`: the laws of the lab's hand and finger that need no model. The first scales
+    stiffnesses by 1 plus or minus `max_change` times the relative error of the force (the hand's
+    multiplicative law); the second sets k(F) = low + (high - low)(1 - exp(-alpha F)) from the
+    measured force (the finger's law). Both equal the lab's. K(d) is the `SigmoidSpring` and the
+    `PolynomialSpring`.
+  - `StiffnessTracking(controller, site, params, normal=None, robot=None, fraction=1.0)`: direct
+    stiffness tracking. The stiffness at the site is affine in the springs' stiffness, so `target`
+    solves a linear system for the Params that give a wanted matrix, the solution of smallest
+    norm as in the lab's inversion, and `step` goes `fraction` of the way. Where no spring pulls
+    it agrees with the lab's inversion to 1e-6; where they do, it counts the geometric terms
+    that the lab's leaves out.
+  - `PositionRegulation(controller, sites, gain=0.05)`: integral pose regulation. A step adds
+    `gain` times the error of a point of the robot to the goal of the spring that pulls it.
+- `vmc.estimation`: quantities of a running robot that no sensor measures. Both take the
+  controller, a site (a name, an arc parameter or `(part, s)`) and a `normal`, and a `robot`:
+  the model that holds the arm at rest, without the surroundings the plant may have. They use the
+  controller's law before the output stages, the system's transmission and efficiency, and leave
+  velocities out.
+  - `ContactForce(controller, site, normal=None, robot=None)`: the force a robot exerts at a site
+    at rest. What the delivered motor torques and the robot's own stiffness and weight do not
+    balance goes through the site's Jacobian by the pseudo-inverse. It agrees with the lab's
+    contact force from the virtual springs and the structural stiffness (the efficiency on the
+    springs' term only) to 1e-9, with its torque-based variant, and with the finger's. A fingertip
+    at rest on a simulated table reads the table's force to 2 %.
+  - `TaskStiffness(controller, site, normal=None, robot=None)`: the stiffness [N/m] at the site, a
+    3 by 3 matrix. It is the stiffness of the static balance, by automatic differentiation, with
+    the geometric terms (the Hessians of the site and of the springs) counted, and agrees with
+    the lab's exact apparent stiffness to 1e-8. The lab's first-order version leaves the
+    geometric terms out and is not provided.
+- `VMCController.inputs()`: the vector the law reads, with the live Params as they are now.
+  A Param that acts only through a virtual state does not change the force at once, and the
+  laws leave it.
+- Docs: the tutorials "Track a contact force" (the laws, the estimate without a sensor, the tank)
+  and "Shape the stiffness of the tip"; the finger's page presses between two force levels; the
+  two arms' page holds an object with a chosen force, with estimates alone, with a sensor on the
+  object, and through a tank (the object feels the wanted force to 0.2 % from the estimates).
 - `vmc.Gated(component, gate)`: an element whose force and energy are multiplied by a live Param
   `gate` between 0 and 1. `optimization.Sparsity(weight, *patterns)` adds the sum of the free Params
   that match (each at least 0) to the cost. With the gates free, the optimizer keeps the elements

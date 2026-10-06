@@ -365,7 +365,8 @@ turtle crawling.
   model (K(d) is the `SigmoidSpring` and the `PolynomialSpring`); the tutorial "Track a contact
   force" uses them; `StiffnessTracking` (direct stiffness tracking) and `PositionRegulation`
   (integral pose regulation), in the tutorial "Shape the stiffness of the tip". Open: the
-  open-loop counterpart of the pose regulation, the goals that hold the arm where it is.
+  open-loop counterpart of the pose regulation (the lab's position feedforward), the goals that
+  hold the arm where it is.
 - [x] **Passivity filters:** every online update can pass through the tank or a projection,
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
@@ -373,8 +374,11 @@ turtle crawling.
 - [x] **Grasp-force tracking on the two arms:** the lab's tank-based algorithm, open and
   closed loop, ported with a regression test. Done (6 October 2026): one `ForceTracking` and one
   `ContactForce` per arm, told its own estimate (open loop) or a sensor on the object (closed
-  loop), alone or through a `Tank`; the laws and the estimate agree with the lab's, and the
-  "Two arms" example holds an object with a chosen force.
+  loop), alone or through a `Tank`. The laws and the estimate agree with the lab's (golden tests);
+  the tank is the library's, whose exact energy jump replaces the lab's first-order bound and its
+  safety factor, so a run through it is tested for what it must do (it stalls when empty and
+  reaches the force when funded), not against the lab's numbers. The "Two arms" example holds an
+  object with a chosen force.
 - [x] **The hand's fingertip laws:** fingertip force and stiffness optimization (stiffness-
   and reference-based gradient descent, the heuristic laws), toward grasp stability with
   fingertip sensing. Done (6 October 2026): the two gradient laws, `ForceTracking(..., rate=)` on
@@ -424,7 +428,9 @@ turtle crawling.
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.
   Its gait needs periodic trajectory problems (the orbit repeats, with references that change in
-  time) and free final time (the period is an unknown), both built on `vmc.optimization`.
+  time) and free final time (the period is an unknown), both built on `vmc.optimization`. The
+  force laws and the estimators work in motor coordinates and need as many velocity coordinates as
+  configuration coordinates; a floating body has fewer, so they are to be extended for it.
 - [ ] **Parity with VMRobotControl.jl** (the Julia library that shares this library's
   vocabulary of coordinates and components): virtual mechanisms with their own kinematics (a
   virtual cart on a rail along a path, a virtual tool); a table that maps its features to this

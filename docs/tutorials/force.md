@@ -18,18 +18,21 @@ import docs_setup
 
 A spring pulls the fingertip to a goal, and the table pushes back. The force on the table is a
 function of the goal, so we can ask which way to move the goal to bring the force closer to the
-wanted one. `ForceTracking` answers it: it moves live Params of the controller, first the
-spring's goal, then its stiffness, by gradient descent of $\tfrac12 \lVert f - f_\mathrm{des} \rVert^2$. At every
-control step it moves them by the largest step that changes the force by less than
-`max_force_step` [N].
+wanted one. `ForceTracking` answers it. It moves live Params of the controller, such as the
+spring's goal or its stiffness, by gradient descent of
+$\tfrac12 \lVert f - f_\mathrm{des} \rVert^2$. A Param is live when it can change while the
+controller runs ([Parameters](parameters.md)). At every control step the law moves them by the
+largest step that changes the force by less than `max_force_step` [N], 0.01 N by default.
 
-The force $f$ is the one the motors push through the contact point. The law needs the measured
-force too. On a real robot it comes from a load cell, or from an estimate. Here it comes from
-the simulated table first.
+The force $f$ is the one the motors push through the contact point, a vector of three entries.
+The law needs the measured force too, in the same form. On a real robot it comes from a load
+cell, or from an estimate. Here it comes from the simulated table first.
 
 ## Press with a chosen force
 
-The table is the one of the [contact tutorial](contact.md), 6 cm below the finger's base.
+The table is the one of the [contact tutorial](contact.md), a plane 6 cm below the finger's
+base. The finger's $z$ axis points down, so the table's outward normal is $-z$, and the finger
+pushes on it along $+z$.
 
 ```{code-cell} python
 import numpy as np
@@ -55,8 +58,11 @@ system = vmc.VirtualMechanismSystem(finger, ctrl)
 compiled = vmc.compile(system)
 ```
 
-The loop is the usual one with one more line: after the controller's step, the law changes the
-goal. The wanted force is 2 N along $+z$, into the table.
+The loop is the usual one. After the controller's step it reads the table's force, as a load cell
+would, and gives it to the law, which changes the Param. The wanted force is 2 N along $+z$, into
+the table, and `normal=[0, 0, 1]` tells the law that the force it tracks is the one along $z$.
+`adapted` names the Param, `sensor` replaces the table's force by an estimate, and `act` replaces
+the law, in the sections below.
 
 ```{code-cell} python
 wanted = np.array([0.0, 0.0, 2.0])  # [N]
@@ -109,20 +115,20 @@ from myst_nb import glue
 late = free["force"][-500:]
 outside = np.nonzero(abs(free["force"] - wanted[2]) > 0.1)[0]
 settled = free["t"][outside[-1] + 1]  # [s] from here on, within 0.1 N
-assert abs(late.mean() - wanted[2]) < 0.02 and late.std() < 0.03
+assert abs(late.mean() - wanted[2]) < 0.02 and np.ptp(late) < 0.1
 glue("settled", float(settled), display=False)
 glue("late_mean", float(late.mean()), display=False)
-glue("late_std", float(late.std()), display=False)
+glue("late_ptp", float(np.ptp(late)), display=False)
 glue("depth_end", float(1e3 * free["depth"][-1]), display=False)
 ```
 
 The spike at the start is the finger landing on the table. From {glue:text}`settled:.1f` s on,
-the force stays within 0.1 N of the wanted one. At the end it is {glue:text}`late_mean:.2f` N,
-with a ripple of {glue:text}`late_std:.2f` N: the step always changes the force by about
-`max_force_step`, so near the target it steps over it and back. The goal ends
-{glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A
-smaller `max_force_step` gives a smaller ripple and a slower approach. `max_step` [m] also caps
-how far a goal moves in one step.
+the force stays within 0.1 N of the wanted one. At the end it is {glue:text}`late_mean:.2f` N
+on average, and it ripples by {glue:text}`late_ptp:.3f` N from peak to peak: every step changes
+the force by about `max_force_step`, so near the target it steps over it and back. The goal ends
+{glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A smaller
+`max_force_step` gives a smaller ripple and a slower approach. `max_step` also caps how far a
+Param moves in one step, in the Param's own unit (metres for a goal).
 
 ## Through a tank
 
@@ -145,7 +151,7 @@ fig, ax = plt.subplots()
 ax.plot(free["t"], free["force"], label="no tank")
 ax.plot(funded["t"], funded["force"], "--", label="tank with 0.05 J")
 ax.plot(stalled["t"], stalled["force"], label="empty tank")
-ax.axhline(wanted[2], color="0.5", linestyle="--")
+ax.axhline(wanted[2], color="0.5", linestyle=":", label="wanted")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("force [N]")
 ax.legend(loc="lower right");
@@ -157,18 +163,21 @@ assert abs(funded["force"][-500:].mean() - wanted[2]) < 0.05
 assert stalled["force"][-1] < 0.8 * wanted[2]
 assert funded["level"].min() >= -1e-9 and stalled["level"].min() >= -1e-9
 glue("stalled", float(stalled["force"][-1]), display=False)
-glue("spent", float(0.05 - funded["level"][-1]), display=False)
+glue("left", float(funded["level"][-1]), display=False)
+glue("empty_level", float(stalled["level"][-1]), display=False)
 ```
 
-The tank with 0.05 J gets there, with {glue:text}`spent:.3f` J of it spent on the deeper goal. The
-empty one stalls at {glue:text}`stalled:.2f` N, where the finger rests and nothing refills it. A
-tank lets the controller's energy rise only by what it holds, so a law running through one
-cannot pump energy into the controller, whatever force it is asked for.
+The tank with 0.05 J gets there and ends with {glue:text}`left:.3f` J. The empty one stalls at
+{glue:text}`stalled:.2f` N: its level is {glue:text}`empty_level:.3f` J at the end, because the
+finger has come to rest and its dampers take nothing. A tank lets the controller's energy rise
+only by what it holds, so a law running through one cannot pump energy into the controller,
+whatever force it is asked for.
 
 ## By stiffness
 
-The law moves any live Param, so the stiffness of the spring can do the work of its goal. We
-fix the goal 20 mm below the table and start with a spring that is too soft:
+The law moves any live Param, so the stiffness of the spring can do the work of its goal: the
+same call with `"ctrl.press.stiffness"` in place of the goal's name. We fix the goal 20 mm below
+the table and start with a spring that is too soft:
 
 ```{code-cell} python
 soft = vmc.VMCController(compiled)
@@ -180,10 +189,11 @@ stiff = press(soft, "ctrl.press.stiffness")
 ```{code-cell} python
 :tags: [remove-input]
 fig, (top, bottom) = plt.subplots(2, 1, sharex=True)
-top.plot(stiff["t"], stiff["force"])
-top.axhline(wanted[2], color="0.5", linestyle="--")
+top.plot(stiff["t"], stiff["force"], label="contact force")
+top.axhline(wanted[2], color="0.5", linestyle="--", label="wanted")
 top.set_ylim(-0.2, 3.0)  # leaves out the finger's landing on the table
 top.set_ylabel("force [N]")
+top.legend(loc="lower right")
 bottom.plot(stiff["t"], stiff["stiffness"])
 bottom.set_ylabel("stiffness [N/m]")
 bottom.set_xlabel("time [s]");
@@ -225,8 +235,8 @@ def blind(model):
 exact = blind(adapt.add_dynamics(adapt.finger()))
 ```
 
-An estimate is as good as its model. We run it again with a distal phalanx that weighs 15 g in
-the model and 25 g in the plant:
+An estimate is as good as its model. We run it again with the finger's last phalanx 15 g in the
+model and 25 g in the plant:
 
 ```{code-cell} python
 light = adapt.add_dynamics(adapt.finger())
@@ -238,8 +248,8 @@ wrong = blind(light)
 :tags: [remove-input]
 fig, ax = plt.subplots()
 ax.plot(exact["t"], exact["force"], label="exact model")
-ax.plot(wrong["t"], wrong["force"], label="tip 10 g too light")
-ax.axhline(wanted[2], color="0.5", linestyle="--")
+ax.plot(wrong["t"], wrong["force"], label="last phalanx 10 g too light")
+ax.axhline(wanted[2], color="0.5", linestyle=":", label="wanted")
 ax.set_ylim(-0.2, 3.0)
 ax.set_xlabel("time [s]")
 ax.set_ylabel("table's force [N]")
@@ -265,12 +275,16 @@ cell's reading in place of the estimate.
 
 ## Laws without a model
 
-Two more laws need no model of the robot, only a force. `ForceRatio` scales a stiffness by the
-wanted force over the measured one, by at most 5 % of the relative error at each step, so that
-it moves quickly far from the target and gently near it. `Stiffening` sets the stiffness from
-the measured force, $K(F) = K_\mathrm{low} + (K_\mathrm{high} - K_\mathrm{low})(1 -
-e^{-\alpha F})$: soft until the finger touches something, stiffer as it presses. With the goal
-fixed 20 mm below the table and the spring starting soft:
+Two more laws need no model of the robot, only a force. `ForceRatio` scales a stiffness up when
+the force is too small and down when it is too large, by `max_change` (5 % here) times the
+relative error at each step: quickly far from the target and gently near it. `Stiffening` sets
+the stiffness from the measured force,
+
+$$K(F) = K_\mathrm{low} + (K_\mathrm{high} - K_\mathrm{low})(1 - e^{-\alpha F}),$$
+
+soft until the finger touches something, stiffer as it presses. In the call, `low` and `high`
+are $K_\mathrm{low}$ and $K_\mathrm{high}$ and `alpha` is $\alpha$. With the goal fixed 20 mm
+below the table and the spring starting soft:
 
 ```{code-cell} python
 from virtualmodelcontrol.adaptation import ForceRatio, Stiffening
@@ -282,12 +296,12 @@ def fresh():
     return controller
 
 ratio_run = fresh()
-ratio_law = ForceRatio(ratio_run, "ctrl.press.stiffness")
+ratio_law = ForceRatio(ratio_run, "ctrl.press.stiffness", max_change=0.05)
 scaled = press(ratio_run, act=ratio_law.step)
 
 stiff_run = fresh()
 stiffen = Stiffening(stiff_run, "ctrl.press.stiffness",
-                     low=40.0, high=200.0, rate=0.2)  # [N/m], [N/m], [1/N]
+                     low=40.0, high=200.0, alpha=0.2)  # [N/m], [N/m], [1/N]
 stiffened = press(stiff_run,
                   act=lambda c, told, wanted: stiffen.step(c, told[2]))
 ```
@@ -297,7 +311,7 @@ stiffened = press(stiff_run,
 fig, (top, bottom) = plt.subplots(2, 1, sharex=True)
 top.plot(scaled["t"], scaled["force"], label="ratio law")
 top.plot(stiffened["t"], stiffened["force"], "--", label="stiffening")
-top.axhline(wanted[2], color="0.5", linestyle=":")
+top.axhline(wanted[2], color="0.5", linestyle=":", label="wanted")
 top.set_ylim(-0.2, 3.0)  # leaves out the finger's landing on the table
 top.set_ylabel("force [N]")
 top.legend(loc="lower right")
@@ -325,16 +339,24 @@ force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
 ## What the calls need
 
 - `ForceTracking(controller, site, params, normal=None)`: `site` is where the contact is, a name
-  or an arc parameter `s`, and `params` are glob patterns of the controller's live Params. Compile
-  with `runtime=[...]` for the Params that are not live by default.
-- `normal` is the direction of the force the robot exerts. Without it the law tracks the full 3D
-  force.
-- `step(controller, f_meas, f_des)` makes one step and returns the step size and the jump of the
-  controller's energy. `direction(...)` gives the descent direction of each Param without
+  such as `"tip"`, an arc parameter `s`, or `(part, s)` for a part of an assembly, as in the
+  [two arms](../examples/two-arms.md). `params` are glob patterns of the controller's live Params;
+  compile with `runtime=[...]` for the Params that are not live by default.
+- `normal` is the direction of the force the robot exerts on its surroundings, opposite to the
+  surface's outward normal. Without it the law tracks the full 3D force. The measured and the
+  wanted force are vectors of three entries.
+- `step(controller, f_meas, f_des)` makes one step and returns the jump of the controller's
+  energy [J] that was applied (a tank applies only the part it pays for). `law.alpha` is the step
+  size of the last step. `direction(...)` gives the descent direction of each Param without
   applying it.
 - `ForceRatio(controller, params, max_change=0.05)` and `Stiffening(controller, params, low,
-  high, rate)` take the controller and glob patterns like `ForceTracking`. `ForceRatio.step`
-  takes the measured and the wanted force, `Stiffening.step` the measured force.
+  high, alpha)` take the controller and glob patterns like `ForceTracking`. `ForceRatio.step`
+  takes the measured and the wanted force, `Stiffening.step` the measured force along the
+  contact normal, a number. Both return the jump too; `law.ratio` and `law.k` are what they
+  asked for.
 - `ContactForce(controller, site, normal=None, robot=None)` estimates the force from the
   controller's command and the model of the robot. Call it with the controller. `robot` is the
-  model that holds the arm at rest, without the surroundings. It leaves velocities out.
+  model that holds the arm at rest, without the surroundings: it gives only the arm's own
+  stiffness and weight, and the motors' efficiency is the system's. The estimate uses the
+  controller's law, before the output stages, and leaves velocities out. A Param that acts only
+  on a virtual state does not change the force at once, and the laws leave it.
