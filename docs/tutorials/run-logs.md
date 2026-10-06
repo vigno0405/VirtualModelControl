@@ -45,7 +45,7 @@ len(rows["t"])
 ```
 
 Without `record`, a log holds the signals down to `z` in this list. `record` adds the others,
-one group at a time: `"params"`, `"elements"` and `"energy"`. The signals are:
+one group at a time: `"params"`, `"elements"`, `"energy"` and `"robot"`. The signals are:
 
 - `t`: the time of the step [s].
 - `motor_position`, `motor_velocity`: the measured motor angles [rad] and rates [rad/s].
@@ -63,6 +63,8 @@ one group at a time: `"params"`, `"elements"` and `"energy"`. The signals are:
   (`"energy"`).
 - `power/port`, `power/dissipation`, `power/source`: the controller's powers [W]
   (`"energy"`).
+- `robot/<component>/y`, `ydot`, `force`, `torque`: the same of each spring, damper and contact
+  of the simulated robot itself, as it feels them (`"robot"`; a real robot reports none).
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -74,7 +76,9 @@ params = {"param/ctrl.reach.stiffness", "param/ctrl.reach.ref",
           "param/ctrl.damp.damping"}
 energy = {"energy/stored", "energy/kinetic", "power/port",
           "power/dissipation", "power/source"}
-assert set(rows) == named | elements | params | energy, "the table is out of date"
+robot = {f"robot/{c}/{k}" for c in ("stiffness", "damping", "gravity")
+         for k in ("y", "ydot", "force", "torque")}
+assert set(rows) == named | elements | params | energy | robot, "out of date"
 ```
 
 The spring's force is minus its stiffness times its coordinate `y`, the deflection. The shares

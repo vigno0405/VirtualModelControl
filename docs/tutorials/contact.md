@@ -314,6 +314,109 @@ The masses stop {glue:text}`squeeze_sink:.1f` mm into the object, where its forc
 An object with a mass of its own, or with several coordinates, is a part with its own joints
 in the robot, as in [Build your own robot](build-a-robot.md); the contact is the same.
 
+### Friction between two points
+
+Two points that touch can rub too, and the surface they rub on is a sphere around one of them.
+`vmc.SphereDistance(b - a, [0, 0, 0], width)` is the same distance as `Norm(b - a) - width`, so
+`ContactFriction` takes it, with the stiffness `Param` of the spring. It pushes the two points
+with equal and opposite forces: it takes energy out of their sliding and nothing out of their
+momentum. A mass of 1 kg hits one of 2 kg off centre at 1 m/s, first without friction, then
+with a coefficient of 0.4:
+
+```{code-cell} python
+def collide(mu):
+    robot = vmc.Mechanism("pair", model=vmc.models.JointSpace(6, unit="m"))
+    a, b = robot.joint(slice(0, 3)), robot.joint(slice(3, 6))
+    robot.add("ma", vmc.PointMass(a, 1.0))  # [kg]
+    robot.add("mb", vmc.PointMass(b, 2.0))
+    k = vmc.Param("k", 1e4, unit="N/m", scope="stage")
+    robot.add("touch", vmc.ContactSpring(vmc.Norm(b - a) - 0.10, k))
+    sphere = vmc.SphereDistance(b - a, [0.0, 0.0, 0.0], 0.10)
+    robot.add("rub", vmc.ContactFriction(sphere, k, mu, speed=1e-4))
+    system = vmc.VirtualMechanismSystem(robot, vmc.Mechanism("idle"))
+    idle = vmc.VMCController(vmc.compile(system))
+    plant = vmc.sim.ModelPlant(robot, q0=[0, 0, 0, 0.3, 0.04, 0],
+                               v0=[1, 0, 0, 0, 0, 0], max_step=1e-4)
+    return vmc.sim.run(plant, idle, vmc.sim.SimClock(1e-3), T=0.3).arrays()
+
+def energy(rows):  # [J], kinetic
+    first, second = rows["v"][:, :3], rows["v"][:, 3:]  # 1 kg and 2 kg
+    return 0.5 * np.sum(first**2, axis=1) + np.sum(second**2, axis=1)
+
+slick, grippy = collide(0.0), collide(0.4)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+t = np.ravel(slick["t"])
+fig, ax = plt.subplots()
+ax.plot(t, energy(slick), label=r"$\mu = 0$")
+ax.plot(t, energy(grippy), label=r"$\mu = 0.4$")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("kinetic energy [J]")
+ax.legend(loc="lower left");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+def momentum(rows):
+    return rows["v"][:, :3] + 2 * rows["v"][:, 3:]
+
+assert np.ptp(momentum(grippy), axis=0).max() < 1e-6
+assert energy(grippy)[-1] < 0.9 * energy(grippy)[0] and energy(slick)[-1] > 0.97 * energy(slick)[0]
+glue("kept_slick", float(100 * energy(slick)[-1] / energy(slick)[0]), display=False)
+glue("kept_grippy", float(100 * energy(grippy)[-1] / energy(grippy)[0]), display=False)
+```
+
+The energy dips while the spring holds some of it, and the frictionless pair gets back
+{glue:text}`kept_slick:.0f` % of it (the rest is the integrator's). With friction the pair
+leaves with {glue:text}`kept_grippy:.0f` %. The momentum is the same in both.
+
+### A soft object
+
+A soft object is a part with coordinates and springs of its own. Here the object is 10 cm wide:
+each face is a point with a mass, the faces are joined by a spring, and each tip touches its
+face with a contact spring. The controller pulls the tips together with a spring of 50 N/m.
+
+```{code-cell} python
+hold = vmc.Mechanism("hold", model=vmc.models.JointSpace(4, unit="m"))
+tip_a, left, right, tip_b = (hold.joint(i) for i in range(4))
+for i, coord in enumerate((tip_a, left, right, tip_b)):
+    hold.add(f"m{i}", vmc.Inertance(coord, 0.5))  # [kg]
+    hold.add(f"d{i}", vmc.LinearDamper(coord, 5.0))  # [N s/m]
+hold.add("body", vmc.LinearSpring((right - left) - 0.10, 500.0))  # [N/m]
+hold.add("face_a", vmc.ContactSpring(left - tip_a, 2e3))
+hold.add("face_b", vmc.ContactSpring(tip_b - right, 2e3))
+
+pull = vmc.Mechanism("pull")
+pull.add("spring", vmc.LinearSpring(tip_b - tip_a, 50.0))  # [N/m]
+controller = vmc.VMCController(
+    vmc.compile(vmc.VirtualMechanismSystem(hold, pull)))
+plant = vmc.sim.ModelPlant(hold, q0=[0.0, 0.05, 0.15, 0.2], max_step=1e-3)
+log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500), T=4.0,
+                  record="robot")
+rows = log.arrays()
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+series = 1 / (1 / 500.0 + 2 / 2e3)  # [N/m]
+gap = series * 0.10 / (series + 50.0)
+q = rows["q"][-1]
+assert abs((q[3] - q[0]) - gap) < 1e-3 * gap
+assert abs(rows["robot/body/force"][-1][0] - 50.0 * gap) < 1e-3 * 50.0 * gap
+glue("soft_series", float(series), display=False)
+glue("soft_gap", float(100 * gap), display=False)
+glue("soft_force", float(50.0 * gap), display=False)
+glue("soft_squeeze", float(1e3 * (0.10 - (q[2] - q[1]))), display=False)
+```
+
+At rest the same force goes through the contact, the object and the other contact: three springs
+in series, of {glue:text}`soft_series:.0f` N/m together. The pull of 50 N/m balances them
+at a gap of {glue:text}`soft_gap:.2f` cm between the tips and a force of
+{glue:text}`soft_force:.2f` N, of which the object itself takes up
+{glue:text}`soft_squeeze:.1f` mm of squeeze.
+
 ## Choosing the numbers
 
 - Stiffness: the penetration at rest is $F / k$; 10³ to 10⁵ N/m model hard surfaces, and a soft
@@ -324,5 +427,6 @@ in the robot, as in [Build your own robot](build-a-robot.md); the contact is the
 - Damping: the damping ratio is $D / (2\sqrt{k m})$; without a contact damper the tip bounces.
 - Smoothing: `ContactSpring(d, k, smoothing=w)` and `ContactDamper(d, D, smoothing=w)` round the
   corner at the surface over a width $w$ [m], which optimization needs.
-- Friction: these contacts push along the normal only, so a pressing tip can slide; tangential
-  friction is planned for release 0.5.0.
+- Friction: a contact spring pushes along the normal only, so a pressing tip can slide. Add a
+  `ContactFriction` on the same surface, with the spring's stiffness `Param`; `speed` is the
+  sliding speed below which the force falls linearly, so a point at rest creeps.

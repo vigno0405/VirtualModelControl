@@ -448,14 +448,18 @@ turtle crawling.
   `DiodeDamper`, a `ForceSource` bounded in force and in power, `Mechanism.add_mass_along`. The
   one-sided springs and dampers are the contact ones, the linear inerter is an `Inertance` on a
   difference, and soft joint limits are a `LimitSpring` on a slice of the joints.
-- [ ] **Contact, continued:** tangential friction (smooth Coulomb); contact forces reported
+- [x] **Contact, continued:** tangential friction (smooth Coulomb); contact forces reported
   per component by the simulator; contact between two robot points (self-contact, two arms);
   soft objects. Done (6 October 2026): boxes, cylinders and capsules (`BoxDistance`,
   `CylinderDistance`, `CapsuleDistance`, also in configuration files); `ContactFriction`, the
   smooth Coulomb friction on any of these surfaces and on the plane and the sphere, with the
   contact spring's own normal force; the force, rate and torque of each component of the robot,
   from the simulator (`ModelPlant.elements()`) and in a run's log (`record="robot"`), which gives
-  the contact forces. Open: contact between two robot points, tested, and soft objects.
+  the contact forces. Contact between two robot points (a self-contact, the two arms) is
+  `ContactSpring(Norm(b - a) - width, k)`, and its friction `ContactFriction` on
+  `SphereDistance(b - a, 0, width)`; a soft object is a part with coordinates and springs of its
+  own, in series with the contacts: no new pieces, tested (`tests/mechanisms/test_pair_contact.py`)
+  and shown in the contact tutorial.
 - [ ] **The turtle crawling:** its floating body on the ground in the library's own simulator;
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.

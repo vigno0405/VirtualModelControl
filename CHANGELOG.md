@@ -177,6 +177,8 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- Docs: the contact tutorial also shows two points of a robot touching (a self-contact, the two
+  arms), friction between two points and a soft object between two tips, from the pieces above.
 - `vmc.control.project_psd(K)`: the symmetric positive semidefinite matrix nearest to a stiffness,
   for an update that an adaptation law proposes, before it goes through `set` or a tank.
 - `vmc.sim.energy_balance(log)`: the controller's energy over a run recorded with

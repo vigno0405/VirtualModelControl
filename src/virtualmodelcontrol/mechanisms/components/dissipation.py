@@ -104,7 +104,7 @@ class ContactDamper(Component):
 
 @register("component", "contact_friction")
 class ContactFriction(Component):
-    """Coulomb friction at a contact, smoothed: f = −μ F_n v_t / √(|v_t|² + v_s²) on the point of a
+    """Coulomb friction at a contact, smoothed: f = −μ F_n v_t / √(v_t² + v_s²) on the point of a
     signed distance, with v_t its velocity along the surface and F_n = k δ the contact force.
 
     Give ``stiffness`` k the same Param as the contact spring's (and the same ``smoothing`` w): the
@@ -137,7 +137,7 @@ class ContactFriction(Component):
         return (self.distance,)
 
     def force(self, ctx: Context, y: Any, yd: Any) -> Any:
-        """−μ F_n v_t / √(|v_t|² + v_s²)."""
+        """−μ F_n v_t / √(v_t² + v_s²)."""
         n = self.distance.unit_normal(ctx)
         slide = yd - n * ca.dot(n, yd)
         d, w = ctx.value(self.distance), ctx.param(self.smoothing)
