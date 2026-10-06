@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 from collections.abc import Sequence
 from typing import Any
 
@@ -10,9 +9,9 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
-from ..control.projection import project_psd
 from ..core.params import constants
 from ..models.kinematics import Kinematics, contact_map
+from .limits import admissible, live_matching
 
 
 class ForceTracking:
@@ -38,23 +37,17 @@ class ForceTracking:
         rate: float | None = None,
     ) -> None:
         compiled = controller.compiled
-        patterns = [params] if isinstance(params, str) else list(params)
-        names = [
-            n for n in compiled.live if any(fnmatch.fnmatchcase(n, pattern) for pattern in patterns)
-        ]
-        if not names:
-            raise ValueError(f"no live Param matches {patterns}; compile with runtime=[...]")
+        names = live_matching(compiled, params)
         self.names, self.max_force_step = names, max_force_step
         self.max_step, self.rate = max_step, rate
         slices = compiled.live_slices()
         self._shapes = {n: compiled.params[n].shape for n in names}
-        self._bounds = {n: self._flat_bounds(compiled.params[n]) for n in names}
+        self._params = {n: compiled.params[n] for n in names}
         self._slices = {n: slices[n] for n in names}
         n_angles, n_rates = compiled.n_motors
-        self._offset = n_angles + n_rates + compiled.z0.size
+        offset = n_angles + n_rates + compiled.z0.size  # where the live Params start in x
         picked = np.concatenate([np.arange(s.start, s.stop) for s in self._slices.values()])
-        self._picked = picked
-        self._force = self._build(compiled, site, normal, picked + self._offset)
+        self._force = self._build(compiled, site, normal, picked + offset)
 
     def _build(self, compiled: Any, site: Any, normal: Any, columns: np.ndarray) -> ca.Function:
         system = compiled.system
@@ -90,24 +83,10 @@ class ForceTracking:
             alpha = min(alpha, self.max_step / max(largest, 1e-12))
         live = controller.live_params()
         new = {
-            n: self._admissible(n, np.ravel(live[n], order="F") + alpha * b)
+            n: admissible(self._params[n], np.ravel(live[n], order="F") + alpha * b)
             for n, b in blocks.items()
         }
         return alpha, float(controller.set(new))
-
-    @staticmethod
-    def _flat_bounds(param: Any) -> tuple[np.ndarray, np.ndarray]:
-        lo, hi = (np.broadcast_to(np.asarray(b, dtype=float), param.shape) for b in param.bounds)
-        return np.ravel(lo, order="F"), np.ravel(hi, order="F")
-
-    def _admissible(self, name: str, value: np.ndarray) -> np.ndarray:
-        """``value`` within the Param's bounds; a square matrix is also made symmetric PSD."""
-        lo, hi = self._bounds[name]
-        value = np.clip(value, lo, hi)
-        shape = self._shapes[name]
-        if len(shape) == 2 and shape[0] == shape[1]:
-            value = np.ravel(project_psd(np.reshape(value, shape, order="F")), order="F")
-        return value
 
     def _gradient(
         self, controller: Any, f_meas: ArrayLike, f_des: ArrayLike

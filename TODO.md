@@ -360,9 +360,11 @@ turtle crawling.
   onto positive semidefinite matrices.
   Done so far (6 October 2026): `vmc.adaptation.ForceTracking`, gradient descent of a contact
   force error on any live Params, a spring's goal or its stiffness, the step bounded by the
-  force it may change, by the Param's bounds, by the positive semidefinite cone for a matrix,
-  and by the tank; the tutorial "Track a contact force" uses both. Open: direct stiffness
-  tracking, integral pose regulation, the schedules K(F) and K(d).
+  force it may change or a fixed rate, by the Param's bounds, by the positive semidefinite cone
+  for a matrix, and by the tank; `ForceRatio` and `Stiffening`, the lab's laws that need no
+  model (K(d) is the `SigmoidSpring` and the `PolynomialSpring`); the tutorial "Track a contact
+  force" uses them. Open: direct stiffness tracking and integral pose regulation, which need the
+  apparent stiffness of the arm.
 - [x] **Passivity filters:** every online update can pass through the tank or a projection,
   opt-in. Done (6 October 2026): the tank (`vmc.control.Tank`) takes in what the controller's
   dampers take when it runs in place of the controller, and `vmc.control.project_psd` gives the
@@ -372,13 +374,13 @@ turtle crawling.
   `ContactForce` per arm, told its own estimate (open loop) or a sensor on the object (closed
   loop), alone or through a `Tank`; the laws and the estimate agree with the lab's, and the
   "Two arms" example holds an object with a chosen force.
-- [ ] **The hand's fingertip laws:** fingertip force and stiffness optimization (stiffness-
+- [x] **The hand's fingertip laws:** fingertip force and stiffness optimization (stiffness-
   and reference-based gradient descent, the heuristic laws), toward grasp stability with
-  fingertip sensing. Done so far (6 October 2026): the two gradient laws, `ForceTracking(...,
-  rate=)` on the joint-space stiffness and on the joint reference at the lab's learning rates,
-  agree with the finger's, and run on the hand's fingertips; the finger's page tracks two force
-  levels with them. Open: the heuristic laws (the multiplicative law, K(F) and K(d)), which are
-  the schedules of the adaptation laws.
+  fingertip sensing. Done (6 October 2026): the two gradient laws, `ForceTracking(..., rate=)` on
+  the joint-space stiffness and on the joint reference at the lab's learning rates, agree with
+  the finger's and run on the hand's fingertips; the heuristic laws are `ForceRatio` (the hand's
+  multiplicative law) and `Stiffening` (the finger's K(F)), equal to the lab's; the finger's page
+  tracks two force levels, and the force tutorial runs the heuristic laws.
 - [ ] **Estimation:** measurement models shared by simulated sensors and estimators (encoders,
   motion-capture markers, IMU relative rotations, load cells; models only, no sensor readers);
   Kalman filters (EKF and UKF) fusing encoders with motion capture or IMUs, with per-sensor

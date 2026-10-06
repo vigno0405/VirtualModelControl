@@ -62,8 +62,11 @@ goal. The wanted force is 2 N along $+z$, into the table.
 wanted = np.array([0.0, 0.0, 2.0])  # [N]
 kin = vmc.Kinematics(finger)
 
-def press(controller, adapted="ctrl.press.goal", sensor=None, steps=3000):
-    law = ForceTracking(controller, "tip", adapted, normal=[0, 0, 1])
+def press(controller, adapted="ctrl.press.goal", sensor=None, act=None,
+          steps=3000):
+    if act is None:
+        law = ForceTracking(controller, "tip", adapted, normal=[0, 0, 1])
+        act = law.step
     plant = vmc.sim.ModelPlant(finger, q0=[0.8, 0.8], max_step=1e-4)
     names = ["t", "force", "told", "depth", "stiffness", "level"]
     log = {name: [] for name in names}
@@ -73,7 +76,7 @@ def press(controller, adapted="ctrl.press.goal", sensor=None, steps=3000):
         table = np.array([0.0, 0.0, k * max(0.0, below)])
         told = table if sensor is None else sensor(controller)
         if step > 100:  # let the finger settle on the table first
-            law.step(controller, told, wanted)
+            act(controller, told, wanted)
         live = controller.live_params()
         level = getattr(controller, "level", 0.0)  # a tank's budget [J]
         depth = live["ctrl.press.goal"][2] - 0.06  # [m]
@@ -260,6 +263,65 @@ one the law believes it holds {glue:text}`blind_told:.2f` N, and the table feels
 closes this loop, because what it tells the law is the true force. It is the same call with the
 cell's reading in place of the estimate.
 
+## Laws without a model
+
+Two more laws need no model of the robot, only a force. `ForceRatio` scales a stiffness by the
+wanted force over the measured one, by at most 5 % of the relative error at each step, so that
+it moves quickly far from the target and gently near it. `Stiffening` sets the stiffness from
+the measured force, $K(F) = K_\mathrm{low} + (K_\mathrm{high} - K_\mathrm{low})(1 -
+e^{-\alpha F})$: soft until the finger touches something, stiffer as it presses. With the goal
+fixed 20 mm below the table and the spring starting soft:
+
+```{code-cell} python
+from virtualmodelcontrol.adaptation import ForceRatio, Stiffening
+
+def fresh():
+    controller = vmc.VMCController(compiled)
+    controller.set({"ctrl.press.stiffness": 40.0,  # [N/m]
+                    "ctrl.press.goal": [0.0, 0.05, 0.08]})  # [m]
+    return controller
+
+ratio_run = fresh()
+ratio_law = ForceRatio(ratio_run, "ctrl.press.stiffness")
+scaled = press(ratio_run, act=ratio_law.step)
+
+stiff_run = fresh()
+stiffen = Stiffening(stiff_run, "ctrl.press.stiffness",
+                     low=40.0, high=200.0, rate=0.2)  # [N/m], [N/m], [1/N]
+stiffened = press(stiff_run,
+                  act=lambda c, told, wanted: stiffen.step(c, told[2]))
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, (top, bottom) = plt.subplots(2, 1, sharex=True)
+top.plot(scaled["t"], scaled["force"], label="ratio law")
+top.plot(stiffened["t"], stiffened["force"], "--", label="stiffening")
+top.axhline(wanted[2], color="0.5", linestyle=":")
+top.set_ylim(-0.2, 3.0)  # leaves out the finger's landing on the table
+top.set_ylabel("force [N]")
+top.legend(loc="lower right")
+bottom.plot(scaled["t"], scaled["stiffness"])
+bottom.plot(stiffened["t"], stiffened["stiffness"], "--")
+bottom.set_ylabel("stiffness [N/m]")
+bottom.set_xlabel("time [s]");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(scaled["force"][-500:].mean() - wanted[2]) < 0.03
+glue("ratio_force", float(scaled["force"][-500:].mean()), display=False)
+glue("ratio_k", float(scaled["stiffness"][-500:].mean()), display=False)
+glue("stiffened_force", float(stiffened["force"][-500:].mean()), display=False)
+glue("stiffened_k", float(stiffened["stiffness"][-500:].mean()), display=False)
+```
+
+The ratio law ends at {glue:text}`ratio_force:.2f` N with a stiffness of
+{glue:text}`ratio_k:.0f` N/m, as the gradient law did. The stiffening has no target. It settles
+where the force it produces and the stiffness it asks for agree: {glue:text}`stiffened_force:.2f` N
+at {glue:text}`stiffened_k:.0f` N/m. A stiffness that depends on the deflection, in place of the
+force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
+
 ## What the calls need
 
 - `ForceTracking(controller, site, params, normal=None)`: `site` is where the contact is, a name
@@ -270,6 +332,9 @@ cell's reading in place of the estimate.
 - `step(controller, f_meas, f_des)` makes one step and returns the step size and the jump of the
   controller's energy. `direction(...)` gives the descent direction of each Param without
   applying it.
+- `ForceRatio(controller, params, max_change=0.05)` and `Stiffening(controller, params, low,
+  high, rate)` take the controller and glob patterns like `ForceTracking`. `ForceRatio.step`
+  takes the measured and the wanted force, `Stiffening.step` the measured force.
 - `ContactForce(controller, site, normal=None, robot=None)` estimates the force from the
   controller's command and the model of the robot. Call it with the controller. `robot` is the
   model that holds the arm at rest, without the surroundings. It leaves velocities out.

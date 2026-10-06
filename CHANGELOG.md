@@ -87,6 +87,14 @@ All notable changes to this project are documented here. The format follows
   "Track a contact force" presses a fingertip on a table with a chosen force, by the goal and by
   the stiffness, free and through a tank. The finger's page presses with the two fixed-rate
   laws in joint space, between two force levels.
+- `adaptation.ForceRatio(controller, params, max_change=0.05)` and `adaptation.Stiffening(controller,
+  params, low, high, rate)`: the two laws of the lab's hand and finger that need no model. The
+  ratio law scales stiffnesses by the wanted force over the measured one, by at most `max_change`
+  times the relative error (the hand's multiplicative law, equal to the lab's update); the
+  stiffening sets k(F) = low + (high - low)(1 - exp(-rate F)) from the measured force (the
+  finger's law, equal to the lab's function). Both apply their values within the Params' bounds,
+  and through a `Tank` when given one. The stiffness as a function of the deflection, K(d), is
+  the `SigmoidSpring` and the `PolynomialSpring`. The force tutorial runs both.
 - `vmc.estimation.ContactForce(controller, site, normal=None, robot=None)`: the force a robot
   exerts at a site when it rests, from what its controller commands. At rest the robot's dynamics
   balance the delivered motor torques against its own stiffness and weight, and what is left goes
