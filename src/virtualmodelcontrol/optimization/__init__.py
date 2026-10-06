@@ -4,11 +4,14 @@ from .asktell import CMAES, Bayes, ExtremumSeeking, Grid, Random, bounds_of, tun
 from .collocation import Collocation
 from .equilibrium import Equilibrium
 from .horizon import MovingHorizon
+from .mpc import MPC
 from .nlp import NLP
 from .problem import Problem
 from .result import Result
 from .search import Search, search_references, sphere_points
-from .solver import CONVERGED, IPOPT
+from .shooting import Shooting, ShootingTrajectory
+from .solver import CONVERGED, IPOPT, PRESETS
+from .tank import TankBudget
 from .terms import Bound, Cost, Effort, Sparsity, Term
 from .trajectory import Trajectory
 
@@ -16,7 +19,9 @@ __all__ = [
     "CMAES",
     "CONVERGED",
     "IPOPT",
+    "MPC",
     "NLP",
+    "PRESETS",
     "Bayes",
     "Bound",
     "Collocation",
@@ -30,7 +35,10 @@ __all__ = [
     "Random",
     "Result",
     "Search",
+    "Shooting",
+    "ShootingTrajectory",
     "Sparsity",
+    "TankBudget",
     "Term",
     "Trajectory",
     "bounds_of",
