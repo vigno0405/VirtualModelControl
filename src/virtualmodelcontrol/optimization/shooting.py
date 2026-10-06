@@ -23,7 +23,8 @@ INTEGRATORS = ("implicit", "rk4")
 @dataclass
 class ShootingTrajectory(Trajectory):
     """The nodes of a shooting motion, plus what a term needs of its intervals: ``stepped`` gives
-    the shape (intervals, *Param shape) of each Param that changes at every interval, ``steps``
+    the shape (the intervals, then the Param's own) of each Param that changes at every interval,
+    ``steps``
     its value per interval, ``params`` the live Params of the controller in each interval,
     ``now`` those before the motion starts, and ``dissipated`` the energy [J] that the
     controller's own dampers take in each interval."""
