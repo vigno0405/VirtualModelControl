@@ -132,6 +132,7 @@ layers = [
     "virtualmodelcontrol.system",
     "virtualmodelcontrol.models",
     "virtualmodelcontrol.mechanisms",
+    "virtualmodelcontrol.math",
     "virtualmodelcontrol.core",
 ]
 

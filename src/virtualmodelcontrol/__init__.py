@@ -3,7 +3,7 @@
 import importlib
 from typing import TYPE_CHECKING, Any
 
-from . import adaptation, estimation, identification, optimization, sim
+from . import adaptation, estimation, identification, math, optimization, sim
 from .compiler import Compiled, compile
 from .control import VMCController
 from .core import SO2, Euclidean, Param, ParamSet, Product, Signals, register
@@ -121,6 +121,7 @@ __all__ = [
     "estimation",
     "hardware",
     "identification",
+    "math",
     "optimization",
     "register",
     "sim",

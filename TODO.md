@@ -413,6 +413,11 @@ turtle crawling.
   `vmc.testing.check_model(model)`, the model contract in one call for a model or a robot's
   mechanism (finite, rotations, derivatives against finite differences, continuity along `s`,
   serialization round trip, energy).
+  Also done (6 October 2026): `vmc.math` (rotations and rigid transforms on numpy and CasADi
+  alike), the joint types `helical`, `spherical` and `free` of `SerialChain` (a floating base,
+  with its rotation as a rotation vector), trees as parts mounted on sites by `Assembly`.
+  Open: a rail along a spline path, joints driven by a reference or by a function of time, a
+  quaternion space for floating bases that turn more than once.
 
 - [ ] **More coordinates and components:** the sum of coordinates, an orientation error, the
   angular velocity of a frame, a vector expressed in a frame and back; one-sided springs and

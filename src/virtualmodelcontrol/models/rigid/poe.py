@@ -11,42 +11,57 @@ import numpy as np
 from ...core.params import ParamSet, as_param
 from ...core.registry import register
 from ...core.space import Euclidean
-from ...core.symbolic import exp_so3, rotation_from_vector
 from ...core.units import M
+from ...math import exp_so3, rot
 
-JOINT_TYPES = ("revolute", "prismatic")
+JOINT_TYPES = ("revolute", "prismatic", "helical", "spherical", "free")
+COORDINATES = {"revolute": 1, "prismatic": 1, "helical": 1, "spherical": 3, "free": 6}
+"""How many entries of q each joint type owns."""
 
 
 @register("model", "poe")
 class SerialChain:
-    """Serial chain of revolute and prismatic joints, as a product of exponentials.
+    """Serial chain of joints, as a product of exponentials.
 
-    Joint i (from 1) has ``j{i}.axis`` (direction at q = 0, normalized internally) and, if revolute,
-    ``j{i}.point`` [m], a point on its axis. A site ``(after, position[, rotation])`` has
+    A joint is ``"revolute"`` or ``"prismatic"`` (one coordinate), ``"helical"`` (one, a turn that
+    also slides along its axis by ``pitch`` [m/rad]; give it as ``("helical", pitch)``),
+    ``"spherical"`` (three, a rotation vector about a point) or ``"free"`` (six, a translation and
+    a rotation vector: a floating base). Joint i (from 1) has ``j{i}.axis`` (direction at q = 0,
+    normalized internally; ``None`` for spherical and free) and ``j{i}.point`` [m], a point on its
+    axis, or the point a rotation turns about. A site ``(after, position[, rotation])`` has
     ``{name}.position`` [m] and ``{name}.rotation`` (rotation vector [rad]) at q = 0 and moves with
     the joints up to ``after`` (1-based). All are ``design`` Params.
     """
 
     def __init__(
         self,
-        joints: Sequence[str],
+        joints: Sequence[str | Sequence[Any]],
         axes: Sequence[Any],
         points: Sequence[Any],
         sites: Mapping[str, tuple[Any, ...]],
     ) -> None:
-        if any(j not in JOINT_TYPES for j in joints):
+        specs = [(j, None) if isinstance(j, str) else (j[0], j[1]) for j in joints]
+        if any(kind not in JOINT_TYPES for kind, _ in specs):
             raise ValueError(f"joint types must be in {JOINT_TYPES}, got {list(joints)}")
         if not len(joints) == len(axes) == len(points):
             raise ValueError("give one axis and one point per joint")
-        self.joints = list(joints)
-        self.space = Euclidean(len(joints))
+        self.joints = [kind for kind, _ in specs]
+        sizes = [COORDINATES[kind] for kind in self.joints]
+        self._start = np.cumsum([0, *sizes]).tolist()
+        self.space = Euclidean(sum(sizes))
         self.params = ParamSet()
         free = (-np.inf, np.inf)
-        for i, (axis, point) in enumerate(zip(axes, points, strict=True)):
-            key = f"j{i + 1}.axis"
-            self.params.add(as_param(axis, key, scope="design", bounds=free), key)
+        for i, ((kind, pitch), axis, point) in enumerate(zip(specs, axes, points, strict=True)):
+            if axis is not None:
+                key = f"j{i + 1}.axis"
+                self.params.add(as_param(axis, key, scope="design", bounds=free), key)
             key = f"j{i + 1}.point"
             self.params.add(as_param(point, key, unit=M, scope="design", bounds=free), key)
+            if kind == "helical":
+                key = f"j{i + 1}.pitch"
+                self.params.add(
+                    as_param(pitch, key, unit="m/rad", scope="design", bounds=free), key
+                )
         self.site_joint: dict[str, int] = {}
         for name, spec in sites.items():
             after, position = spec[0], spec[1]
@@ -60,8 +75,8 @@ class SerialChain:
 
     @property
     def q_unit(self) -> str:
-        """Unit of the joint coordinates (rad if any joint is revolute)."""
-        return "rad" if "revolute" in self.joints else M
+        """Unit of the joint coordinates (rad unless every joint is prismatic)."""
+        return M if all(kind == "prismatic" for kind in self.joints) else "rad"
 
     def frame(self, q: Any, at: str, p: dict[str, Any]) -> tuple[Any, Any]:
         """(R, position) of a site."""
@@ -69,31 +84,39 @@ class SerialChain:
             raise KeyError(f"unknown site {at!r}; sites: {self.sites}")
         R, pos = ca.DM.eye(3), ca.DM.zeros(3, 1)
         for i in range(self.site_joint[at]):
-            axis = ca.reshape(p[f"j{i + 1}.axis"], 3, 1)
-            axis = axis / ca.norm_2(axis)
-            if self.joints[i] == "revolute":
-                Ri = exp_so3(axis, q[i])
-                ti = ca.mtimes(ca.DM.eye(3) - Ri, ca.reshape(p[f"j{i + 1}.point"], 3, 1))
-            else:
-                Ri, ti = ca.DM.eye(3), axis * q[i]
+            Ri, ti = self._joint(i, q, p)
             R, pos = ca.mtimes(R, Ri), pos + ca.mtimes(R, ti)
-        R_site = rotation_from_vector(ca.reshape(p[f"{at}.rotation"], 3, 1))
+        R_site = exp_so3(ca.reshape(p[f"{at}.rotation"], 3, 1))
         return ca.mtimes(R, R_site), pos + ca.mtimes(R, ca.reshape(p[f"{at}.position"], 3, 1))
+
+    def _joint(self, i: int, q: Any, p: dict[str, Any]) -> tuple[Any, Any]:
+        """Rotation and translation of joint ``i`` (from 0) at its own coordinates."""
+        kind, name = self.joints[i], f"j{i + 1}"
+        mine = q[self._start[i] : self._start[i + 1]]
+        eye, point = ca.DM.eye(3), ca.reshape(p[f"{name}.point"], 3, 1)
+        if kind in ("spherical", "free"):
+            R = exp_so3(mine[3:] if kind == "free" else mine)
+            t = ca.mtimes(eye - R, point)  # the turn about ``point``
+            if kind == "free":
+                t = t + mine[:3]
+            return R, t
+        axis = ca.reshape(p[f"{name}.axis"], 3, 1)
+        axis = axis / ca.norm_2(axis)
+        if kind == "prismatic":
+            return eye, axis * mine[0]
+        R = rot(axis, mine[0])
+        t = ca.mtimes(eye - R, point)
+        if kind == "helical":
+            t = t + axis * p[f"{name}.pitch"] * mine[0]
+        return R, t
 
     def joint_points(self, q: Any, p: dict[str, Any]) -> list[Any]:
         """Positions of the joints' axis points at q, base to tip (for drawing)."""
         R, pos = ca.DM.eye(3), ca.DM.zeros(3, 1)
         out = []
         for i in range(len(self.joints)):
-            point = ca.reshape(p[f"j{i + 1}.point"], 3, 1)
-            out.append(pos + ca.mtimes(R, point))
-            axis = ca.reshape(p[f"j{i + 1}.axis"], 3, 1)
-            axis = axis / ca.norm_2(axis)
-            if self.joints[i] == "revolute":
-                Ri = exp_so3(axis, q[i])
-                ti = ca.mtimes(ca.DM.eye(3) - Ri, point)
-            else:
-                Ri, ti = ca.DM.eye(3), axis * q[i]
+            out.append(pos + ca.mtimes(R, ca.reshape(p[f"j{i + 1}.point"], 3, 1)))
+            Ri, ti = self._joint(i, q, p)
             R, pos = ca.mtimes(R, Ri), pos + ca.mtimes(R, ti)
         return out
 
@@ -102,8 +125,14 @@ class SerialChain:
         n = range(1, len(self.joints) + 1)
         return {
             "type": "poe",
-            "joints": list(self.joints),
-            "axes": [self.params[f"j{i}.axis"].value.tolist() for i in n],
+            "joints": [
+                [kind, self.params[f"j{i}.pitch"].value.item()] if kind == "helical" else kind
+                for i, kind in zip(n, self.joints, strict=True)
+            ],
+            "axes": [
+                self.params[f"j{i}.axis"].value.tolist() if f"j{i}.axis" in self.params else None
+                for i in n
+            ],
             "points": [self.params[f"j{i}.point"].value.tolist() for i in n],
             "sites": {
                 name: [

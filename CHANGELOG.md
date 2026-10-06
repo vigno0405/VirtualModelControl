@@ -158,6 +158,16 @@ All notable changes to this project are documented here. The format follows
   slow episodes, tens of them. The episodes are yours, in simulation or on a robot in your own loop.
 - `compile_dynamics(robot, runtime, actuation)` takes the actuation of a robot that has none, so a
   system's efficiency Params (`robot.efficiency.c1`) are the ones the dynamics read.
+- `vmc.math`: rotations and rigid transforms that run on numpy arrays and CasADi symbols alike
+  (`rot_x`, `rot_y`, `rot_z`, `rot`, `skew`, `vee`, `exp_so3`, `log_so3`, `transform`, `invert`,
+  `exp_se3`, `log_se3`, `adjoint`), for writing the `frame` of a `FunctionModel`. Every function
+  is smooth at the identity, also in its second derivatives (the exact forms lose them there).
+  They replace the three rotation helpers of `core.symbolic`.
+- `SerialChain` joints: `"helical"` (a turn that slides by a pitch, given as `("helical", pitch)`),
+  `"spherical"` (three coordinates, a rotation vector about the joint's point) and `"free"` (six:
+  a translation and a rotation vector, a floating base). A chain on a free base, a brick of point
+  masses thrown with a spin and its momenta and energy are tested; a branch of a tree is a part
+  mounted on a site of another part by `Assembly`.
 
 ### Removed
 

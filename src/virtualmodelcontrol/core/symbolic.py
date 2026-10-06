@@ -1,4 +1,4 @@
-"""Symbolic helpers shared by the models: type checks, smooth norms, quadrature, rotations."""
+"""Symbolic helpers shared by the models: type checks, smooth norms, quadrature."""
 
 from __future__ import annotations
 
@@ -41,27 +41,3 @@ def quad(f: Callable[[Any], Any], a: Any, b: Any, n: int = 16) -> Any:
     t, w = gauss_legendre(n)
     h = b - a
     return h * sum(float(wi) * f(a + h * float(ti)) for ti, wi in zip(t, w, strict=True))
-
-
-def skew(w: Any) -> Any:
-    """Skew-symmetric matrix [w]× with [w]× x = w × x."""
-    return ca.vertcat(
-        ca.horzcat(0, -w[2], w[1]),
-        ca.horzcat(w[2], 0, -w[0]),
-        ca.horzcat(-w[1], w[0], 0),
-    )
-
-
-def exp_so3(axis: Any, angle: Any) -> Any:
-    """Rotation by ``angle`` (rad) about the unit vector ``axis`` (Rodrigues)."""
-    k = skew(axis)
-    return ca.DM.eye(3) + ca.sin(angle) * k + (1 - ca.cos(angle)) * ca.mtimes(k, k)
-
-
-def rotation_from_vector(w: Any) -> Any:
-    """Rotation matrix of a rotation vector w (axis · angle [rad]); smooth at w = 0."""
-    theta = ca.sqrt(ca.sumsqr(w) + 1e-24)
-    k = skew(w)
-    return (
-        ca.DM.eye(3) + ca.sin(theta) / theta * k + (1 - ca.cos(theta)) / theta**2 * ca.mtimes(k, k)
-    )

@@ -139,6 +139,73 @@ positions must not jump). The energy check runs the simulator twice, the second 
 step four times smaller. The drift of its implicit steps must fall with the step, and a force
 that does work would not let it fall.
 
+## Joints with more coordinates
+
+A joint of a `SerialChain` is one of five kinds. Its coordinates take the next entries of $q$:
+
+| joint | coordinates | motion |
+|---|---|---|
+| `"revolute"` | 1 | a turn about its axis |
+| `"prismatic"` | 1 | a slide along its axis |
+| `("helical", pitch)` | 1 | a turn that also slides by `pitch` [m/rad] |
+| `"spherical"` | 3 | a rotation vector, about the joint's point |
+| `"free"` | 6 | a translation, then a rotation vector: a floating base |
+
+A spherical and a free joint have no axis: give `None`. We toss a brick on a free joint. It
+is four point masses at its corners, and it spins as it flies:
+
+```{code-cell} python
+corners = {"a": [0.2, 0.0, 0.0], "b": [0.0, 0.1, 0.0],
+           "c": [0.0, 0.0, 0.3], "d": [-0.1, -0.1, -0.1]}
+mass = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 1.5}  # [kg]
+brick = vmc.Mechanism("brick", model=SerialChain(
+    ["free"], axes=[None], points=[[0, 0, 0]],
+    sites={name: (1, c) for name, c in corners.items()}))
+brick.add_param(vmc.Param("gravity", [0.0, 0.0, -9.81], unit="m/s^2"))
+for name, m in mass.items():
+    brick.add(f"m_{name}", vmc.PointMass(brick.point(name), m))
+brick.add("gravity", vmc.Gravity(brick))
+
+v0 = [0.5, 0.0, 2.0, 3.0, -2.0, 1.0]  # the translation rate, the spin
+plant = vmc.sim.ModelPlant(brick, v0=v0, max_step=1e-4)
+kin = vmc.Kinematics(brick)
+times, path, tip = [], [], []
+for _ in range(60):
+    plant.advance(0.01)
+    times.append(plant.t)
+    path.append(sum(m * kin.position(plant.q, n)
+                    for n, m in mass.items()) / sum(mass.values()))
+    tip.append(kin.position(plant.q, "c"))
+path, tip, times = np.array(path), np.array(tip), np.array(times)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+com0 = sum(m * np.array(corners[n]) for n, m in mass.items()) / sum(mass.values())
+start = np.array(v0[:3]) + np.cross(v0[3:], com0)  # the centre's speed
+fall = com0 + np.outer(times, start) + 0.5 * np.outer(times**2, [0, 0, -9.81])
+error = np.abs(path - fall).max()
+assert error < 1e-3 and np.linalg.norm(plant.q[3:]) > 1.0
+glue("error", float(1e3 * error), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.plot(path[:, 0], path[:, 2], label="centre of mass")
+ax.plot(tip[:, 0], tip[:, 2], label="corner c")
+ax.set_xlabel("x [m]")
+ax.set_ylabel("z [m]")
+ax.legend();
+```
+
+The centre of mass follows the parabola of a stone to {glue:text}`error:.2f` mm while the corner
+winds around it: nothing but gravity acts, so the spin does not change it. The orientation is
+a rotation vector, which is smooth until the body has turned once, so a body that keeps
+spinning needs its coordinates restarted.
+
 ## Other kinds of robots
 
 A continuum arm is a `PCC` model, driven by a `TendonTransmission`:

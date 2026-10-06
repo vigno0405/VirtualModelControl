@@ -9,6 +9,7 @@ tutorials are available from there. The modules, from the bottom layer up:
    :recursive:
 
    ~virtualmodelcontrol.core
+   ~virtualmodelcontrol.math
    ~virtualmodelcontrol.mechanisms
    ~virtualmodelcontrol.models
    ~virtualmodelcontrol.system

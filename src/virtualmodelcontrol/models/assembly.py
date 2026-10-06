@@ -11,7 +11,7 @@ import numpy as np
 from ..core.params import Param, ParamSet, as_param
 from ..core.registry import get, register
 from ..core.space import Product
-from ..core.symbolic import rotation_from_vector
+from ..math import exp_so3
 from .actuation import Direct
 
 
@@ -74,7 +74,7 @@ class Assembly:
 
     def mount(self, q: Any, name: str, p: dict[str, Any]) -> tuple[Any, Any]:
         """Pose of a part's base in the assembly's base frame."""
-        R_m = rotation_from_vector(ca.reshape(p[f"{name}.mount.rotation"], 3, 1))
+        R_m = exp_so3(ca.reshape(p[f"{name}.mount.rotation"], 3, 1))
         p_m = ca.reshape(p[f"{name}.mount.position"], 3, 1)
         parent = self.parents[name]
         if parent is None:
