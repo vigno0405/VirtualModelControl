@@ -65,6 +65,10 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   models in PyTorch and numpy (0.7.0), then a full check and the 1.0.0 release. Co-design with
   variable-stiffness actuators, URDF and MuJoCo, continuum models beyond PCC, inverse dynamics,
   realism wrappers, learning from demonstrations and the other model backends are not planned.
+- **Where 0.5.0 stands (6 October 2026):** contact, estimation (with its simulated sensors), the
+  docs, bring-your-own-kinematics and the other items below are ticked. The turtle crawling has
+  its controller elements, its simulated crawler, its seeking law and its tutorial; its gait search
+  by periodic motion with a free period is the one piece still open. 0.6.0 has begun.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
