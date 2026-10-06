@@ -114,14 +114,14 @@ class Builder:
         self._outputs[name] = expr
 
     def evaluate(
-        self, coord: Coordinate, qs: list[Any], vs: list[Any], ts: Any
+        self, coord: Coordinate, qs: list[Any], vs: list[Any], ts: list[Any]
     ) -> tuple[list[Any], list[Any]]:
-        """Value and rate of a coordinate at the given nodes."""
+        """Value and rate of a coordinate at the given nodes and times (numbers or expressions)."""
         fn, live = self._coordinate(coord)
         p = self.pack(self.params, live)
         ys, yds = [], []
         for q, v, t in zip(qs, vs, ts, strict=True):
-            y, yd = fn(q, v, p, float(t))
+            y, yd = fn(q, v, p, t)
             ys.append(y)
             yds.append(yd)
         return ys, yds

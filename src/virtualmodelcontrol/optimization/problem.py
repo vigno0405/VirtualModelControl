@@ -18,7 +18,7 @@ from .result import Result
 from .solver import IterationCallback, create_solver
 
 Progress = Callable[[int, float, dict[str, np.ndarray], np.ndarray], "bool | None"]
-WARM_START = ("q", "v", "a", "params")
+WARM_START = ("q", "v", "a", "horizon", "params")
 
 
 class Problem:
@@ -109,7 +109,7 @@ class Problem:
     def initial_guess(self, warm_start: Result | Mapping[str, Any] | None = None) -> np.ndarray:
         """The solver's starting point (scaled): the robot at rest at ``q0`` with the free Params
         at their values, or ``warm_start``, a previous ``Result`` or a dict with ``q``, ``v``,
-        ``a`` (nodes × size) and ``params``."""
+        ``a`` (nodes × size), ``horizon`` (of a free one) and ``params``."""
         nlp = self.build()
         variables, x = nlp.variables, nlp.x0.copy()
         for name in nlp.free:
@@ -125,7 +125,7 @@ class Problem:
                 raise ValueError(f"warm_start has {unknown}; its keys are {list(WARM_START)}")
             get = warm_start.get
         else:
-            raise TypeError("warm_start is a Result or a dict of q, v, a and params")
+            raise TypeError("warm_start is a Result or a dict of q, v, a, horizon and params")
         for key, shape in nlp.trajectory.shapes.items():
             value = get(key)
             if value is not None:
@@ -133,6 +133,8 @@ class Problem:
                 if value.shape != shape:
                     raise ValueError(f"warm start {key!r} has shape {value.shape}, not {shape}")
                 x[variables.slices[key]] = variables.scaled(key, value)
+        if "horizon" in variables.slices and get("horizon") is not None:
+            x[variables.slices["horizon"]] = variables.scaled("horizon", get("horizon"))
         for name, value in (get("params") or {}).items():
             if name in nlp.free:
                 key = f"param:{name}"
@@ -175,8 +177,12 @@ class Problem:
         )
         parts = nlp.costs(x, p) if nlp.cost_names else ()
         parts = parts if isinstance(parts, (tuple, list)) else (parts,)
+        nodes = len(nlp.trajectory.t)
+        horizon = float(nlp.outputs["horizon"](x, p)) if "horizon" in nlp.outputs else 0.0
+        times = np.arange(nodes) * (horizon / (nodes - 1)) if nodes > 1 else np.zeros(nodes)
         return Result(
-            t=nlp.trajectory.t.copy(),
+            t=times,
+            horizon=horizon,
             q=found["q"],
             v=found["v"],
             a=found["a"],

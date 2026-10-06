@@ -23,9 +23,10 @@ def _per_entry(value: ArrayLike, dim: int, what: str, name: str) -> np.ndarray:
 
 def _no_node(name: str, trajectory: Trajectory, t_from: float, t_to: float | None) -> ValueError:
     end = "the end" if t_to is None else f"{t_to:g} s"
+    step = trajectory.t[1] - trajectory.t[0] if trajectory.t.size > 1 else 0.0
     return ValueError(
         f"no node lies in the window of {name!r}, from {t_from:g} s to {end}: the nodes are "
-        f"{trajectory.dt:g} s apart from 0 to {trajectory.t[-1]:g} s"
+        f"{step:g} s apart from 0 to {trajectory.t[-1]:g} s"
     )
 
 
@@ -161,6 +162,36 @@ class Bound(Term):
         values, _ = trajectory.coordinate(self.coordinate)
         lower, upper = np.tile(self.lower, len(nodes)), np.tile(self.upper, len(nodes))
         return [(ca.vertcat(*[values[k] for k in nodes]), lower, upper)]
+
+
+class Period(Term):
+    """The horizon equals the Param called ``param``: a controller whose reference repeats every
+    ``param`` seconds (a function of ``vmc.Time()`` and that Param) has its orbit repeat with it.
+
+    Make the Param free or a parameter to tie the free horizon of a ``Collocation`` to the period.
+    """
+
+    def __init__(self, param: str, *, name: str = "period") -> None:
+        self.param, self.name = param, name
+
+    def build(self, builder: Builder) -> None:
+        """Constrain the horizon to the Param's value."""
+        trajectory = builder.trajectory
+        if trajectory is None:
+            raise ValueError(f"add a Collocation before the term {self.name!r}")
+        found = builder.params.select(patterns=[self.param])
+        if len(found) != 1:
+            raise ValueError(
+                f"{self.name!r}: {self.param!r} matches {len(found)} Params, it must be one "
+                f"of {list(builder.params)}"
+            )
+        param = builder.params[found[0]]
+        if param.size != 1:
+            raise ValueError(
+                f"{self.name!r}: a period is one number, {found[0]!r} has {param.size}"
+            )
+        period = ca.reshape(builder.value(param), 1, 1)
+        builder.constrain(self.name, trajectory.horizon - period, 0.0, 0.0)
 
 
 class Sparsity(Term):

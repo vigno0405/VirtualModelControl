@@ -15,9 +15,11 @@ class Result:
     """A planned motion and the Params found.
 
     ``t`` [s], ``q``, ``v``, ``a`` and the motor torques ``u`` are per node (rows), ``blend`` is
-    the weight of the new controller. ``params`` holds the free Params at their optimum and
-    ``references`` the values the parameters had in this solve, both by name. ``cost`` is the
-    total, ``costs`` the part of each term, ``violation`` the largest violation of a constraint.
+    the weight of the new controller. ``horizon`` [s] is the time from the first node to the last:
+    the one found when it is free (0 for an equilibrium). ``params`` holds the free Params at
+    their optimum and ``references`` the values the parameters had in this solve, both by name.
+    ``cost`` is the total, ``costs`` the part of each term, ``violation`` the largest violation of
+    a constraint.
     """
 
     t: np.ndarray
@@ -34,6 +36,7 @@ class Result:
     iterations: int
     seconds: float
     violation: float
+    horizon: float = 0.0
 
     @property
     def converged(self) -> bool:
