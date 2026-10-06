@@ -177,6 +177,11 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `KalmanFilter(..., unscented=True, substeps=10)`: the prediction sends sigma points of the
+  estimate (the scaled unscented transform, a root of three standard deviations out) through the
+  robot's own integrator, in `substeps` steps, instead of linearising at the estimate; the sensors
+  stay linear, so the update is the same. On a double pendulum it follows the mean of a Monte
+  Carlo to 0.003 where the linearised prediction is off by 2; on a linear robot the two agree.
 - `vmc.estimation.MomentumObserver(system, dt, gain, robot=None)`: the external force on a robot
   from its motion, without accelerations. From the momentum and what the model says would change
   it, it gives the generalized force the model does not explain, as a low-pass filter of bandwidth

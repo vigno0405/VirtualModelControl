@@ -19,6 +19,10 @@ PROCESS_NOISE = 1e-6
 INITIAL_VARIANCE = 1e-2
 """Default variance of the state after a reset, on every entry of (q, v)."""
 
+SIGMA_DISTANCE = 3**0.5
+"""How far the sigma points of the unscented prediction lie from the estimate, in standard
+deviations (or less, in a state of two entries)."""
+
 
 class KalmanFilter:
     """Kalman filter of a robot's state (q, v): its dynamics predict, the sensors' readings correct.
@@ -26,6 +30,10 @@ class KalmanFilter:
     ``dt`` [s] is the step; ``Q`` and ``P0`` are the covariances of the process noise and of the
     state at a reset; ``gate`` is the largest innovation d² a measurement may have (None: no
     test). ``robot`` is the arm alone when the system's has surroundings. Read at construction.
+
+    The prediction linearises the dynamics at the estimate. With ``unscented``, it takes sigma
+    points of the estimate through the dynamics instead, in ``substeps`` steps of the robot's own
+    integrator each, which follows a strongly nonlinear arm (the sensors stay linear).
     """
 
     def __init__(
@@ -36,6 +44,8 @@ class KalmanFilter:
         gate: float | None = 40.0,
         robot: Any = None,
         P0: ArrayLike | None = None,
+        unscented: bool = False,
+        substeps: int = 10,
     ) -> None:
         model = system.robot if robot is None else robot
         space = model.model.space
@@ -70,6 +80,8 @@ class KalmanFilter:
         )
         self._dynamics = dynamics
         self._n, self._n_rates = n, n_rates
+        self._unscented, self._substeps = unscented, substeps
+        self._points = dynamics.step.map(4 * n + 1)  # one column per sigma point
         self._neutral = np.asarray(space.neutral(), dtype=float)
         self.dt = dt
         self.gate = gate
@@ -87,11 +99,15 @@ class KalmanFilter:
         self.missing: tuple[str, ...] = ()
 
     def predict(self, u: ArrayLike, t: float = 0.0) -> None:
-        """Advance ``dt`` under the motor command ``u``, held, with the model linearised here."""
+        """Advance ``dt`` under the motor command ``u``, held, with the model linearised here (or,
+        unscented, through sigma points)."""
         from scipy.linalg import expm  # SciPy loads when a filter first predicts
 
         n, q = self._n, self._x[: self._n]
         u, p = np.asarray(u, dtype=float), self._dynamics.live_values()
+        if self._unscented:
+            self._predict_unscented(u, p, t)
+            return
         M, K, D, r = (np.array(m) for m in self._rest(q, u, p, t))
         # M a = -r - K (q - q0) - D v about the estimate q0, so x' = A x + c; A and c go in one
         # matrix whose exponential holds the step of x' = A x + c (c rides on the last column)
@@ -105,6 +121,27 @@ class KalmanFilter:
         F = phi[: 2 * n, : 2 * n]
         self._x = F @ self._x + phi[: 2 * n, 2 * n]
         self._P = F @ self._P @ F.T + self._Q
+
+    def _predict_unscented(self, u: np.ndarray, p: np.ndarray, t: float) -> None:
+        """The scaled unscented transform of the state through ``dt`` of the robot's dynamics."""
+        n2 = 2 * self._n
+        alpha = min(1.0, SIGMA_DISTANCE / n2**0.5)  # the points lie alpha sqrt(n2) out
+        lam = alpha**2 * n2 - n2  # κ = 0
+        root = np.linalg.cholesky((n2 + lam) * self._P + 1e-12 * np.eye(n2))
+        points = np.column_stack([self._x, *(self._x[:, None] + s * root for s in (1, -1))])
+        wm = np.full(2 * n2 + 1, 0.5 / (n2 + lam))
+        wc = wm.copy()
+        wm[0] = lam / (n2 + lam)
+        wc[0] = wm[0] + 1.0 - alpha**2 + 2.0  # β = 2
+        cols, h = points.shape[1], self.dt / self._substeps
+        U, live = np.tile(u[:, None], (1, cols)), np.tile(np.ravel(p)[:, None], (1, cols))
+        q, v = points[: self._n], points[self._n :]
+        for k in range(self._substeps):
+            q, v = (np.array(m) for m in self._points(q, v, U, live, t + k * h, h))
+        after = np.vstack([q, v])
+        self._x = after @ wm
+        spread = after - self._x[:, None]
+        self._P = (spread * wc) @ spread.T + self._Q
 
     def update(self, measurements: Sequence[Measurement], expected: Iterable[str] = ()) -> None:
         """Fuse the measurements; ``rejected`` names those the gate left out, ``missing`` the

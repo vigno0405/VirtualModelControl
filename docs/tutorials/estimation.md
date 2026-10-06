@@ -149,6 +149,14 @@ The filter's model is the simulated arm itself, so `Q` can be small. On a real a
 the model's errors go. The covariances of the measurements are the noise we gave the sensors,
 with the slack counted in for the encoders: 1.5 mm.
 
+`predict` linearises the arm's dynamics at the estimate. That is exact for a linear robot and
+close for an arm whose state is known to a few millimetres. For a state that is much less certain,
+build the filter with `KalmanFilter(system, dt, unscented=True)`. Its `predict` sends sigma points
+of the estimate, a root of three standard deviations out, through `substeps` steps of the arm's
+own integrator, and takes the mean and the covariance of where they land, so both follow the
+arm's nonlinearity. It costs about $4n$ times as much for $n$ coordinates, and the sensors are
+fused as before, since they are linear in $q$ and $v$.
+
 ## One estimate, three sensors
 
 We run the filter with each combination of sensors and compare with the true state, after the

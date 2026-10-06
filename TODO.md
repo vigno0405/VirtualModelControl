@@ -412,8 +412,9 @@ turtle crawling.
   equal to the lab's code; the force tutorial probes three objects with it.
   `MomentumObserver` (6 October 2026): the external force from the momentum, with no acceleration,
   as a first-order low-pass of the true force; the force tutorial shows it on a landing finger.
-  Open: the UKF variant of the filter, regression and nonlinear least squares, and
-  moving-horizon estimation.
+  The UKF variant (6 October 2026): `KalmanFilter(..., unscented=True)`, the scaled unscented
+  transform for the prediction, tested against a textbook implementation and a Monte Carlo.
+  Open: regression and nonlinear least squares, and moving-horizon estimation.
 - [x] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,
