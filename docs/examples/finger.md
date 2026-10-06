@@ -187,6 +187,103 @@ the goal. With them, the joints stop just past the ends of their ranges (MCP at
 {glue:text}`gap:.0f` mm short of the goal. A stiffer limit spring (its `stiffness` argument)
 keeps the joints closer to their ranges.
 
+## Press with a chosen force
+
+The lab tracks a fingertip force on a load cell with two laws that both descend the force error
+at a fixed learning rate. One changes the joint-space stiffness, which changes the slope of the
+force against the displacement. The other moves the joint reference and leaves the stiffness
+alone. Here the load cell is a table, 6 cm below the finger's base, that the fingertip touches
+at joint angles of 30°. A joint-space spring holds the finger 12° beyond that, which presses on
+it.
+
+```{code-cell} python
+from virtualmodelcontrol.adaptation import ForceTracking
+
+rate = adapt.FINGER_CONTROL_RATE  # [Hz]
+rig = adapt.add_dynamics(adapt.finger(), damping=0.001)
+touch = np.radians([30.0, 30.0, 30.0])  # joint angles at first contact
+q_touch = np.linalg.lstsq(adapt.COUPLING, touch, rcond=None)[0]
+table_z = vmc.Kinematics(rig).position(q_touch, "tip")[2]  # [m]
+k_table = 1e4  # [N/m]
+gap = vmc.PlaneDistance(rig.point("tip"), normal=[0, 0, -1],
+                        origin=[0, 0, table_z])
+rig.add("table", vmc.ContactSpring(gap, k_table))
+rig.add("cushion", vmc.ContactDamper(gap, 5.0))  # [N·s/m]
+
+joints = adapt.joint_angles(rig)
+target = vmc.Ref("theta_ref", 3, value=np.radians([42.0] * 3), unit="rad")
+ctrl = vmc.Mechanism("ctrl")
+K = 0.2 * np.eye(3)  # [N·m/rad]
+ctrl.add("hold", vmc.LinearSpring(joints - target, K))
+ctrl.add("damp", vmc.LinearDamper(joints, 0.003))  # [N·m·s/rad]
+ctrl.add("gravity", vmc.GravityCompensation(rig))
+compiled = vmc.compile(vmc.VirtualMechanismSystem(rig, ctrl))
+```
+
+The wanted force alternates between two levels. The loop reads the table's force, as the load
+cell does, and starts the law after a second:
+
+```{code-cell} python
+levels = (0.5, 0.8)  # [N]
+
+def track(adapted, learning_rate, hold=10.0):
+    controller = vmc.VMCController(compiled)
+    law = ForceTracking(controller, "tip", adapted, normal=[0, 0, 1],
+                        rate=learning_rate)
+    plant = vmc.sim.ModelPlant(rig, q0=0.8 * q_touch, max_step=2e-4)
+    kin, log = vmc.Kinematics(rig), []
+    for _ in range(int(len(levels) * hold * rate)):
+        plant.write(controller.step(plant.t, plant.read()))
+        below = kin.position(plant.q, "tip")[2] - table_z  # [m]
+        force = np.array([0.0, 0.0, k_table * max(0.0, below)])
+        wanted = levels[int(plant.t // hold)]
+        if plant.t > 1.0:
+            law.step(controller, force, [0.0, 0.0, wanted])
+        log.append((plant.t, force[2], wanted))
+        plant.advance(1 / rate)
+    return np.array(log), controller.live_params()
+
+by_stiffness, stiffness = track("ctrl.hold.stiffness", 1e-4)
+by_reference, reference = track("ctrl.hold.theta_ref", 5e-5)
+```
+
+```{code-cell} python
+:tags: [remove-input]
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.plot(by_stiffness[:, 0], by_stiffness[:, 1], label="stiffness law")
+ax.plot(by_reference[:, 0], by_reference[:, 1], "--", label="reference law")
+ax.step(by_stiffness[:, 0], by_stiffness[:, 2], color="0.5", linestyle=":",
+        label="wanted")
+ax.set_ylim(0.0, 1.5)  # leaves out the finger's landing on the table
+ax.set_xlabel("time [s]")
+ax.set_ylabel("fingertip force [N]")
+ax.legend(loc="upper right");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+n = len(by_stiffness) // 2
+for run in (by_stiffness, by_reference):
+    for part, level in ((slice(n // 2, n), 0.5), (slice(3 * n // 2, None), 0.8)):
+        assert abs(run[part, 1].mean() - level) < 0.03, (level, run[part, 1].mean())
+k_end = stiffness["ctrl.hold.stiffness"]
+before = by_stiffness[(by_stiffness[:, 0] > 0.8) & (by_stiffness[:, 0] < 1.0), 1]
+glue("preload", float(before.mean()), display=False)
+glue("k_start", 0.2, display=False)
+glue("k_end", float(np.trace(k_end) / 3), display=False)
+glue("ref_end", float(np.degrees(reference["ctrl.hold.theta_ref"]).mean()), display=False)
+```
+
+The finger lands on the table (the spike at the start, cut off in the plot) and holds
+{glue:text}`preload:.2f` N until the laws start. Both laws then reach each level. They get
+there differently. The stiffness law ends with a mean
+diagonal stiffness of {glue:text}`k_end:.3f` N·m/rad, from {glue:text}`k_start:.1f`, and
+leaves the reference where it was, at 42°. The reference law moves the joint targets to
+{glue:text}`ref_end:.1f`° and leaves the stiffness alone. A real fingertip needs `rate` to be
+tuned for its sensor and its rate: the numbers above are the lab's.
+
 ## Animate
 
 `plane="yz"` shows the finger from the side and `invert=True` turns $z$ down, as mounted.

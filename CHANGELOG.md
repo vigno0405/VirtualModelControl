@@ -80,10 +80,13 @@ All notable changes to this project are documented here. The format follows
   its steps, for the goal and for an isotropic stiffness, with the lab's, which finds the force
   cap by a finite-difference probe. A new value stays within the Param's bounds (a stiffness
   stops at zero), and a square matrix is made symmetric and positive semidefinite
-  (`control.project_psd`). The energy bound is the tank's exact jump, so there is no safety
+  (`control.project_psd`). With `rate=`, α is a fixed learning rate in place of the force cap,
+  as in the finger's experiments: its joint-space stiffness and reference descent agree with
+  the lab's, at the lab's rates, and its tip force with `ContactForce`. The energy bound is the tank's exact jump, so there is no safety
   factor. `VMCController.inputs()` gives what the law read at the last step. The tutorial
   "Track a contact force" presses a fingertip on a table with a chosen force, by the goal and by
-  the stiffness, free and through a tank.
+  the stiffness, free and through a tank. The finger's page presses with the two fixed-rate
+  laws in joint space, between two force levels.
 - `vmc.estimation.ContactForce(controller, site, normal=None, robot=None)`: the force a robot
   exerts at a site when it rests, from what its controller commands. At rest the robot's dynamics
   balance the delivered motor torques against its own stiffness and weight, and what is left goes

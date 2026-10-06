@@ -374,7 +374,11 @@ turtle crawling.
   "Two arms" example holds an object with a chosen force.
 - [ ] **The hand's fingertip laws:** fingertip force and stiffness optimization (stiffness-
   and reference-based gradient descent, the heuristic laws), toward grasp stability with
-  fingertip sensing.
+  fingertip sensing. Done so far (6 October 2026): the two gradient laws, `ForceTracking(...,
+  rate=)` on the joint-space stiffness and on the joint reference at the lab's learning rates,
+  agree with the finger's, and run on the hand's fingertips; the finger's page tracks two force
+  levels with them. Open: the heuristic laws (the multiplicative law, K(F) and K(d)), which are
+  the schedules of the adaptation laws.
 - [ ] **Estimation:** measurement models shared by simulated sensors and estimators (encoders,
   motion-capture markers, IMU relative rotations, load cells; models only, no sensor readers);
   Kalman filters (EKF and UKF) fusing encoders with motion capture or IMUs, with per-sensor

@@ -21,9 +21,9 @@ class ForceTracking:
     ``params`` are glob patterns of live Params: references move the springs' goals, stiffnesses
     change the springs. The contact is at ``site`` of the robot; with a ``normal`` the force is the
     one along it. A step ``p ← p + α g`` takes the largest α that keeps the predicted change of the
-    force below ``max_force_step`` [N] and the change of each Param (its norm) below ``max_step``.
-    A new value stays within the Param's bounds, and a square matrix stays symmetric and positive
-    semidefinite.
+    force below ``max_force_step`` [N] and the change of each Param (its norm) below ``max_step``;
+    with a ``rate``, α is that fixed number instead. A new value stays within the Param's bounds,
+    and a square matrix stays symmetric and positive semidefinite.
     """
 
     def __init__(
@@ -35,6 +35,7 @@ class ForceTracking:
         *,
         max_force_step: float = 0.01,
         max_step: float | None = None,
+        rate: float | None = None,
     ) -> None:
         compiled = controller.compiled
         patterns = [params] if isinstance(params, str) else list(params)
@@ -43,7 +44,8 @@ class ForceTracking:
         ]
         if not names:
             raise ValueError(f"no live Param matches {patterns}; compile with runtime=[...]")
-        self.names, self.max_force_step, self.max_step = names, max_force_step, max_step
+        self.names, self.max_force_step = names, max_force_step
+        self.max_step, self.rate = max_step, rate
         slices = compiled.live_slices()
         self._shapes = {n: compiled.params[n].shape for n in names}
         self._bounds = {n: self._flat_bounds(compiled.params[n]) for n in names}
@@ -78,7 +80,10 @@ class ForceTracking:
         g, dfdp = self._gradient(controller, f_meas, f_des)
         if not np.any(g):
             return 0.0, 0.0
-        alpha = self.max_force_step / max(float(np.linalg.norm(dfdp @ g)), 1e-12)
+        if self.rate is None:
+            alpha = self.max_force_step / max(float(np.linalg.norm(dfdp @ g)), 1e-12)
+        else:
+            alpha = self.rate
         blocks = self._split(g, shaped=False)
         if self.max_step is not None:
             largest = max(float(np.linalg.norm(b)) for b in blocks.values())
