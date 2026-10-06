@@ -414,7 +414,10 @@ turtle crawling.
   as a first-order low-pass of the true force; the force tutorial shows it on a landing finger.
   The UKF variant (6 October 2026): `KalmanFilter(..., unscented=True)`, the scaled unscented
   transform for the prediction, tested against a textbook implementation and a Monte Carlo.
-  Open: regression and nonlinear least squares, and moving-horizon estimation.
+  `identification.fit_params` (6 October 2026): regression and nonlinear least squares in one
+  call, on the residual of the robot's own dynamics, with standard errors, equal to ordinary least
+  squares where the residual is linear; the tutorial "Fit Params to a run".
+  Open: moving-horizon estimation.
 - [x] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

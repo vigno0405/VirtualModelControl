@@ -103,6 +103,7 @@ tutorials/coordinates-and-components
 tutorials/parameters
 tutorials/configurations
 tutorials/run-logs
+tutorials/fit
 tutorials/real-time
 tutorials/swaps
 tutorials/energy

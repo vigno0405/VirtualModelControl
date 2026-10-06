@@ -177,6 +177,14 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `vmc.identification.fit_params(robot, names, runs)`: any Params of a robot, by name or glob,
+  fitted to logged runs by least squares on the residual of its own dynamics, within the Params'
+  bounds. A residual linear in the Params (masses, stiffnesses, dampings, efficiencies) is solved
+  in a step, and any other, such as the saturating damper's, by Gauss-Newton. It returns the values
+  in each Param's shape, their standard errors and the residual's root mean square. A run with
+  an `a` uses it, and otherwise the acceleration is the smoothed velocity's difference against the
+  torques averaged over the step they were held. It agrees with ordinary least squares, values and
+  covariance, on a mass, spring and damper. The tutorial "Fit Params to a run" uses it.
 - `KalmanFilter(..., unscented=True, substeps=10)`: the prediction sends sigma points of the
   estimate (the scaled unscented transform, a root of three standard deviations out) through the
   robot's own integrator, in `substeps` steps, instead of linearising at the estimate; the sensors
