@@ -86,3 +86,9 @@ def test_the_continuum_arm_is_an_arc_of_fixed_length():
     custom = planar.continuum(lengths=(0.1, 0.2), masses=(0.1, 0.1), offsets=(0.01,), depths=(2,))
     assert custom.model.space.nq == 2
     np.testing.assert_allclose(custom.actuation.params["B"].value, [[-1.0], [-1.0]])
+
+
+def test_the_continuum_rest_is_the_frozen_rest_and_the_springs():
+    arm = planar.add_continuum_dynamics(planar.continuum(rest=[0.1, -0.2, 0.3]))
+    np.testing.assert_allclose(arm.params["q_rest"].value, [0.1, -0.2, 0.3])
+    np.testing.assert_allclose(arm.params["spring.rest"].value, [0.1, -0.2, 0.3])

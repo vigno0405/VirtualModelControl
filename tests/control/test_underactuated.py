@@ -214,12 +214,14 @@ def test_a_state_controller_is_the_motor_controller_when_every_joint_has_a_motor
     ctrl.add("m", vmc.Inertance(ctrl.add_state("z", 1), 0.2))
     ctrl.add("link", vmc.LinearSpring(robot.joint(0) - ctrl.states["z"], 5.0))
     ctrl.add("damp", vmc.LinearDamper(ctrl.states["z"], 1.0))
+    ramp = vmc.Custom(lambda t: 0.3 * t, [vmc.Time()], dim=1, unit="rad")  # moves with time
+    ctrl.add("ramp", vmc.LinearSpring(robot.joint(1) - ramp, 7.0))
     compiled = vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
     motors, states = vmc.VMCController(compiled), StateController(compiled)
     for c in (motors, states):
-        c.reset(0.0)
+        c.reset(5.0)  # time in the law counts from the reset
     rng = np.random.default_rng(5)
-    for t in np.arange(1, 6) * 0.01:
+    for t in 5.0 + np.arange(1, 6) * 0.01:
         q, v = rng.normal(size=2), rng.normal(size=2)
         meas = vmc.Signals(t, motor_position=q, motor_velocity=v, q=q, v=v)
         a, b = motors.step(t, meas), states.step(t, meas)
@@ -285,3 +287,55 @@ def test_the_force_floor_keeps_the_stiffness_positive_for_any_force():
     K = np.reshape(controller.live_params()["ctrl.reach.stiffness"], (3, 3))
     assert np.linalg.eigvalsh(K).min() > 0
     assert tracker.s == pytest.approx(0.95 * -150.0, rel=1e-3)
+
+
+def test_the_frozen_point_holds_the_passive_joint_at_its_rest_only():
+    from virtualmodelcontrol.robots import planar
+
+    robot = planar.arm(rest=[0.3, 0.4, 0.5])  # only the passive joint's rest counts
+    point = ua.Frozen(robot.actuation).point([0.1, -0.2])
+    np.testing.assert_allclose(point, [0.1, 0.4, -0.2], atol=1e-12)
+
+
+def test_the_correction_width_scales_the_ramp():
+    robot = arm_with_law()[0]
+    q, v, u = np.array([0.2, 0.5, 0.1]), np.array([0.4, -0.6, 0.3]), np.array([30.0, -20.0])
+    meas = measurement(robot, q, v, 0.0)
+    stage = ua.Passivation(vmc.compile_dynamics(robot), width=0.5, regularizer=0.01)
+    command = stage(u, meas)
+    rate = meas["motor_velocity"]
+    excess = rate @ u - stage.dissipation
+    alpha = 0.5 * np.log1p(np.exp(excess / 0.5)) / (rate @ rate + 0.01)
+    np.testing.assert_allclose(command, u - alpha * rate, atol=1e-10)
+
+
+def test_the_floor_of_the_stiffness_does_not_depend_on_the_length_of_the_direction():
+    K = np.diag([100.0, 50.0, 10.0])
+    assert ua.direction_gain(1.0, 2.0, -1e6, K, [0.0, 7.0, 0.0]) == pytest.approx(0.95 * -50.0)
+
+
+def test_a_long_step_stops_at_the_stiffness_floor():
+    robot = build("three")
+    controller = ua.controller(law("three", robot, matrix=True), "naive")
+    tracker = ua.DirectionalForce(controller, "tip", "ctrl.reach.stiffness", [0, 1, 0], 0.0)
+    q, v = np.array([0.5, 0.3, 0.2]), np.zeros(3)
+    controller.reset(0.0, measurement(robot, q, v))
+    controller.step(0.0, measurement(robot, q, v))
+    c0, cv = tracker._pieces(controller, q, v)
+    tracker.force = c0 - 1e5 * np.sign(cv)
+    tracker.step(controller, q, v, 100.0)  # rate dt = 20: an overshoot without the floor
+    assert tracker.s == pytest.approx(0.95 * -150.0, rel=1e-12)
+
+
+def test_a_state_controller_reports_its_elements_and_energy_on_an_underactuated_robot():
+    robot, compiled = arm_with_law()
+    controller = ua.controller(compiled, "naive")
+    meas = measurement(robot, np.array([0.3, 0.2, 0.1]), np.array([0.5, -0.4, 0.2]))
+    controller.reset(0.0, meas)
+    command = controller.step(0.0, meas)
+    shares = sum(parts["torque"] for parts in controller.elements().values())
+    np.testing.assert_allclose(shares, command["law_torque"], atol=1e-10)  # as motor torques
+    assert set(controller.balance()) == {"stored", "kinetic", "port", "dissipation", "source"}
+    plant = vmc.sim.ModelPlant(robot, q0=[0.3, 0.3, 0.3], max_step=1e-4)
+    log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1e-3), T=0.01, record=["energy"])
+    assert np.isfinite(vmc.sim.energy_balance(log)["energy"]).all()
