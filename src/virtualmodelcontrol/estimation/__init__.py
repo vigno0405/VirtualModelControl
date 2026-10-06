@@ -6,6 +6,7 @@ from .imu import ImuFilter
 from .inversion import Inversion
 from .kalman import KalmanFilter
 from .measurement import Measurement
+from .momentum import MomentumObserver
 from .stiffness import TaskStiffness
 from .velocity import VelocityFilter
 
@@ -15,6 +16,7 @@ __all__ = [
     "Inversion",
     "KalmanFilter",
     "Measurement",
+    "MomentumObserver",
     "TaskStiffness",
     "VelocityFilter",
     "object_compliance",

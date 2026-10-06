@@ -177,6 +177,13 @@ All notable changes to this project are documented here. The format follows
   `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
   `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
   it raises an error.
+- `vmc.estimation.MomentumObserver(system, dt, gain, robot=None)`: the external force on a robot
+  from its motion, without accelerations. From the momentum and what the model says would change
+  it, it gives the generalized force the model does not explain, as a low-pass filter of bandwidth
+  `gain` of the true one, and `force(site, normal)` carries it to a site, as `ContactForce` does.
+  It works while the robot moves, where `ContactForce` assumes rest. The force tutorial shows a
+  finger landing on a table. Its velocity must be the rate of its configuration (no floating
+  bodies yet).
 - `vmc.estimation.object_compliance(position, force, baseline_position, baseline_force)`: the
   compliance in m/N of an object a tip presses, the distance over the force that stiffer settings
   of the controller add to a gentle one, from the median of each setting's samples. It is the

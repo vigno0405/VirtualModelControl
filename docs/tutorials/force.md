@@ -273,6 +273,80 @@ one the law believes it holds {glue:text}`blind_told:.2f` N, and the table feels
 closes this loop, because what it tells the law is the true force. It is the same call with the
 cell's reading in place of the estimate.
 
+## While it moves
+
+`ContactForce` assumes the robot is at rest, and so it is wrong while the finger lands on the
+table. A `MomentumObserver` has no such assumption. It works from the robot's momentum
+$M(q)\dot q$ and what the model says would change it, so it needs no acceleration. What
+the model does not explain it takes for a force from outside. Its estimate follows the true force
+like a low-pass filter of bandwidth `gain` [1/s]: the higher, the faster, and the more noise it
+lets through. Like `ContactForce`, it takes the model of the finger without the table:
+
+```{code-cell} python
+from virtualmodelcontrol.estimation import ContactForce, MomentumObserver
+
+world = adapt.add_dynamics(adapt.finger())
+tip = world.point("tip")
+gap = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.06])
+world.add("table", vmc.ContactSpring(gap, 1e4))
+world.add("cushion", vmc.ContactDamper(gap, 5.0))
+ctrl = vmc.Mechanism("ctrl")
+ctrl.add("press", vmc.LinearSpring(tip - [0.0, 0.05, 0.075], 100.0))
+ctrl.add("damp", vmc.LinearDamper(tip, 1.0))
+ctrl.add("limits", adapt.joint_limit_spring(world))
+ctrl.add("gravity", vmc.GravityCompensation(world))
+controller = vmc.VMCController(
+    vmc.compile(vmc.VirtualMechanismSystem(world, ctrl)))
+model = adapt.add_dynamics(adapt.finger())
+at_rest = ContactForce(controller, "tip", [0, 0, 1], robot=model)
+moving = MomentumObserver(controller.compiled.system, 1 / 500, 300.0,
+                          robot=model)
+
+plant = vmc.sim.ModelPlant(world, q0=[0.8, 0.8], max_step=1e-4)
+t, true, rest, flow = [], [], [], []
+for _ in range(500):  # 500 Hz
+    u = controller.step(plant.t, plant.read())["motor_torque"]
+    plant.write(vmc.Signals(plant.t, motor_torque=u))
+    moving(plant.q, plant.v, u, plant.t)
+    pushes = plant.elements()
+    t.append(plant.t)
+    true.append(pushes["table"]["force"][0] + pushes["cushion"]["force"][0])
+    rest.append(at_rest(controller)[2])
+    flow.append(moving.force("tip", [0, 0, 1])[2])
+    plant.advance(1 / 500)
+t, true, rest, flow = (np.array(x) for x in (t, true, rest, flow))
+```
+
+```{code-cell} python
+:tags: [remove-input]
+fig, ax = plt.subplots()
+ax.plot(t, true, label="table's force")
+ax.plot(t, rest, label="at rest")
+ax.plot(t, flow, label="momentum observer")
+ax.set_xlim(0, 0.2)
+ax.set_ylim(-3, 8)
+ax.set_xlabel("time [s]")
+ax.set_ylabel("force on the table [N]")
+ax.legend(loc="upper right");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+early = t < 0.2
+error = lambda estimate: float(np.abs(estimate - true)[early].mean())
+assert error(flow) < 0.6 * error(rest)
+assert np.abs(flow - true)[t > 0.5].max() < 0.02 and abs(rest[0] - true[0]) > 3
+glue("rest_start", float(rest[0]), display=False)
+glue("rest_error", error(rest), display=False)
+glue("flow_error", error(flow), display=False)
+```
+
+Before the finger arrives, the estimate at rest already reads {glue:text}`rest_start:.1f` N: it
+sees the controller pulling and takes the finger to be held. The observer starts from no
+force and follows the true one a little late, by about $1/\text{gain}$ = 3 ms. In the first
+0.2 s its error is on average {glue:text}`flow_error:.2f` N, against {glue:text}`rest_error:.2f` N
+at rest. Once the finger rests, all three agree.
+
 ## An object's compliance
 
 How soft is the object the finger touches? Press it at a gentle setting of the controller's
