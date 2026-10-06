@@ -3,9 +3,11 @@
 from .force import ForceTracking
 from .position import HoldingGoals, PositionRegulation
 from .scalar import ForceRatio, Stiffening
+from .seeking import DitherSeeking
 from .stiffness import StiffnessTracking
 
 __all__ = [
+    "DitherSeeking",
     "ForceRatio",
     "ForceTracking",
     "HoldingGoals",
