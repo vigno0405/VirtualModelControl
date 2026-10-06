@@ -133,7 +133,7 @@ def _continuity(kinematic: Any, grid: list[float], configs: list[np.ndarray], no
         frames = [evaluate_frame(kinematic, q, x) for x in grid]
         points = np.array([p for _, p in frames])
         gaps = np.linalg.norm(np.diff(points, axis=0), axis=1)
-        note("continuity", gaps.max() / max(np.median(gaps), 1e-12), 3.0, "the positions along s")
+        note("continuity", np.max(gaps) / max(np.median(gaps), 1e-12), 3.0, "the positions along s")
         angles = [
             np.arccos(np.clip((np.trace(a.T @ b) - 1) / 2, -1, 1))
             for (a, _), (b, _) in pairwise(frames)
