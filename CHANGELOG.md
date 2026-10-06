@@ -32,7 +32,22 @@ All notable changes to this project are documented here. The format follows
   robot's own forces, found with the free Params, and the terms see it as their one node.
   `Cost` and `Effort` count it once, and a `Bound` holds there. The tutorial finds where the
   soft arm rests, in milliseconds.
+- `Collocation(periodic=True)` plans an orbit that repeats: the last node equals the first (q and
+  v), the first node is free (`q0` and `v0` are only the solver's starting guess), and `Bound`
+  reaches it. `Collocation(free_time=(lower, upper))` makes the horizon an unknown within these
+  bounds, starting at `horizon`: the node spacing, the controller's time and the coordinates of
+  `vmc.Time()` are expressions of it, and `Effort` and `Cost` integrate with the horizon found.
+  The windows of the terms still read the nodes' times at the starting horizon. `Result.horizon`
+  is the horizon found (the given one for a fixed horizon, 0 for an `Equilibrium`) and
+  `Result.t` uses it; `warm_start` takes a `horizon`. `Trajectory.dt` is a number or an
+  expression of the free horizon, and `Trajectory.times` and `Trajectory.horizon` are the same,
+  for terms of your own. `optimization.Period(param)` holds the horizon equal to a Param, so that
+  a controller whose reference is a function of `vmc.Time()` and that Param (a period, free or a
+  parameter) repeats with the orbit. Neither option goes with an `initial` controller. Both
+  schemes work.
 - Docs: tutorial "Optimizing a virtual mechanism".
+- Docs: the optimization tutorial finds the period of a mass on a spring, and the least-effort
+  period of a pulled one with a controller that keeps time, against their closed forms.
 - Docs: the optimization tutorial plans the soft arm around a sphere (`Bound` on `SphereDistance`),
   checks the clearance in simulation, and shows that two sets of scales give the same plan.
 - `vmc.sim.rollout(system, q0, T, dt)`: the closed loop simulated in one compiled call

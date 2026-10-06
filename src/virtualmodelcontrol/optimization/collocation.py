@@ -58,7 +58,8 @@ class Collocation:
     the first is free, so ``q0`` and ``v0`` are only the solver's starting guess. With
     ``free_time=(lower, upper)`` the horizon is an unknown within these bounds, starting at
     ``horizon``; the windows of the terms still read the nodes' times at that starting horizon.
-    Neither goes with ``initial``.
+    Neither goes with ``initial``. Start a periodic problem from a guess of the orbit
+    (``Problem.solve(warm_start=...)``), not from rest.
     """
 
     name = "collocation"

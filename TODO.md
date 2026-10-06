@@ -278,10 +278,9 @@ the soft arm among obstacles.
 - [x] **Problems:** built from Params by scope (design, episode, stage) and blocks, without a
   new language. Done (6 October 2026): trajectories by trapezoidal and Hermite-Simpson
   collocation, and equilibria (`Equilibrium`), in `vmc.optimization`, with IPOPT (L-BFGS and
-  `expand=True`) as the preset. Multiple shooting, free final time, periodic problems and the
-  other solver presets (FATROP, SQP, QP solvers, acados) wait for what needs them: periodic
-  problems and free final time for the turtle's gait (0.5.0), multiple shooting and the solver
-  presets for MPC (0.6.0), data fits for estimation (0.5.0).
+  `expand=True`) as the preset. Periodic orbits and a free final time followed (6 October 2026,
+  for the turtle's gait, 0.5.0). Multiple shooting and the other solver presets (FATROP, SQP, QP
+  solvers, acados) wait for what needs them: MPC (0.6.0), and data fits for estimation (0.5.0).
 - [x] **Automatic scales:** the trajectory problem could derive the typical sizes of q, v and a
   itself. Decided (6 October 2026): no simple derivation holds up, so `(1, 1, 1)` stays the
   default and `Collocation(scales=...)` stays an option. Measured on the soft arm (20 nodes): on
@@ -485,13 +484,16 @@ turtle crawling.
   a flywheel". The series VSA spring needs no new component (a `LinearSpring` on the series
   deflection, with a live stiffness `Param`). `turtle.controller` takes the phase options, and
   `adaptation.DitherSeeking` is the paper's two-tone extremum seeking, through a tank for the
-  passivity cap: the tutorial lets the crawler find its best peak phase with it. Open: the gait
-  search by periodic trajectory problems.
-  Its gait needs periodic trajectory problems (the orbit repeats, with references that change in
-  time) and free final time (the period is an unknown), both built on `vmc.optimization`. The
-  force laws and the estimators work in motor coordinates and need as many velocity coordinates as
-  configuration coordinates; a floating body has fewer, so they are to be extended for it (the
-  crawler avoids this: its controller never sees the body).
+  passivity cap: the tutorial lets the crawler find its best peak phase with it. Periodic
+  trajectory problems and a free final time are done in `vmc.optimization`
+  (`Collocation(periodic=True, free_time=(lower, upper))`, `Period` for a reference that repeats
+  with the period, `Result.horizon`; the tutorial shows both on a mass on a spring). Open: the
+  gait search itself, by periodic trajectory problems on the turtle: its controller has a
+  virtual state (the flywheel phase), which `Collocation` still refuses, so collocation needs
+  controllers with virtual states first. The force laws and the estimators work in motor
+  coordinates and need as many velocity coordinates as configuration coordinates; a floating body
+  has fewer, so they are to be extended for it (the crawler avoids this: its controller never sees
+  the body).
 - [ ] **Parity with VMRobotControl.jl** (the Julia library that shares this library's
   vocabulary of coordinates and components): virtual mechanisms with their own kinematics (a
   virtual cart on a rail along a path, a virtual tool); a table that maps its features to this
