@@ -400,6 +400,11 @@ turtle crawling.
   laws; `TaskStiffness`, the task-space stiffness with the Hessian terms (the exact one of the
   lab; the first-order one is not provided); the tutorials "Track a contact force" and "Shape
   the stiffness of the tip" use them.
+  `KalmanFilter` and `Measurement` (6 October 2026, the filter only): the robot's own dynamics
+  linearised at the estimate, per-sensor gating with `rejected`, `rejected_total` and `missing`,
+  partial sensors, encoders through the transmission. Open: its golden test against the lab's
+  filter, the mocap inversion by Gauss-Newton and the velocity filter, the IMU conversions, EKF
+  and UKF variants, and the docs page.
 - [ ] **Bring your own kinematics:** `FunctionModel`, a user function `frame(q, at, p)` written
   with CasADi operations or with `vmc.math` (a small set of functions that run on numpy arrays
   and CasADi symbols alike); kinematic trees and fixed joints; joint types (revolute,

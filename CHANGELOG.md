@@ -117,6 +117,13 @@ All notable changes to this project are documented here. The format follows
     the geometric terms (the Hessians of the site and of the springs) counted, and agrees with
     the lab's exact apparent stiffness to 1e-8. The lab's first-order version leaves the
     geometric terms out and is not provided.
+  - `KalmanFilter(system, dt, Q=None, P0=None, gate=40.0, robot=None)` and `Measurement(q, v, Rq,
+    Rv, observed, name)`: a Kalman filter of the robot's state (q, v). Its process model is the
+    robot's own dynamics, linearised at the estimate at rest and held over the step (the lab's
+    frozen mass matrix, in general form), with the command going through the system's
+    transmission. It fuses encoders (`kf.encoder`) and any sensor that sees part of the state,
+    gates each measurement on its innovation, and reports the sensors it rejected (`rejected`,
+    `rejected_total`) and the expected ones that offered nothing (`missing`).
 - `VMCController.inputs()`: the vector the law reads, with the live Params as they are now.
   A Param that acts only through a virtual state does not change the force at once, and the
   laws leave it.
