@@ -127,6 +127,29 @@ def test_a_crank_delivers_its_efficiency_times_the_commanded_torque():
     np.testing.assert_allclose(half, 0.5 * full, atol=1e-12)
 
 
+def test_the_placeholder_constants_are_those_the_numbers_below_were_found_with():
+    assert turtle.CRAWLER == {
+        "mass": 1.0,
+        "inertia": (3.6e-3, 7.8e-3, 1.08e-2),
+        "belly": (0.12, 0.07, 0.03),
+        "axle": (0.0, 0.11, 0.0),
+        "crank_radius": 0.05,
+        "crank_inertia": 2e-3,
+        "crank_damping": 0.02,
+        "gravity": (0.0, 0.0, -9.81),
+        "stiffness": 5e3,
+        "ground_damping": 100.0,
+        "friction": 0.8,
+        "belly_friction": 0.03,
+        "slip_speed": 1e-3,
+        "smoothing": 0.0,
+        "efficiency": 1.0,
+    }
+    robot = turtle.crawler()  # and with no keyword, the crawler is built from them
+    assert robot.params["left_foot.stiffness"].value == 5e3
+    assert robot.params["left_foot_friction.friction"].value == 0.8
+
+
 def test_every_constant_reaches_the_crawler():
     robot = turtle.crawler(
         mass=2.0,
@@ -141,7 +164,7 @@ def test_every_constant_reaches_the_crawler():
         ground_damping=30.0,
         friction=0.5,
         belly_friction=0.2,
-        slip_speed=0.01,
+        slip_speed=0.02,
         smoothing=1e-4,
         efficiency=0.7,
     )
@@ -171,7 +194,7 @@ def test_every_constant_reaches_the_crawler():
         assert spring.smoothing is edge is cushion.smoothing is rub.smoothing
         assert spring.coord.normal is parts[contacts[0]].coord.normal  # one ground
         assert spring.coord.origin is parts[contacts[0]].coord.origin
-        assert cushion.damping.value == 30.0 and rub.speed.value == 0.01
+        assert cushion.damping.value == 30.0 and rub.speed.value == 0.02
         damping = damping or cushion.damping
         assert cushion.damping is damping
         feet = name.endswith("_foot")

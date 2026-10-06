@@ -243,6 +243,19 @@ All notable changes to this project are documented here. The format follows
   reaction that keeps a flywheel loop passive. With `limit` the potential saturates, and the torque
   never goes above K (1 + |steer|) times the limit. With no depth, no steer and no limit it is a
   `LinearSpring`. The type is `phase_spring` in configuration files.
+- `vmc.models.Passive(nv)`: an actuation with no motors, for a part that nothing drives, such as a
+  floating body. Stacked with the other parts' motors (`Assembly.stacked_actuation`), the motor
+  vector holds only theirs, so a simulated robot can have more coordinates than motors. The motors
+  do not give a passive part's configuration, so a controller is compiled against a robot without
+  it, and the simulator runs the one with it.
+- `robots.turtle.crawler(**CRAWLER)`: a simple crawler for the simulator, with placeholder
+  constants, not the lab's turtle: a floating body on the ground with gravity, two cranks about its
+  lateral axis with a foot each, and a contact spring, damper and friction at each foot and at the
+  four corners of the underside. Its motors are the two cranks, in the gait convention of
+  `turtle.robot()`, which is what the controller is compiled against. Under the flywheel controller
+  it crawls forward, further the faster the flywheel is driven, and does not advance without
+  friction; a positive steer of `PhaseSpring` turns it left. Docs: the tutorial "Crawl with a
+  flywheel".
 
 ### Removed
 

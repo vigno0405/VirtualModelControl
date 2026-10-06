@@ -118,8 +118,11 @@ def test_a_passive_part_has_no_motors_and_no_force():
     ):
         with pytest.raises(NotImplementedError, match="passive"):
             getattr(passive, method)(*args)
-    copy = from_dict(passive.to_dict(), kind="actuation")
-    assert isinstance(copy, Passive) and copy.nv == 6 and copy.to_dict() == passive.to_dict()
+    other = Passive(4)
+    assert other.to_dict() == {"type": "passive", "nv": 4}
+    copy = from_dict(other.to_dict(), kind="actuation")
+    assert isinstance(copy, Passive) and copy.nv == 4 and copy.to_dict() == other.to_dict()
+    assert "Passive" in vmc.models.__all__
 
 
 def test_stacked_with_motors_only_the_driven_parts_are_in_the_motor_vector():
