@@ -206,6 +206,31 @@ def test_the_steps_come_back_per_interval_in_the_shape_of_the_param_and_apply_on
         problem.initial_guess({"steps": {"ctrl.damper.damping": value[:2]}})
 
 
+def test_a_plan_without_steps_has_none_and_applies_to_a_system_as_before():
+    system, _x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
+    problem = opt.Problem(system)
+    problem.add(opt.Collocation([0.0], 1.0, 5))
+    problem.free("ctrl.spring.stiffness")
+    plan = problem.solve()
+    assert plan.steps == {} and opt.Result.__dataclass_fields__["steps"].default_factory() == {}
+    plan.apply(system)
+    assert system.params["ctrl.spring.stiffness"].value == pytest.approx(
+        plan.params["ctrl.spring.stiffness"]
+    )
+
+
+def test_a_plan_with_steps_gives_a_system_the_first_values():
+    system, x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
+    k = "ctrl.spring.stiffness"
+    problem = opt.Problem(system)
+    problem.add(opt.Shooting([0.0], 1.0, 4, steps=[k]))
+    problem.add(opt.Cost(x - 3.0, 1.0, name="far"))
+    plan = problem.solve()
+    plan.steps[k] = np.array([7.0, 8.0, 9.0])
+    plan.apply(system, interval=1)
+    assert system.params[k].value == 8.0
+
+
 def test_the_steps_of_a_plan_are_left_out_of_the_warm_start_of_a_problem_without_steps():
     system, _x = tanh_mass(stiffness=2.0, max_force=5.0, goal=1.0, bounds=(0.5, 50.0))
     k = "ctrl.spring.stiffness"

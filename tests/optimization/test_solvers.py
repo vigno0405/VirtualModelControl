@@ -76,6 +76,16 @@ def test_changing_the_solver_of_a_problem_makes_its_next_solve_create_the_solver
     assert problem.solve().iterations == reference.iterations
 
 
+def test_the_solver_is_kept_between_solves_until_the_solver_or_its_options_change():
+    problem = program("ipopt-exact")
+    problem.solve()
+    kept = problem._solver
+    problem.solve()
+    assert problem._solver is kept
+    problem.options["ipopt.max_iter"] = 3
+    assert problem.solve().iterations <= 3 and problem._solver is not kept
+
+
 def test_the_progress_callback_can_stop_an_sqp_solve():
     seen = []
 
