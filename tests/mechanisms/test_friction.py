@@ -11,7 +11,7 @@ from virtualmodelcontrol.models import SerialChain
 G, MASS, K = 9.81, 1.0, 1e4
 
 
-def block(surface=None, friction=0.4, speed=1e-4, smoothing=0.0):
+def block(surface=None, friction=0.4, speed=1e-4, smoothing=0.0, spring=True):
     """A point mass that slides in three directions, over a surface (the plane z = 0 by default):
     gravity, a contact spring and damper, and the friction, with the spring's stiffness."""
     chain = SerialChain(
@@ -29,8 +29,9 @@ def block(surface=None, friction=0.4, speed=1e-4, smoothing=0.0):
     else:
         surface = surface(robot.point("mass"))
     k = vmc.Param("k", K, unit="N/m", scope="stage")
-    robot.add("floor", vmc.ContactSpring(surface, k, smoothing))
-    robot.add("cushion", vmc.ContactDamper(surface, 150.0, smoothing))  # near critical: no bounce
+    if spring:
+        robot.add("floor", vmc.ContactSpring(surface, k, smoothing))
+        robot.add("cushion", vmc.ContactDamper(surface, 150.0, smoothing))  # near critical: no bounce
     robot.add("rub", vmc.ContactFriction(surface, k, friction, speed, smoothing))
     return robot
 
@@ -114,6 +115,15 @@ def test_friction_takes_the_normal_of_each_kind_of_surface():
         slide = v - n * (n @ v)
         want = -mu * K * 2e-3 * slide / np.linalg.norm(slide)
         np.testing.assert_allclose(plant.elements()["rub"]["force"], want, rtol=1e-4, err_msg=name)
+
+
+def test_a_friction_without_a_spring_beside_it_still_owns_its_surface():
+    robot = block(spring=False)
+    assert {"rub.normal", "rub.origin"} <= set(robot.params)
+    plant = vmc.sim.ModelPlant(robot)
+    plant.q, plant.v = np.array([0.0, 0.0, -2e-3]), np.array([1.0, 0.0, 0.0])
+    force = plant.elements()["rub"]["force"]
+    assert force[0] == pytest.approx(-0.4 * K * 2e-3, rel=1e-4)
 
 
 def test_the_friction_has_the_springs_normal_force_whatever_its_smoothing():

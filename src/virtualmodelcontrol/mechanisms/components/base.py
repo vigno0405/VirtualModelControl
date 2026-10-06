@@ -48,6 +48,10 @@ class Component:
         """Params owned by this component, by local name."""
         return dict(self._params)
 
+    def reads(self) -> tuple[Coordinate, ...]:
+        """The coordinates whose Params the component uses: its own, and any it also reads."""
+        return (self.coord,)
+
     def energy(self, ctx: Context, y: Any) -> Any:
         """Stored energy V(y) [J] (storage components)."""
         raise NotImplementedError(f"{type(self).__name__} stores no energy")

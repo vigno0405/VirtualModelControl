@@ -132,6 +132,10 @@ class ContactFriction(Component):
         self.speed = self._param("speed", speed, unit="m/s", scope="episode")
         self.smoothing = self._param("smoothing", smoothing, unit="m", scope="episode")
 
+    def reads(self) -> tuple[Coordinate, ...]:
+        """The surface, which holds the point."""
+        return (self.distance,)
+
     def force(self, ctx: Context, y: Any, yd: Any) -> Any:
         """−μ F_n v_t / √(|v_t|² + v_s²)."""
         n = self.distance.unit_normal(ctx)
