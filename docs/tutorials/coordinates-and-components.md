@@ -183,6 +183,7 @@ signs. These are the components of the library:
 | `TanhDamper(y, D, F)` | dissipation | $-F \tanh(D \dot y / F)$ per axis |
 | `DiodeDamper(y, D, sign)` | dissipation | $-D \dot y$ in one direction of motion only |
 | `ContactDamper(d, D)` | dissipation | $-D \dot d$, only in contact |
+| `ContactFriction(d, k, μ)` | dissipation | $-\mu F_n$ against the sliding speed along the surface, $F_n$ the contact spring's force |
 | `PointMass(p, m)` | inertance | a mass $m$ at a point |
 | `Inertance(y, M)` | inertance | a mass or inertia $M$ on any coordinate |
 | `RotationalInertia(R, I)` | inertance | the inertia of a rigid body about its frame, on a `FrameRotation` |

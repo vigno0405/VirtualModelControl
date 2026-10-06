@@ -180,13 +180,14 @@ normal = rows["robot/table/force"][:, 0]  # [N], the table's push
 rub = rows["robot/rub/force"][:, 1]  # [N], along the table: it opposes the motion
 pull = rows["element/drag.pull/force"][:, 1]  # [N], the controller's spring
 
+settled = t > 0.3  # leaves out the first bounces on the table
 fig, ax = plt.subplots()
-ax.plot(t, -pull, label="the goal's pull")
-ax.plot(t, rub, label="friction")
-ax.plot(t, mu * normal, "--", label=r"$\mu F_n$")
+ax.plot(t[settled], -pull[settled], lw=6, alpha=0.5, label="the goal's pull")
+ax.plot(t[settled], rub[settled], label="friction")
+ax.plot(t[settled], mu * normal[settled], "--", label=r"$\mu F_n$")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("force along the table [N]")
-ax.legend(loc="upper left");
+ax.legend(loc="center right");
 ```
 
 ```{code-cell} python
@@ -195,14 +196,15 @@ from myst_nb import glue
 
 slide = t > 3.0
 assert abs(rub[slide].mean() - mu * normal[slide].mean()) < 0.03 * mu * normal[slide].mean()
-assert np.ptp(rub[:400]) > 0.3  # it grew before it slid
+assert rub[(t > 0.5) & (t < 1.0)].mean() < 0.3 * mu * normal[slide].mean()  # small at rest
 glue("friction_limit", float(mu * normal[slide].mean()), display=False)
 glue("friction_slide", float(rub[slide].mean()), display=False)
 ```
 
 The goal moves away and the pull grows; friction grows with it and holds the tip, which creeps,
 until the pull reaches the limit $\mu F_n$, {glue:text}`friction_limit:.2f` N here. Then the tip slides
-at the goal's pace, with a friction of {glue:text}`friction_slide:.2f` N, and the pull stays a little above.
+at the goal's pace, with a friction of {glue:text}`friction_slide:.2f` N: a little under the limit,
+because the sliding speed of 5 mm/s is not far above the smoothing speed of 1 mm/s.
 
 ## A virtual wall
 

@@ -167,6 +167,16 @@ All notable changes to this project are documented here. The format follows
   box with its sides along the axes, a capsule and a cylinder, for contacts and obstacles, with the
   same Params as `SphereDistance` (and the kinds `box_distance`, `capsule_distance` and
   `cylinder_distance` in configuration files). The contact tutorial uses the cylinder.
+- `vmc.ContactFriction(distance, stiffness, friction)`: Coulomb friction at a contact, smoothed. It
+  pushes a point against its sliding speed along the surface, with the size of the friction
+  coefficient times the contact spring's force (give it the spring's stiffness `Param`), and falls
+  linearly below the small speed `speed`, so a point at rest creeps. It works on every signed
+  distance, which now share the base class `SurfaceDistance` with a `unit_normal`; the type is
+  `contact_friction` in configuration files. The contact tutorial drags a fingertip along a table.
+- `vmc.sim.run(..., record="robot")` logs what a simulated robot feels, component by component:
+  `robot/<name>/y`, `ydot`, `force` and `torque` of each spring, damper and contact, from
+  `ModelPlant.elements()` (and `Dynamics.elements`). A real robot reports no forces, so recording
+  it raises an error.
 - `vmc.control.project_psd(K)`: the symmetric positive semidefinite matrix nearest to a stiffness,
   for an update that an adaptation law proposes, before it goes through `set` or a tank.
 - `vmc.sim.energy_balance(log)`: the controller's energy over a run recorded with

@@ -451,7 +451,11 @@ turtle crawling.
 - [ ] **Contact, continued:** tangential friction (smooth Coulomb); contact forces reported
   per component by the simulator; contact between two robot points (self-contact, two arms);
   soft objects. Done (6 October 2026): boxes, cylinders and capsules (`BoxDistance`,
-  `CylinderDistance`, `CapsuleDistance`, also in configuration files).
+  `CylinderDistance`, `CapsuleDistance`, also in configuration files); `ContactFriction`, the
+  smooth Coulomb friction on any of these surfaces and on the plane and the sphere, with the
+  contact spring's own normal force; the force, rate and torque of each component of the robot,
+  from the simulator (`ModelPlant.elements()`) and in a run's log (`record="robot"`), which gives
+  the contact forces. Open: contact between two robot points, tested, and soft objects.
 - [ ] **The turtle crawling:** its floating body on the ground in the library's own simulator;
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.
