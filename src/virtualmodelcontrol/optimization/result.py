@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -37,22 +37,28 @@ class Result:
     seconds: float
     violation: float
     horizon: float = 0.0
+    steps: dict[str, np.ndarray] = field(default_factory=dict)
 
     @property
     def converged(self) -> bool:
         """True if the solver ended with a solution (maybe an acceptable one, not an optimum)."""
         return self.status in CONVERGED
 
-    def apply(self, target: Any) -> float | None:
+    def apply(self, target: Any, interval: int = 0) -> float | None:
         """Set the free Params and the references into ``target``.
 
         ``target`` is a running controller (its live Params change through ``set``, and the exact
         energy jump [J] is returned), or a ``VirtualMechanismSystem`` or ``ParamSet`` (the Params
-        take the values; the next controller compiled from it has them). Params the target does
-        not have, such as the target inside a ``Cost``, are left out; one that is not live in a
-        running controller raises KeyError (compile it with ``runtime``).
+        take the values; the next controller compiled from it has them). A Param that steps gets
+        its value in ``interval``. Params the target does not have, such as the target inside
+        a ``Cost``, are left out; one that is not live in a running controller raises KeyError
+        (compile it with ``runtime``).
         """
-        values = {**self.references, **self.params}
+        values = {
+            **self.references,
+            **self.params,
+            **{n: v[interval] for n, v in self.steps.items()},
+        }
         if hasattr(target, "compiled") and hasattr(target, "set"):
             known = target.compiled.params
             return float(target.set({n: v for n, v in values.items() if n in known}))

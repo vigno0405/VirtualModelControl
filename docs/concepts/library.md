@@ -39,7 +39,7 @@ change, including that nothing in the library imports ROS.
 | get the robot's equations of motion | `vmc.compile_dynamics` |
 | simulate a closed loop | `vmc.sim`: `ModelPlant`, `run`, `SimClock` |
 | fit stiffness, damping and efficiencies to data | `vmc.identification` |
-| plan a motion and optimize a controller's Params | `vmc.optimization`: `Problem`, `Collocation`, `Effort`, `Cost`, `Bound` |
+| plan a motion and optimize a controller's Params | `vmc.optimization`: `Problem`, `Collocation`, `Shooting`, `MPC`, `Effort`, `Cost`, `Bound` |
 | record, save, replay and compare runs | `vmc.sim`: `RunLog`, `replay`, `compare` |
 | describe an experiment in a file | `vmc.config`: `load`, `Experiment` |
 | draw and animate | `vmc.viz` |

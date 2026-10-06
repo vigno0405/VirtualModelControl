@@ -1,4 +1,4 @@
-"""The nonlinear solver: IPOPT with the options that suit collocation problems, and its progress."""
+"""The nonlinear solver: IPOPT and the other presets, and the progress of a solve."""
 
 from __future__ import annotations
 
@@ -68,13 +68,73 @@ class IterationCallback(ca.Callback):
         return [1 if self._fn(np.array(arg[0]).ravel(), float(arg[1])) else 0]
 
 
+QUIET = {
+    "qrqp": {"print_iter": False, "print_header": False, "print_info": False},
+    "osqp": {"osqp": {"verbose": False}},
+    "qpoases": {"printLevel": "none"},
+}
+"""Options that silence a QP solver of ``sqp``; the ones not listed here print what they like."""
+
+SQP: dict[str, Any] = {
+    "expand": True,
+    "print_time": 0,
+    "print_header": False,
+    "print_iteration": False,
+    "print_status": False,
+    "max_iter": 100,
+    "tol_pr": 1e-6,
+    "tol_du": 1e-4,
+    "qpsol": "qrqp",
+    "qpsol_options": QUIET["qrqp"],
+    # The exact Hessian of a plan is not convex: its negative eigenvalues are clipped.
+    "convexify_strategy": "eigen-clip",
+    "convexify_margin": 1e-6,
+}
+"""Default options of ``sqp``: CasADi's sequential quadratic programming, exact Hessians."""
+
+FATROP: dict[str, Any] = {"expand": True, "print_time": 0, "fatrop.print_level": 0}
+"""Default options of ``fatrop``, which treats the program as one general problem here."""
+
+PRESETS: dict[str, tuple[str, dict[str, Any]]] = {
+    "ipopt": ("ipopt", IPOPT),
+    "ipopt-exact": ("ipopt", {**IPOPT, "ipopt.hessian_approximation": "exact"}),
+    "sqp": ("sqpmethod", SQP),
+    "rti": ("sqpmethod", {**SQP, "max_iter": 1, "tol_pr": 1e-12, "tol_du": 1e-12}),
+    "fatrop": ("fatrop", FATROP),
+}
+"""Solver presets by name: the CasADi plugin and its default options. ``rti`` is one SQP
+iteration, the real-time iteration of a receding-horizon controller."""
+
+
+def available(solver: str) -> bool:
+    """True if this CasADi build has the plugin of the preset ``solver`` and its QP solver."""
+    plugin, options = PRESETS[solver]
+    qp = options.get("qpsol")
+    return bool(ca.has_nlpsol(plugin)) and (qp is None or bool(ca.has_conic(qp)))
+
+
 def create_solver(
     nlp: dict[str, Any],
     options: dict[str, Any],
     callback: IterationCallback | None = None,
+    solver: str = "ipopt",
 ) -> Any:
-    """IPOPT on ``nlp`` (x, p, f, g), with ``options`` over the defaults."""
-    opts = {**IPOPT, **options}
+    """The preset ``solver`` (a key of ``PRESETS``) on ``nlp`` (x, p, f, g), with ``options`` over
+    its defaults."""
+    if solver not in PRESETS:
+        raise ValueError(f"solver takes one of {list(PRESETS)}, got {solver!r}")
+    plugin, defaults = PRESETS[solver]
+    opts = {**defaults, **options}
+    if "qpsol" in options and "qpsol_options" not in options:
+        opts["qpsol_options"] = QUIET.get(options["qpsol"], {})
     if callback is not None:
         opts["iteration_callback"] = callback
-    return ca.nlpsol("solver", "ipopt", nlp, opts)
+    return ca.nlpsol("solver", plugin, nlp, opts)
+
+
+def status_of(stats: dict[str, Any]) -> str:
+    """The solver's ending as IPOPT words it: FATROP reports a number and a success flag."""
+    status = stats["return_status"]
+    if isinstance(status, str):
+        return status
+    return "Solve_Succeeded" if stats.get("success") else f"Failed_{status}"

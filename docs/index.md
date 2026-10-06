@@ -138,6 +138,7 @@ tutorials/energy
 :caption: Plan
 
 tutorials/optimize
+tutorials/mpc
 tutorials/crawl
 ```
 

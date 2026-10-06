@@ -523,6 +523,14 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   real-time-iteration option.
   It brings multiple shooting (one rollout per interval, as in `vmc.sim.rollout`) and the solver
   presets that suit it (FATROP, SQP with a QP solver, acados optional).
+  Done in the `mpc` branch (6 October 2026), with mutation checks: `Shooting` (the closed loop
+  per interval, the Params of a plan stepping at every interval), `TankBudget` (the tank's level
+  planned and checked against a real `Tank`), `MPC` (parameters of one program, shifted warm
+  start, latency as the interval applied, `rti`, `start` and `poll` in a thread), the presets
+  `ipopt`, `ipopt-exact`, `sqp`, `rti`, `fatrop`, and the tutorial. There is no lab code for MPC to port: the scheme is the
+  textbook one. Still open in 0.6.0: FATROP with the stage structure it was made for
+  (variables and constraints ordered by stage, the tank's level already is a state); the
+  multipliers in the warm start, for the SQP presets; acados as an optional solver.
 - [ ] **Underactuated VMC:** actuation projector, torque defect, feasible force set; naive and
   frozen-base controllers; passive and tank corrections; direction-constrained force tracking;
   each a flag, so the old and new behaviour compare; an underactuated allocation that reports

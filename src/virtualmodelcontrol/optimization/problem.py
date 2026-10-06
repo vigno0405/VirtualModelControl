@@ -15,10 +15,10 @@ from ..system import VirtualMechanismSystem
 from .builder import Builder, param_bounds
 from .nlp import NLP
 from .result import Result
-from .solver import IterationCallback, create_solver
+from .solver import IterationCallback, create_solver, status_of
 
 Progress = Callable[[int, float, dict[str, np.ndarray], np.ndarray], "bool | None"]
-WARM_START = ("q", "v", "a", "horizon", "params")
+WARM_START = ("q", "v", "a", "horizon", "params", "steps")
 
 
 class Problem:
@@ -34,8 +34,15 @@ class Problem:
     again.
     """
 
-    def __init__(self, system: VirtualMechanismSystem, *, options: Mapping[str, Any] | None = None):
+    def __init__(
+        self,
+        system: VirtualMechanismSystem,
+        *,
+        solver: str = "ipopt",
+        options: Mapping[str, Any] | None = None,
+    ):
         self.system = system
+        self.solver = solver
         self.options: dict[str, Any] = dict(options or {})
         self.params = ParamSet()
         for name, param in system.params.items():
@@ -45,7 +52,7 @@ class Problem:
         self._parameters: list[str] = []
         self._nlp: NLP | None = None
         self._solver: Any = None
-        self._solver_options: dict[str, Any] = {}
+        self._solver_key: tuple[str, dict[str, Any], bool] | None = None
         self._callback: IterationCallback | None = None
         self._progress: Progress | None = None
         self._failure: BaseException | None = None
@@ -106,10 +113,15 @@ class Problem:
             self._nlp = builder.finish()
         return self._nlp
 
+    def warm_up(self) -> None:
+        """Build the program and create the solver now, instead of at the first ``solve``."""
+        self._solver_for(self.build(), False)
+
     def initial_guess(self, warm_start: Result | Mapping[str, Any] | None = None) -> np.ndarray:
         """The solver's starting point (scaled): the robot at rest at ``q0`` with the free Params
         at their values, or ``warm_start``, a previous ``Result`` or a dict with ``q``, ``v``,
-        ``a`` (nodes × size), ``horizon`` (of a free one) and ``params``."""
+        ``a`` (nodes × size), ``horizon`` (of a free one), ``params`` and ``steps`` (intervals × the
+        Param's shape)."""
         nlp = self.build()
         variables, x = nlp.variables, nlp.x0.copy()
         for name in nlp.free:
@@ -140,6 +152,15 @@ class Problem:
                 key = f"param:{name}"
                 value = np.asarray(value, dtype=float).reshape(self.params[name].shape)
                 x[variables.slices[key]] = variables.scaled(key, value.ravel("F"))
+        for name, value in (get("steps") or {}).items():
+            key = f"step:{name}"
+            if key in variables.slices:
+                shape = nlp.trajectory.stepped[name]  # type: ignore[attr-defined]
+                value = np.asarray(value, dtype=float)
+                if value.shape != shape:
+                    raise ValueError(f"warm start steps {name!r}: shape {value.shape}, not {shape}")
+                rows = [row.ravel("F") for row in value]
+                x[variables.slices[key]] = variables.scaled(key, np.concatenate(rows))
         return x
 
     def solve(
@@ -158,7 +179,7 @@ class Problem:
         refs, p = self._references(nlp, references)
         x0 = self.initial_guess(warm_start)
         lbx, ubx = self._bounds(nlp)
-        solver = self._solver_for(nlp)
+        solver = self._solver_for(nlp, progress is not None)
         self._progress, self._failure, self._iteration = progress, None, 0
         start = time.perf_counter()
         try:
@@ -185,17 +206,18 @@ class Problem:
             horizon=horizon,
             q=found["q"],
             v=found["v"],
-            a=found["a"],
+            a=found["a"] if "a" in found else np.array(nlp.outputs["a"](x, p)).T,
             u=np.array(nlp.outputs["u"](x, p)).T,
             blend=nlp.trajectory.blend.copy(),
             params=found["params"],
             references=refs,
             cost=float(solution["f"]),
             costs={name: float(part) for name, part in zip(nlp.cost_names, parts, strict=True)},
-            status=str(stats["return_status"]),
+            status=status_of(stats),
             iterations=int(stats.get("iter_count", 0)),
             seconds=seconds,
             violation=violation,
+            steps=found["steps"],
         )
 
     def _select(self, patterns: tuple[str, ...]) -> list[str]:
@@ -244,13 +266,18 @@ class Problem:
             lbx[where], ubx[where] = lower / scale, upper / scale
         return lbx, ubx
 
-    def _solver_for(self, nlp: NLP) -> Any:
-        if self._solver is None or self._solver_options != self.options:
-            self._callback = IterationCallback(
-                "progress", nlp.x.numel(), nlp.g.numel(), self._on_iteration
+    def _solver_for(self, nlp: NLP, watched: bool) -> Any:
+        """The solver, with the iteration callback only when ``solve`` is given a ``progress``: a
+        Python callback is not safe to call from the thread of an asynchronous ``MPC``."""
+        key = (self.solver, dict(self.options), watched)
+        if self._solver is None or self._solver_key != key:
+            self._callback = (
+                IterationCallback("progress", nlp.x.numel(), nlp.g.numel(), self._on_iteration)
+                if watched
+                else None
             )
-            self._solver = create_solver(nlp.problem, self.options, self._callback)
-            self._solver_options = dict(self.options)
+            self._solver = create_solver(nlp.problem, self.options, self._callback, self.solver)
+            self._solver_key = key
         return self._solver
 
     def _on_iteration(self, x: np.ndarray, cost: float) -> bool:

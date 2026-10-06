@@ -52,13 +52,18 @@ class NLP:
         )
 
     def unpack(self, x: np.ndarray) -> dict[str, Any]:
-        """Physical ``q``, ``v``, ``a`` (nodes × size) and ``params`` (free Params by name, each
-        in its shape) from a scaled solution vector."""
+        """Physical ``q``, ``v``, ``a`` (nodes × size), ``params`` (free Params by name, each in
+        its shape) and ``steps`` (the Params of a shooting that change at every interval, by name,
+        each as intervals × its shape) from a scaled solution vector."""
         x = np.asarray(x, dtype=float).ravel()
         out: dict[str, Any] = {
             key: self.variables.value(x, key).reshape(shape)
             for key, shape in self.trajectory.shapes.items()
         }
+        out["steps"] = {}
+        for name, (count, *shape) in getattr(self.trajectory, "stepped", {}).items():
+            rows = self.variables.value(x, f"step:{name}").reshape(count, -1)
+            out["steps"][name] = np.stack([row.reshape(shape, order="F") for row in rows])
         out["params"] = {
             name: self.variables.value(x, f"param:{name}").reshape(shape, order="F")
             for name, shape in self.free.items()

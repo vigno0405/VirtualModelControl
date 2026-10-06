@@ -735,5 +735,6 @@ Good to know about periodic problems and a free horizon:
 
 To change a running controller within an energy budget, see [Energy and
 passivity](energy.md), and to tune one by trial runs instead of a plan, see
-[Tuning](tuning.md). The next steps are in the [roadmap](../development/roadmap.md): multiple
-shooting and other solvers.
+[Tuning](tuning.md). To plan again at every step from the measured state, with multiple shooting
+and a tank, see [Model predictive control](mpc.md). The next steps are in the
+[roadmap](../development/roadmap.md): other solvers.
