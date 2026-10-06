@@ -28,9 +28,11 @@ import virtualmodelcontrol as vmc
 
 
 def slider(mass, stiffness, damping):
-    robot = vmc.Mechanism("slider", model=vmc.models.JointSpace(1, unit="m"))
+    line = vmc.models.JointSpace(1, unit="m")
+    robot = vmc.Mechanism("slider", model=line)
     x = robot.joint(0)
-    robot.add("m", vmc.Inertance(x, vmc.Param("mass", mass, unit="kg", bounds=(0, np.inf))))
+    kg = vmc.Param("mass", mass, unit="kg", bounds=(0, np.inf))
+    robot.add("m", vmc.Inertance(x, kg))
     robot.add("spring", vmc.LinearSpring(x, stiffness))  # [N/m]
     robot.add("damper", vmc.LinearDamper(x, damping))  # [N·s/m]
     return robot
@@ -61,7 +63,8 @@ guess = slider(1.0, 10.0, 0.2)
 names = ["m.inertance", "spring.stiffness", "damper.damping"]
 fit = fit_params(guess, names, [log], smoothing=11)
 for name in names:
-    print(f"{name:18s} {float(fit.values[name]):8.4f} ± {float(fit.std[name]):.4f}")
+    value, std = float(fit.values[name]), float(fit.std[name])
+    print(f"{name:18s} {value:8.4f} ± {std:.4f}")
 ```
 
 ```{code-cell} python

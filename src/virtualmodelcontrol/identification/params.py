@@ -40,8 +40,9 @@ def fit_params(
     unknowns are the Params in the residual of the robot's own dynamics at the logged motion,
     M(q) a + h(q, v) − f(q, v; θ) − B(q) u. Without ``a``, the acceleration is v smoothed
     (Savitzky-Golay, ``smoothing`` samples) and differentiated, against the torques averaged over
-    the step as it was held; ``stride`` keeps every stride-th sample. A residual linear in the Params (masses, stiffnesses, dampings, efficiencies) is
-    solved in a step, and any other by Gauss-Newton from the Params' current values.
+    the step as it was held; ``stride`` keeps every stride-th sample. A residual linear in the
+    Params (masses, stiffnesses, dampings, efficiencies) is solved in a step, and any other by
+    Gauss-Newton from the Params' current values.
     """
     from scipy.optimize import least_squares
     from scipy.signal import savgol_filter
