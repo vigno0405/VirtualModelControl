@@ -132,6 +132,30 @@ def test_the_gate_takes_a_measurement_whose_distance_is_exactly_the_limit():
     assert kf.rejected == ("off",)
 
 
+def test_switching_the_gate_off_clears_what_the_last_update_rejected():
+    kf = KalmanFilter(system_of(linear_robot()), DT)
+    out = Measurement([1.0, 1.0], [0.0, 0.0], 1e-4, 1e-4, name="out")
+    kf.update([out])
+    assert kf.rejected == ("out",)
+    kf.gate = None
+    kf.update([out])
+    assert kf.rejected == () and kf.rejected_total == 1
+
+
+def test_a_reset_starts_again_at_rest_with_the_starting_covariance():
+    kf = KalmanFilter(system_of(linear_robot()), DT, P0=0.02)
+    kf.reset([0.2, 0.2])
+    kf.predict([1.0, 1.0])
+    out = Measurement([5.0, 5.0], [0.0, 0.0], 1e-4, 1e-4, name="out")
+    kf.update([out], expected=["encoder"])
+    assert kf.rejected == ("out",) and kf.missing == ("encoder",)
+    assert np.abs(kf.v).max() > 0 and not np.allclose(kf.P, 0.02 * np.eye(4))
+    kf.reset()
+    np.testing.assert_array_equal(state(kf), np.zeros(4))
+    np.testing.assert_array_equal(kf.P, 0.02 * np.eye(4))
+    assert kf.rejected == () and kf.missing == () and kf.rejected_total == 1  # the count stays
+
+
 def test_a_sensor_of_some_coordinates_corrects_those_and_leaves_the_rest():
     kf = KalmanFilter(
         system_of(linear_robot()), DT, gate=None, P0=np.diag([0.01, 0.04, 0.01, 0.01])
