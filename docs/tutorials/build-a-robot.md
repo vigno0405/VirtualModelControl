@@ -435,4 +435,8 @@ both = Assembly({
 vmc.Kinematics(both).position([0.0, 0.0, 0.3], "gripper/tip")  # [m]
 ```
 
+The motors of an assembly are those of its parts, stacked in order. A part that nothing drives,
+such as a floating body, gets `models.Passive(nv)` in `assembly.stacked_actuation`, and has none:
+[Crawl with a flywheel](crawl.md) builds a crawler that way.
+
 To write a new kind of model, see [Extend the library](extend.md).

@@ -264,6 +264,25 @@ All notable changes to this project are documented here. The format follows
 - Docs: the tutorial "Estimate the state of a soft arm" (encoders with slack, markers and IMUs
   fused by the filter, an outlier and lost frames); "A rail along a path" and the floating joint
   in "Build your own robot"; "A cart on a rail" in "Coordinates and components".
+- `vmc.PhaseSpring(coord, stiffness, depth, peak, steer, side, limit)`: a spring on a deflection e
+  whose stiffness follows a phase, on the coordinate `Stack(e, phase)`: K (1 + side steer) (1 +
+  depth cos(phase - peak)). Its force is minus the gradient of its energy, so the phase feels the
+  reaction that keeps a flywheel loop passive. With `limit` the potential saturates, and the torque
+  never goes above K (1 + |steer|) times the limit. With no depth, no steer and no limit it is a
+  `LinearSpring`. The type is `phase_spring` in configuration files.
+- `vmc.models.Passive(nv)`: an actuation with no motors, for a part that nothing drives, such as a
+  floating body. Stacked with the other parts' motors (`Assembly.stacked_actuation`), the motor
+  vector holds only theirs, so a simulated robot can have more coordinates than motors. The motors
+  do not give a passive part's configuration, so a controller is compiled against a robot without
+  it, and the simulator runs the one with it.
+- `robots.turtle.crawler(**CRAWLER)`: a simple crawler for the simulator, with placeholder
+  constants, not the lab's turtle: a floating body on the ground with gravity, two cranks about its
+  lateral axis with a foot each, and a contact spring, damper and friction at each foot and at the
+  four corners of the underside. Its motors are the two cranks, in the gait convention of
+  `turtle.robot()`, which is what the controller is compiled against. Under the flywheel controller
+  it crawls forward, further the faster the flywheel is driven, and does not advance without
+  friction; a positive steer of `PhaseSpring` turns it left. Docs: the tutorial "Crawl with a
+  flywheel".
 
 ### Removed
 

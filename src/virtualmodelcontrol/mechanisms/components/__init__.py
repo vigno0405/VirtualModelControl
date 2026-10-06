@@ -11,6 +11,7 @@ from .constrained import (
 from .dissipation import ContactDamper, ContactFriction, DiodeDamper, LinearDamper, TanhDamper
 from .gated import Gated
 from .inertance import Inertance, PointMass, RotationalInertia
+from .locomotion import PhaseSpring
 from .sources import ForceSource, GravityCompensation, SpeedRegulator
 from .storage import (
     ContactSpring,
@@ -44,6 +45,7 @@ __all__ = [
     "LimitSpring",
     "LinearDamper",
     "LinearSpring",
+    "PhaseSpring",
     "PointMass",
     "PolynomialSpring",
     "RotationalInertia",

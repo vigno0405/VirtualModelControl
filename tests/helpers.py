@@ -3,6 +3,7 @@
 import casadi as ca
 import numpy as np
 
+import virtualmodelcontrol as vmc
 from virtualmodelcontrol.core import Binding, Euclidean, Param, ParamSet
 from virtualmodelcontrol.mechanisms import Context, walk
 
@@ -54,3 +55,21 @@ def evaluate(fn, Q, V=None, output=0):
     Q = np.atleast_2d(Q)
     V = np.zeros_like(Q) if V is None else np.atleast_2d(V)
     return np.array([np.array(fn(q, v)[output]).ravel() for q, v in zip(Q, V, strict=True)])
+
+
+def flywheel(robot, K, C, Jv, bv, speed, delta, ramp=0.0, spring=vmc.PhaseSpring, **args):
+    """The virtual flywheel of the paper with a ``PhaseSpring`` between it and each crank."""
+    ctrl = vmc.Mechanism("ctrl")
+    phi = ctrl.add_state("flywheel", unit="rad")
+    ctrl.add("flywheel", vmc.Inertance(phi, Jv))
+    offset = vmc.Ref("phase", 1, value=delta, unit="rad")
+    for i, (name, own, side) in enumerate((("left", phi, 1.0), ("right", phi - offset, -1.0))):
+        e = robot.joint(i) - own
+        ctrl.add(f"spring_{name}", spring(vmc.Stack(e, own), K, side=side, **args))
+        ctrl.add(f"damper_{name}", vmc.LinearDamper(e, C))
+    ctrl.add("drive", vmc.SpeedRegulator(phi, bv, speed, ramp))
+    return ctrl
+
+
+def controller_of(robot, ctrl):
+    return vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl)))

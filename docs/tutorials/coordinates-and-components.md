@@ -177,6 +177,7 @@ signs. These are the components of the library:
 | `SigmoidSpring(y, k_min, k_max, d₀, α)` | storage | $-k(d)\, y$, $k$ rising from $k_\min$ to $k_\max$ around $d = d_0$ |
 | `PolynomialSpring(y, K, n, d₀)` | storage | $-K (d / d_0)^n\, y$ |
 | `LimitSpring(y, k, lower, upper)` | storage | zero inside $[\text{lower}, \text{upper}]$; outside, $k$ times the overshoot, inwards |
+| `PhaseSpring(y, K, m, φ₀)` | storage | for $y = (e, \varphi)$, a spring on $e$ with the stiffness $K\,(1 + m \cos(\varphi - \varphi_0))$, and the reaction on the phase $\varphi$; it can saturate and steer a gait |
 | `ContactSpring(d, k)` | storage | $k \max(0, -d)$ along $d$, only in contact ($d < 0$) |
 | `Gravity(robot)` | storage | $m_i g$ on each mass of the robot |
 | `LinearDamper(y, D)` | dissipation | $-D \dot y$ |

@@ -1,4 +1,6 @@
-"""Crawling turtle: two crank motors coordinated by a virtual flywheel, and a VSA motor."""
+"""Crawling turtle: two crank motors coordinated by a virtual flywheel, and a VSA motor.
+
+``robot`` and ``controller`` are the lab's; ``crawler`` is a simple body for the simulator."""
 
 from __future__ import annotations
 
@@ -6,20 +8,29 @@ from typing import Any
 
 import numpy as np
 
+from ..core.params import Param
 from ..core.registry import register
 from ..core.signals import Signals
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import (
+    ContactDamper,
+    ContactFriction,
+    ContactSpring,
     ForceSource,
+    FrameRotation,
+    Gravity,
     Inertance,
     Joint,
     LinearDamper,
     LinearSpring,
     Mechanism,
+    PlaneDistance,
+    PointMass,
     Ref,
+    RotationalInertia,
     SpeedRegulator,
 )
-from ..models import JointSpace
+from ..models import Assembly, Direct, JointSpace, Passive, SerialChain
 
 CRANKS = ("left", "right")
 """Order of the two crank motors in q and in the motor vector."""
@@ -95,3 +106,93 @@ def controller(robot: Mechanism, name: str = "ctrl", **params: Any) -> Mechanism
 def initial_state(meas: Signals) -> np.ndarray:
     """Flywheel state at start: the left crank's angle, at rest."""
     return np.array([meas["motor_position"][0], 0.0])
+
+
+CRAWLER = {
+    "mass": 1.0,  # [kg] the body, with the cranks
+    "inertia": (3.6e-3, 7.8e-3, 1.08e-2),  # [kg·m²] about its centre: x forward, y left, z up
+    "belly": (0.12, 0.07, 0.03),  # [m] its four underside corners: ±x, ±y, and z below the centre
+    "axle": (0.0, 0.11, 0.0),  # [m] the left crank's axis in the body (the right one is mirrored)
+    "crank_radius": 0.05,  # [m] from the axis to the foot, which hangs at the bottom at q = 0
+    "crank_inertia": 2e-3,  # [kg·m²] of each crank about its axis
+    "crank_damping": 0.02,  # [N·m·s/rad] on each crank
+    "gravity": (0.0, 0.0, -9.81),  # [m/s²]
+    "stiffness": 5e3,  # [N/m] of the ground under each foot and corner
+    "ground_damping": 100.0,  # [N·s/m] of the ground
+    "friction": 0.8,  # of the feet on the ground
+    "belly_friction": 0.03,  # of the underside corners on the ground
+    "slip_speed": 1e-3,  # [m/s] below which the friction falls linearly
+    "smoothing": 0.0,  # [m] width over which the ground's edge is rounded (0: sharp)
+    "efficiency": 1.0,  # torque a crank delivers per commanded one
+}
+"""Constants of ``crawler`` (SI). A simple crawler, not the lab's turtle: placeholders."""
+
+
+def crawler(name: str = "crawler", **params: Any) -> Mechanism:
+    """A simple crawler for the simulator, not the lab's turtle: its constants are placeholders.
+
+    A floating body on the ground z = 0 with gravity, and two cranks turning about its lateral
+    axis, each with a foot on the ground. ``q`` = (x, y, z, w, x, y, z of the body's quaternion,
+    left crank, right crank); the motors are the two cranks, as for ``robot``, in the same gait
+    convention. Keyword arguments override ``CRAWLER``.
+    """
+    p = {**CRAWLER, **params}
+    unknown = set(params) - set(CRAWLER)
+    if unknown:
+        raise TypeError(f"unknown crawler parameters {sorted(unknown)}; known: {sorted(CRAWLER)}")
+    a, b, c = p["belly"]
+    corners = {"fl": (a, b, -c), "fr": (a, -b, -c), "bl": (-a, b, -c), "br": (-a, -b, -c)}
+    sites = {"centre": (1, (0.0, 0.0, 0.0)), **{f"belly_{k}": (1, v) for k, v in corners.items()}}
+    body = SerialChain(["floating"], axes=[None], points=[(0.0, 0.0, 0.0)], sites=sites)
+    axle = np.array(p["axle"], dtype=float)
+    mirrored = axle * [1.0, -1.0, 1.0]
+    parts: dict[str, tuple[Any, ...]] = {"body": (body, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0))}
+    for side, at in (("left", axle), ("right", mirrored)):
+        crank = SerialChain(
+            ["revolute"],
+            axes=[(0.0, 1.0, 0.0)],
+            points=[(0.0, 0.0, 0.0)],
+            sites={"axis": (1, (0.0, 0.0, 0.0)), "foot": (1, (0.0, 0.0, -p["crank_radius"]))},
+        )
+        parts[side] = (crank, at, (0.0, 0.0, 0.0), "body/centre")
+    assembly = Assembly(parts)
+    motors = {"body": Passive(body.space.nv), "left": Direct(p["efficiency"])}
+    motors["right"] = Direct(p["efficiency"])  # its own copy: each crank has its own efficiency
+    robot = Mechanism(name, model=assembly, actuation=assembly.stacked_actuation(motors))
+    robot.add_param(Param("gravity", p["gravity"], unit="m/s^2", scope="design"))
+    robot.add("body_mass", PointMass(robot.point("body/centre"), p["mass"]))
+    robot.add(
+        "body_inertia",
+        RotationalInertia(FrameRotation(assembly, "body/centre"), p["inertia"]),
+    )
+    crank_inertia = p["crank_inertia"] * np.array([0.5, 1.0, 0.5])  # a disc about its axis
+    for i, side in enumerate(CRANKS):
+        robot.add(
+            f"{side}_inertia",
+            RotationalInertia(FrameRotation(assembly, f"{side}/axis"), crank_inertia),
+        )
+        robot.add(
+            f"{side}_damper", LinearDamper(robot.joint(body.space.nq + i), p["crank_damping"])
+        )
+    robot.add("gravity", Gravity(robot))
+
+    normal = Param("normal", (0.0, 0.0, 1.0), scope="episode")
+    origin = Param("origin", (0.0, 0.0, 0.0), unit="m", scope="episode")
+    stiffness = Param("stiffness", p["stiffness"], unit="N/m", scope="stage")
+    damping = Param("damping", p["ground_damping"], unit="N*s/m", scope="stage")
+    speed = Param("slip_speed", p["slip_speed"], unit="m/s", scope="episode")
+    edge = Param("smoothing", p["smoothing"], unit="m", scope="episode")
+    friction = {
+        "feet": Param("friction", p["friction"], scope="stage"),
+        "belly": Param("belly_friction", p["belly_friction"], scope="stage"),
+    }
+    contacts = {f"{side}_foot": (robot.point(f"{side}/foot"), "feet") for side in CRANKS}
+    contacts |= {f"belly_{k}": (robot.point(f"body/belly_{k}"), "belly") for k in corners}
+    for key, (point, rubs) in contacts.items():
+        ground = PlaneDistance(point, normal, origin)
+        robot.add(key, ContactSpring(ground, stiffness, edge))
+        robot.add(f"{key}_damper", ContactDamper(ground, damping, edge))
+        robot.add(
+            f"{key}_friction", ContactFriction(ground, stiffness, friction[rubs], speed, edge)
+        )
+    return robot

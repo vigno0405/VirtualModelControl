@@ -472,10 +472,18 @@ turtle crawling.
 - [ ] **The turtle crawling:** its floating body on the ground in the library's own simulator;
   locomotion elements (phase-modulated stiffness, saturating potentials, steering, a
   series-VSA potential); extremum seeking of gaits and gains under a passivity cap.
+  Done (6 October 2026): `PhaseSpring` (phase-modulated stiffness, saturating potential, steering,
+  and the reaction on the phase that keeps the flywheel loop passive), `models.Passive` (a part
+  with no motors, so a simulated robot has more coordinates than motors), `turtle.crawler()` (a
+  simple floating body on the ground with friction, with placeholder constants, run by the
+  simulator while the controller is compiled against the two cranks), and the tutorial "Crawl with
+  a flywheel". The series VSA spring needs no new component (a `LinearSpring` on the series
+  deflection, with a live stiffness `Param`). Open: extremum seeking.
   Its gait needs periodic trajectory problems (the orbit repeats, with references that change in
   time) and free final time (the period is an unknown), both built on `vmc.optimization`. The
   force laws and the estimators work in motor coordinates and need as many velocity coordinates as
-  configuration coordinates; a floating body has fewer, so they are to be extended for it.
+  configuration coordinates; a floating body has fewer, so they are to be extended for it (the
+  crawler avoids this: its controller never sees the body).
 - [ ] **Parity with VMRobotControl.jl** (the Julia library that shares this library's
   vocabulary of coordinates and components): virtual mechanisms with their own kinematics (a
   virtual cart on a rail along a path, a virtual tool); a table that maps its features to this

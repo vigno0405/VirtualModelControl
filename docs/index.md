@@ -115,6 +115,7 @@ tutorials/force
 tutorials/stiffness
 tutorials/estimation
 tutorials/build-a-robot
+tutorials/crawl
 tutorials/extend
 ```
 
