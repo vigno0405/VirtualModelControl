@@ -1,6 +1,6 @@
 """Models: kinematics and actuation of robots."""
 
-from .actuation import Actuation, Direct, Passive, TendonTransmission
+from .actuation import Actuation, Direct, Passive, TendonTransmission, Underactuated
 from .assembly import Assembly, StackedActuation
 from .continuum import PCC, segment_frame
 from .efficiency import Efficiency
@@ -25,6 +25,7 @@ __all__ = [
     "SerialChain",
     "StackedActuation",
     "TendonTransmission",
+    "Underactuated",
     "evaluate_frame",
     "from_dict",
     "segment_frame",

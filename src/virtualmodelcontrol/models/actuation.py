@@ -155,6 +155,104 @@ class Passive:
         return cls(data["nv"])
 
 
+@register("actuation", "underactuated")
+class Underactuated:
+    """Fewer motors than coordinates: motor angles θ = Bᵀ q and generalized forces τ = B u.
+
+    ``B`` (n × m, full column rank) is a ``design`` Param, the input matrix of a robot whose
+    coordinates are not all driven; ``Underactuated.joints`` builds it for motors that sit on
+    some of the joints. ``allocate`` is the least-squares B⁺ τ, B⁺ = (BᵀB)⁻¹ Bᵀ: it cannot
+    realize the part E τ of a wanted torque, with E = I − B B⁺ the projector on the null space
+    of Bᵀ (``defect`` is that part). The motors give only B B⁺ q, so ``config_from_motors`` is
+    the frozen configuration: the motors' part with the rest, E q̄, at ``q_rest`` q̄ (a ``design``
+    Param, zero by default), and ``velocity_from_motors`` is B B⁺ v. A controller that reads the
+    motors is therefore the frozen controller. ``efficiency`` is as for ``Direct``.
+    """
+
+    def __init__(self, B: Any, q_rest: Any = None, efficiency: Any = 1.0) -> None:
+        shape = np.shape(getattr(B, "value", B))
+        if len(shape) != 2 or shape[1] >= shape[0]:
+            raise ValueError(f"B must be (n, m) with m < n, not {shape}")
+        self.n, self.m = shape
+        self.params = ParamSet()
+        free = (-np.inf, np.inf)
+        self.params.add(as_param(B, "B", scope="design", bounds=free), "B")
+        rest = np.zeros(self.n) if q_rest is None else q_rest
+        self.params.add(as_param(rest, "q_rest", unit=RAD, scope="design", bounds=free), "q_rest")
+        self.efficiency = as_efficiency(efficiency)
+        self.params.merge(self.efficiency.params, "efficiency")
+
+    @classmethod
+    def joints(
+        cls, n: int, actuated: Sequence[int], q_rest: Any = None, efficiency: Any = 1.0
+    ) -> Underactuated:
+        """Motors on the ``actuated`` coordinates (0-based) of ``n``: the other ones are passive."""
+        B = np.zeros((n, len(actuated)))
+        B[list(actuated), np.arange(len(actuated))] = 1.0
+        return cls(B, q_rest, efficiency)
+
+    def _pinv(self, p: dict[str, Any]) -> Any:
+        """B⁺ = (BᵀB)⁻¹ Bᵀ."""
+        B = ca.reshape(p["B"], self.n, self.m)
+        return ca.solve(ca.mtimes(B.T, B), B.T)
+
+    def projector(self, p: dict[str, Any]) -> Any:
+        """E = I − B B⁺, the projector on the null space of Bᵀ (the passive directions)."""
+        B = ca.reshape(p["B"], self.n, self.m)
+        return ca.DM.eye(self.n) - ca.mtimes(B, self._pinv(p))
+
+    def defect(self, tau: Any, p: dict[str, Any]) -> Any:
+        """E τ: the part of the generalized force τ that no motor torque can realize."""
+        return ca.mtimes(self.projector(p), tau)
+
+    def motor_sizes(self, space: Any) -> tuple[int, int]:
+        """Numbers of motor angles and motor rates: m."""
+        return self.m, self.m
+
+    def motor_angles(self, q: Any, p: dict[str, Any]) -> Any:
+        """θ = Bᵀ q."""
+        return ca.mtimes(ca.reshape(p["B"], self.n, self.m).T, q)
+
+    def motor_rates(self, q: Any, v: Any, p: dict[str, Any]) -> Any:
+        """θ̇ = Bᵀ v."""
+        return ca.mtimes(ca.reshape(p["B"], self.n, self.m).T, v)
+
+    def generalized_force(self, u: Any, q: Any, p: dict[str, Any]) -> Any:
+        """τ = B u, with u the torques the motors deliver for the commanded ones."""
+        B = ca.reshape(p["B"], self.n, self.m)
+        return ca.mtimes(B, self.efficiency.delivered(u, coefficients(p)))
+
+    def allocate(self, tau: Any, q: Any, p: dict[str, Any]) -> Any:
+        """u = B⁺ τ: the least-squares motor torques, which leave out the defect E τ."""
+        return ca.mtimes(self._pinv(p), tau)
+
+    def config_from_motors(self, theta: Any, p: dict[str, Any]) -> Any:
+        """The frozen configuration B (BᵀB)⁻¹ θ + E q̄."""
+        B = ca.reshape(p["B"], self.n, self.m)
+        return ca.mtimes(B, ca.solve(ca.mtimes(B.T, B), theta)) + ca.mtimes(
+            self.projector(p), p["q_rest"]
+        )
+
+    def velocity_from_motors(self, q: Any, theta_dot: Any, p: dict[str, Any]) -> Any:
+        """The frozen velocity B (BᵀB)⁻¹ θ̇ = B B⁺ v."""
+        B = ca.reshape(p["B"], self.n, self.m)
+        return ca.mtimes(B, ca.solve(ca.mtimes(B.T, B), theta_dot))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Constructor arguments at the current Param values."""
+        return {
+            "type": "underactuated",
+            "B": self.params["B"].value.tolist(),
+            "q_rest": self.params["q_rest"].value.tolist(),
+            "efficiency": self.efficiency.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Underactuated:
+        """Inverse of ``to_dict``."""
+        return cls(data["B"], data["q_rest"], data.get("efficiency", 1.0))
+
+
 @register("actuation", "tendons")
 class TendonTransmission:
     """Rigid tendons on PCC segments, with motor angle θ = −ΔL / r: θ > 0 pulls a tendon.
