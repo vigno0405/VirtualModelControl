@@ -517,18 +517,24 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   real-time-iteration option.
   It brings multiple shooting (one rollout per interval, as in `vmc.sim.rollout`) and the solver
   presets that suit it (FATROP, SQP with a QP solver, acados optional).
-- [ ] **Underactuated VMC:** actuation projector, torque defect, feasible force set; naive and
-  frozen-base controllers; passive and tank corrections; direction-constrained force tracking;
-  each a flag, so the old and new behaviour compare; an underactuated allocation that reports
-  the part it cannot realize.
+- [x] **Underactuated VMC:** actuation projector, torque defect, feasible force set; naive and
+  frozen controllers; passive and tank corrections; direction-constrained force tracking; each a
+  flag of `control.underactuated.controller`, so the old and new behaviour compare; the
+  allocation reports the part it cannot realize (`Underactuated.defect`). Done, against the
+  lab's own code. Open: adaptation laws and estimators that read a controller's inputs expect the
+  motor layout, so they do not run on a `StateController`.
 - [ ] **Robots where some coordinates are not measured:** controllers that act through an
-  estimate of them.
-- [ ] **Underactuated templates:** a planar three-link arm with one passive joint, a five-link
-  arm with three passive joints, a two-tendon continuum arm.
+  estimate of them. `StateController` takes the estimate (`Signals(q=, v=)`); open is the
+  estimator side: `KalmanFilter.encoder` turns motors into a measurement of all of q, which an
+  `Underactuated` robot's motors do not give, and `Measurement` can observe coordinates but not
+  combinations of them (a tendon B), and a closed loop of the naive controller on an estimate
+  was not shown to work.
+- [x] **Underactuated templates:** `robots.planar`: a planar three-link arm with one passive
+  joint, a five-link arm with three, a two-tendon continuum arm.
 - [ ] **Custom dynamics:** a residual r(q, v, a, u, f_ext, p) = 0 with an optional energy,
   attached to a `FunctionModel`, for black-box or external models. The passivity tools need the
   energy and refuse without it.
-- [ ] **Docs:** MPC; underactuation; custom dynamics.
+- [ ] **Docs:** MPC; custom dynamics. (The underactuation tutorial is done.)
 
 ---
 

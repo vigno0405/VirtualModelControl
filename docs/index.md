@@ -113,6 +113,7 @@ tutorials/optimize
 tutorials/contact
 tutorials/force
 tutorials/stiffness
+tutorials/underactuated
 tutorials/estimation
 tutorials/build-a-robot
 tutorials/crawl

@@ -12,8 +12,6 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.linalg import null_space
-from scipy.optimize import root
 
 from ..core.params import constants
 from ..core.signals import Signals
@@ -45,6 +43,8 @@ def defect(B: ArrayLike, J: ArrayLike, F: ArrayLike, torque: ArrayLike = 0.0) ->
 def feasible(B: ArrayLike, J: ArrayLike) -> np.ndarray:
     """The wrenches the motors realize in full at the Jacobian J: the columns of an orthonormal
     basis of {F : (J E)ᵀ F = 0}, (p, p − rank (J E))."""
+    from scipy.linalg import null_space  # SciPy loads when it is first used
+
     return null_space((np.asarray(J, dtype=float) @ projector(B)).T)
 
 
@@ -78,6 +78,8 @@ class Frozen:
         def balance(z: np.ndarray) -> np.ndarray:
             gradient = d.residual(held + self.basis @ z, np.zeros(n), np.zeros(n), zero, live, 0.0)
             return self.basis.T @ np.asarray(gradient).ravel()
+
+        from scipy.optimize import root  # SciPy loads when it is first used
 
         solution = root(balance, self.basis.T @ self.rest)
         z = solution.x if solution.success else self.basis.T @ self.rest
