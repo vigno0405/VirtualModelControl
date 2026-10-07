@@ -10,6 +10,10 @@ from .mechanisms.coordinates.joints import State
 from .mechanisms.mechanism import Mechanism
 from .models.actuation import Direct
 
+__all__ = [
+    "VirtualMechanismSystem",
+]
+
 
 class VirtualMechanismSystem:
     """A robot mechanism (with a kinematic model) and the virtual mechanism attached to it.

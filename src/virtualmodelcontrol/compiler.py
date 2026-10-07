@@ -14,6 +14,11 @@ from .core.params import Binding, ParamSet
 from .mechanisms.coordinates.base import Context
 from .system import VirtualMechanismSystem
 
+__all__ = [
+    "Compiled",
+    "compile",
+]
+
 ARGS = ["q", "v", "z", "p", "t"]
 OPTS = {"cse": True}  # merges the repeated derivatives of shared coordinates
 

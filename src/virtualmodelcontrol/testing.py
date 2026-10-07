@@ -11,6 +11,10 @@ import numpy as np
 from .models.kinematic import evaluate_frame, from_dict
 from .models.kinematics import Kinematics
 
+__all__ = [
+    "check_model",
+]
+
 
 def check_model(
     model: Any,

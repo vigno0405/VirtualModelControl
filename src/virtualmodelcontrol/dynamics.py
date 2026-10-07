@@ -18,6 +18,12 @@ from .mechanisms.coordinates.base import Context
 from .mechanisms.mechanism import Mechanism
 from .models.actuation import Direct
 
+__all__ = [
+    "Dynamics",
+    "compile_dynamics",
+    "needs_energy",
+]
+
 OPTS = {"cse": True}
 
 
