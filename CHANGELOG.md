@@ -88,6 +88,17 @@ All notable changes to this project are documented here. The format follows
   that a configuration obeys (the unit norm of a quaternion; none for a flat space), and
   `Shooting` and `Equilibrium` constrain their nodes with them: before, a plan of a floating body
   could drift off unit quaternions and plan another body's motion.
+- The models as numpy and PyTorch code: `core.backends.source`, `translate` and `export` write
+  a CasADi function as straight-line Python, one statement per operation of its expression
+  graph, for numpy (the text imports numpy only, so it runs without CasADi) or PyTorch
+  (differentiable, on any dtype and device). Arguments and results have CasADi's shapes, with any
+  leading batch dimensions. `Kinematics.functions(at, backend="numpy")`, `Dynamics.export` and
+  `Compiled.export` give a model's functions that way, each with its `source`. numpy gives
+  CasADi's numbers to rounding error and PyTorch to 1e-12 on the kinematics with their Jacobians
+  and Hessians, including the derivatives by autograd; a model with a poorly conditioned mass
+  matrix (the soft arm's dynamics) differs by a few parts in 1e11, as PyTorch's `sin` and `cos`
+  differ in the last place. The extra `virtualmodelcontrol[torch]` and the tutorial "Use a model
+  outside CasADi".
 - Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
   (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
   `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the

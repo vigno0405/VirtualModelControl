@@ -12,6 +12,7 @@ from typing import Any
 
 import casadi as ca
 
+from .core.backends import export
 from .core.params import Binding, ParamSet
 from .mechanisms.coordinates.base import Context
 from .mechanisms.mechanism import Mechanism
@@ -50,6 +51,13 @@ class Dynamics:
     def live_values(self) -> Any:
         """Current values of the live Params, packed like p."""
         return self.params.vector(self.live)
+
+    def export(self, backend: str) -> Any:
+        """The functions as Python callables of ``backend`` (``"numpy"`` or ``"torch"``), named
+        as here, each with its ``source``, which needs no CasADi. The functions that this robot
+        does not have (without an energy) are ``None``."""
+        names = ("forward", "residual", "mass", "energy", "power", "motors", "step", "elements")
+        return export({name: getattr(self, name) for name in names}, backend)
 
 
 def needs_energy(dynamics: Dynamics, what: str) -> tuple[ca.Function, ca.Function]:

@@ -9,6 +9,7 @@ from typing import Any
 import casadi as ca
 import numpy as np
 
+from .core.backends import export
 from .core.params import Binding, ParamSet
 from .mechanisms.coordinates.base import Context
 from .system import VirtualMechanismSystem
@@ -48,6 +49,12 @@ class Compiled:
     def live_values(self) -> np.ndarray:
         """Current values of the live Params, packed like p."""
         return self.params.vector(self.live)
+
+    def export(self, backend: str) -> Any:
+        """The functions as Python callables of ``backend`` (``"numpy"`` or ``"torch"``), named as
+        here, each with its ``source``, which needs no CasADi."""
+        names = ("law", "tau", "energy", "power", "forces", "fast", "fast_energy", "fast_power")
+        return export({name: getattr(self, name) for name in (*names, "fast_elements")}, backend)
 
     def live_slices(self) -> dict[str, slice]:
         """Where each live Param sits in p."""

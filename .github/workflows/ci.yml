@@ -54,6 +54,20 @@ jobs:
       - run: pip install -e ".[dev]" "${{ matrix.numpy }}"
       - run: python -m pytest
 
+  # The models as PyTorch code need torch, which the other jobs leave out.
+  torch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pytest tests/core/test_backends.py tests/core/test_backends_torch.py
+
   # What a user does on a fresh Ubuntu: the system Python, a venv, pip install of the package.
   clean-install:
     strategy:

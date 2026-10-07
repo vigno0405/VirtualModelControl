@@ -8,6 +8,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..core.backends import translate
 from ..core.params import constants
 from .actuation import Direct
 
@@ -48,15 +49,25 @@ class Kinematics:
         self.actuation = Direct() if actuation is None else actuation
         self.coordinates = coordinates
         self._cache: dict[Any, ca.Function] = {}
+        self._translated: dict[Any, Any] = {}
 
-    def functions(self, at: Any, offset: ArrayLike | None = None) -> ca.Function:
-        """CasADi function x → (p, R, J, J_ω, H) for a point; H stacks ∂²p_k/∂x² row-block-wise."""
+    def functions(self, at: Any, offset: ArrayLike | None = None, backend: str = "casadi") -> Any:
+        """The function x → (p, R, J, J_ω, H) for a point; H stacks ∂²p_k/∂x² row-block-wise.
+
+        A CasADi function, or with ``backend="numpy"`` or ``"torch"`` a Python function of that
+        backend (its ``source`` attribute holds the code, which needs no CasADi), at the Params'
+        values now.
+        """
         off = np.zeros(3) if offset is None else np.asarray(offset, dtype=float).ravel()
         values = np.concatenate([self.model.params.vector(), self.actuation.params.vector()])
         key = (at if not isinstance(at, np.ndarray) else float(at), tuple(off), values.tobytes())
         if key not in self._cache:
             self._cache[key] = self._build(at, off)
-        return self._cache[key]
+        if backend == "casadi":
+            return self._cache[key]
+        if (key, backend) not in self._translated:
+            self._translated[key, backend] = translate(self._cache[key], backend)
+        return self._translated[key, backend]
 
     def _build(self, at: Any, offset: np.ndarray) -> ca.Function:
         space = self.model.space

@@ -590,12 +590,20 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 
 ## 0.7.0: models in PyTorch and numpy
 
-- [ ] **Every model in PyTorch and numpy:** one translator from a CasADi function's instruction
+- [x] **Every model in PyTorch and numpy:** one translator from a CasADi function's instruction
   list to numpy source (it runs without CasADi installed) and to PyTorch (differentiable); one
   way to ask for either, such as `vmc.Kinematics(robot).function("tip", backend="numpy")` and
   `dynamics.export("torch")`; both agree with CasADi to 1e-12 on random inputs, Jacobians and
-  Hessians included.
-- [ ] **Docs:** "Use a model outside CasADi".
+  Hessians included. Done (7 October 2026), with mutation checks: `core.backends` (`source`,
+  `translate`, `export`) writes a function's expression graph as straight-line Python, one
+  statement per operation, with leading batch dimensions; `Kinematics.functions(at,
+  backend=)`, `Dynamics.export(backend)` and `Compiled.export(backend)`. numpy equals CasADi to
+  rounding error (a test finds it exactly equal on the soft arm); PyTorch to 1e-12 on the
+  kinematics, Jacobians and Hessians (autograd's included) and to a few parts in 1e11 on the soft
+  arm's dynamics, whose mass matrix has a condition number of millions (PyTorch's `sin` and `cos`
+  differ from libm in the last place); a test runs the source with CasADi blocked. The extra
+  `virtualmodelcontrol[torch]`, a CI job with PyTorch.
+- [x] **Docs:** "Use a model outside CasADi". Done (7 October 2026).
 
 ---
 

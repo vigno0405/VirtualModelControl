@@ -40,6 +40,9 @@ docs = [
     "myst-nb>=1.1",
     "sphinx-immaterial>=0.13",
 ]
+torch = [
+    "torch>=2.0",
+]
 dev = [
     "pytest>=8",
     "ruff>=0.6",

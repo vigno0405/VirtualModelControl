@@ -109,6 +109,7 @@ tutorials/configurations
 tutorials/kinematics
 tutorials/build-a-robot
 tutorials/extend
+tutorials/outside
 ```
 
 ```{toctree}
