@@ -50,7 +50,7 @@ params.table(adapt.finger(), {
     "m_mcp.mass": "mass of the proximal phalanx",
     "m_pip.mass": "mass of the middle phalanx",
     "m_dip.mass": "mass of the distal phalanx",
-    "dip_cog.position": "centre of gravity of the distal phalanx (also `mcp_cog`, `pip_cog`)",
+    "dip_cog.position": "center of gravity of the distal phalanx (also `mcp_cog`, `pip_cog`)",
     "gravity": "gravity in the finger's frame, as mounted",
 })
 ```

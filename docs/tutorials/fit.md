@@ -31,8 +31,7 @@ def slider(mass, stiffness, damping):
     line = vmc.models.JointSpace(1, unit="m")
     robot = vmc.Mechanism("slider", model=line)
     x = robot.joint(0)
-    kg = vmc.Param("mass", mass, unit="kg", bounds=(0, np.inf))
-    robot.add("m", vmc.Inertance(x, kg))
+    robot.add("m", vmc.Inertance(x, mass))  # [kg]
     robot.add("spring", vmc.LinearSpring(x, stiffness))  # [N/m]
     robot.add("damper", vmc.LinearDamper(x, damping))  # [N·s/m]
     return robot

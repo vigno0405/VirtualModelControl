@@ -77,7 +77,7 @@ The simulation leaves them out, for the reason given in the [finger example](fin
 
 A ball sits in front of the palm, in the robot mechanism. The simulator feels it, while the
 controller, compiled from its own components only, does not know it is there (see
-[contact](../tutorials/contact.md)). Springs pull three fingertips to the ball's centre.
+[contact](../tutorials/contact.md)). Springs pull three fingertips to the ball's center.
 
 The template's thumb tip, (0, 0, 0.0175) in its last joint frame like the fingers', is the point
 the hand's controllers attach to. It lies beside the thumb's last phalanx, which runs along
@@ -172,7 +172,7 @@ simulate. Its joint angles are only measured, and only the hand's torques are se
 ```{code-cell} python
 from virtualmodelcontrol.robots import ur5
 
-robot = ur5.with_hand()  # the hand centred on the flange, not turned
+robot = ur5.with_hand()  # the hand centered on the flange, not turned
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("gravity", vmc.GravityCompensation(robot))
 system = vmc.VirtualMechanismSystem(robot, ctrl)

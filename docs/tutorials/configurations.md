@@ -27,15 +27,16 @@ its gains. This one is the controller of [your first controller](first-controlle
 ```
 
 A coordinate is a name from `coordinates`, or a mapping of one kind to its arguments, written as
-in Python: `point` (`{s: 1.0}`, a site's name, or `{at, s, offset}`), `joint` (an index, a list,
+in Python, for instance `point` (`{s: 1.0}`, a site's name, or `{at, s, offset}`), `joint` (an index, a list,
 or `{start, stop}`), `ref` (a live reference with its `name` and `value`), `difference`,
 `projection` (`{of, direction}`), `norm`, `slice` (`{of, index}`), `stack`, `plane_distance`,
-`sphere_distance` and `state`. A plain list in a difference is a live reference named `ref`,
+`sphere_distance` and `state` (the full list is at the end of this page). A plain list in a difference is a live reference named `ref`,
 as `tip - [0.1, 0.0, 0.40]` is in Python.
 
 ## Run it
 
-`vmc.config.load` reads the file and builds the robot from its template, the controllers and
+The file is `reach.yaml`, in the `docs/tutorials` folder of the repository: the pieces on this
+page, in the order of the sections above, make it. `vmc.config.load` reads the file and builds the robot from its template, the controllers and
 the plant. `run` runs the experiment from its start and returns the log. With `run` settings in
 the file, it also saves the log, as [Run logs](run-logs.md) shows:
 

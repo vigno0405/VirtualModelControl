@@ -45,11 +45,32 @@ gap = max(np.abs(np.asarray(a) - np.array(b).reshape(np.shape(a))).max()
           for a, b in zip(tip(q), reference(q), strict=True))
 lines = tip.source.count("\n")
 assert gap < 1e-14 and lines > 1000 and "casadi" not in tip.source.lower().split("def ")[1]
-glue("gap", float(gap), display=False)
+glue("bound", 1e-14, display=False)
 glue("lines", lines, display=False)
 ```
 
-The largest difference from CasADi's own result is {glue:text}`gap:.0e`: the code does the
+```{code-cell} python
+:tags: [remove-cell]
+import time
+
+
+def per_call(fn, arg, repeat=100):  # [s]
+    fn(arg)
+    start = time.perf_counter()
+    for _ in range(repeat):
+        fn(arg)
+    return (time.perf_counter() - start) / repeat
+
+
+casadi_call, numpy_call = per_call(reference, q), per_call(tip, q)
+batch = next(n for n in (10, 30, 100, 300, 1000, 3000)
+             if per_call(tip, np.tile(q, (n, 1)), 10) / n < casadi_call)
+assert numpy_call > 2 * casadi_call  # for one input CasADi is faster
+glue("slow", numpy_call / casadi_call, display=False)
+glue("batch", batch, display=False)
+```
+
+The code agrees with CasADi's own result to better than {glue:text}`bound:.0e`: it does the
 same operations in the same order. The function is generated: `tip.source` is its text, a
 straight line of {glue:text}`lines` statements, one for each operation of the expression graph,
 that imports numpy and nothing else.
@@ -99,7 +120,7 @@ assert np.allclose(eval(run.stdout), position, rtol=0, atol=1e-15)
 ## A controller as numpy code
 
 A compiled controller exports the same way, with `compiled.export("numpy")`. On a robot the
-node that talks to the motors needs `fast`: the motor angles and rates, the virtual state, the
+loop that talks to the motors needs `fast`: the motor angles and rates, the virtual state, the
 live Params and the time, in one vector, to the motor torques and the rate of the virtual
 state. Here is the three-link arm of [the underactuated tutorial](underactuated.md) held at
 a goal by a spring and a damper on its tip, one step of its law in numpy, against the library's
@@ -119,30 +140,31 @@ compiled = vmc.compile(vmc.VirtualMechanismSystem(link, ctrl))
 law = compiled.export("numpy").fast  # no CasADi from here on
 
 theta, rate, t = np.array([0.3, 0.5]), np.array([0.1, -0.2]), 0.0
-x = np.concatenate([theta, rate, [], compiled.live_values(), [t]])
+# the state, the live Params and the time (no virtual state here)
+x = np.concatenate([theta, rate, compiled.live_values(), [t]])
 u = law(x)[: compiled.n_u]  # [N·m]
 
-node = ua.controller(compiled, "frozen")
+frozen = ua.controller(compiled, "frozen")
 reading = vmc.Signals(t, motor_position=theta, motor_velocity=rate)
-node.reset(t, reading)
-print(u, node.step(t, reading)["law_torque"])
+frozen.reset(t, reading)
+print(u, frozen.step(t, reading)["law_torque"])
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-assert np.allclose(u, node.step(0.01, reading)["law_torque"], rtol=1e-12, atol=1e-12)
+assert np.allclose(u, frozen.step(0.01, reading)["law_torque"], rtol=1e-12, atol=1e-12)
 assert np.abs(u).max() > 0.1
 ```
 
-The two agree. The numpy function is what a node needs, `law(x)` once a period, with nothing
+The two agree. The numpy function is what such a loop needs, `law(x)` once a period, with nothing
 of the library but its text.
 
 ## PyTorch
 
 With `backend="torch"` the same text is written for torch tensors. The function is made of
 torch operations, so autograd differentiates it, and a batch of states is one call. This needs
-PyTorch (`pip install virtualmodelcontrol[torch]`); the code below is what the tests run, with
-the soft arm's dynamics:
+PyTorch (`pip install virtualmodelcontrol[torch]`); the code below runs as it is where PyTorch is
+installed, with the soft arm's dynamics:
 
 ```python
 import torch
@@ -158,8 +180,8 @@ acceleration.sum().backward()  # d(acceleration)/dq, from the same graph
 ```
 
 The tests compare these values and derivatives with CasADi's (the Jacobian and the Hessian of
-the kinematics included) to $10^{-12}$ of the largest entry. The soft arm's dynamics reach
-only a few parts in $10^{11}$: PyTorch's `sin` and `cos` differ from the C library's in the
+the kinematics included) to $10^{-12}$ of the largest entry. The soft arm's dynamics agree to
+no more than a few parts in $10^{11}$, depending on the build of PyTorch: PyTorch's `sin` and `cos` differ from the C library's in the
 last place, and the arm's mass matrix has a condition number of a few million, which
 multiplies the difference.
 
@@ -169,8 +191,8 @@ multiplies the difference.
   controllers of the library are. A function that calls code outside CasADi (a callback, an
   external library) cannot, and an operation without a translation says its name.
 - **Speed.** The code is a long straight line of Python. For one input CasADi's compiled
-  evaluation is much faster (about twenty times for the arm's kinematics), and numpy wins
-  with a batch of a few hundred. Take the code away for portability, not for speed.
+  evaluation is much faster ({glue:text}`slow:.0f` times for the arm's kinematics, measured
+  here), and numpy is faster per input from a batch of {glue:text}`batch`. Take the code away for portability, not for speed.
 - **Where the Params went.** The kinematics are written at the Params' values when you ask
   (`Kinematics` folds them in); the dynamics and the controllers take the live Params as an
   argument `p`, as their CasADi functions do. Ask again after changing a design Param.

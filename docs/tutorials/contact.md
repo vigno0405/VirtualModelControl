@@ -64,6 +64,7 @@ system = vmc.VirtualMechanismSystem(finger, ctrl)
 controller = vmc.VMCController(vmc.compile(system))
 ```
 
+`adapt.joint_limit_spring` is a `LimitSpring` that keeps the finger's joints inside their range.
 We write the run loop by hand so that every second it moves the goal 5 mm deeper with
 `controller.set`. Each step records the time, the configuration, the goal's depth and the
 table's force $k \max(0, -d)$.
@@ -258,7 +259,7 @@ pole = vmc.CylinderDistance(arm.point(s=1.0), center=[0.1, 0.0, 0.3],
                             axis=[0.0, 0.0, 1.0], radius=0.02,
                             half_height=0.5)
 arm.add("pole", vmc.ContactSpring(pole, 2e4))
-vmc.compile_dynamics(arm).energy  # the pole is now part of the arm's world
+list(arm.components)  # the pole is now one of the arm's components
 ```
 
 ## Between two points
@@ -307,10 +308,12 @@ bottom.set_ylabel("object's force [N]");
 assert abs(on_object[-1] - 50.0 * gap[-1]) < 0.05 and gap[-1] < 0.1
 glue("squeeze_force", float(on_object[-1]), display=False)
 glue("squeeze_sink", float(1e3 * (0.10 - gap[-1])), display=False)
+glue("squeeze_gap", float(100 * gap[-1]), display=False)
 ```
 
 The masses stop {glue:text}`squeeze_sink:.1f` mm into the object, where its force,
-{glue:text}`squeeze_force:.2f` N, equals the virtual spring's pull of 50 N/m times the 10 cm.
+{glue:text}`squeeze_force:.2f` N, equals the virtual spring's pull: 50 N/m times the distance between the masses,
+{glue:text}`squeeze_gap:.2f` cm.
 An object with a mass of its own, or with several coordinates, is a part with its own joints
 in the robot, as in [Build your own robot](build-a-robot.md); the contact is the same.
 
@@ -320,7 +323,7 @@ Two points that touch can rub too, and the surface they rub on is a sphere aroun
 `vmc.SphereDistance(b - a, [0, 0, 0], width)` is the same distance as `Norm(b - a) - width`, so
 `ContactFriction` takes it, with the stiffness `Param` of the spring. It pushes the two points
 with equal and opposite forces: it takes energy out of their sliding and nothing out of their
-momentum. A mass of 1 kg hits one of 2 kg off centre at 1 m/s, first without friction, then
+momentum. A mass of 1 kg hits one of 2 kg off center at 1 m/s, first without friction, then
 with a coefficient of 0.4:
 
 ```{code-cell} python

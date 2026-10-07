@@ -70,7 +70,7 @@ point follows the tip on a spring:
 ```{code-cell} python
 ctrl = vmc.Mechanism("ctrl")
 follower = ctrl.add_state("follower", dim=3, unit="m",
-                          initial=[0.0, 0.0, 0.725])
+                          initial=[0.0, 0.0, 0.435])  # the tip at rest
 ctrl.add("mass", vmc.Inertance(follower, 0.05))  # [kg]
 ctrl.add("tether", vmc.LinearSpring(tip - follower, 25.0))  # [N/m]
 ctrl.add("drag", vmc.LinearDamper(follower, 0.5))  # [N·s/m]
@@ -89,9 +89,9 @@ state's value: `vmc.FramePoint(model, site, q=state)`. The model here is a `Seri
 [rail](build-a-robot.md): a curve in front of the arm, with a cart that runs along it. A spring
 ties the arm's tip to the cart, so the tip is pulled along the curve, wherever the cart goes.
 
-The coordinate `q` is where the cart is on the rail, and anything can give it: a virtual state,
-as above, a free cart that the tip drags along; a `vmc.Ref`, a cart held where the reference
-says, which `controller.set` moves; or a function of time, built from `vmc.Time()`. We take
+The coordinate `q` is where the cart is on the rail, and anything can give it: a virtual state
+(as above, a free cart that the tip drags along); a `vmc.Ref` (a cart held where the reference
+says, which `controller.set` moves); or a function of time, built from `vmc.Time()`. We take
 the last, a smooth ramp that starts after 1.5 s and takes 4 s, so the tip follows the curve
 slowly:
 
@@ -145,7 +145,7 @@ ax.plot(tip_path[:, 0], tip_path[:, 2], label="tip")
 ax.set_xlabel("x [m]")
 ax.set_ylabel("z [m]")
 ax.set_aspect("equal")
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 After it has caught up with the cart, the tip stays within {glue:text}`rail_away:.1f` cm of the
@@ -193,7 +193,7 @@ signs. These are the components of the library:
 | `SpeedRegulator(y, b, ω, T)` | source | $b\,(\omega r(t) - \dot y)$, the ramp $r$ rising from 0 to 1 in $T$ |
 
 An `Inertance` on a difference of two coordinates is an inerter: a mass between them, with a force
-$b\,(\ddot y_1 - \ddot y_2)$ that opposes their relative acceleration. A `LimitSpring` on a slice of
+$M\,(\ddot y_1 - \ddot y_2)$ that opposes their relative acceleration. A `LimitSpring` on a slice of
 the joints, with a lower and an upper bound per joint, gives all of them soft limits.
 
 For the sigmoid and polynomial springs, $d$ is the size of each axis of $y$, or its norm with
@@ -205,7 +205,8 @@ For the sigmoid and polynomial springs, $d$ is the size of each axis of $y$, or 
 A `DiodeDamper(y, D, sign)` damps one direction of motion: the positive rates for `sign=1`, the
 negative ones for `sign=-1`, and never adds energy. A mass of 1 kg on a spring of 100 N/m, let
 go at 0.1 m, swings back and forth. Damped both ways it loses its swing at the same rate on each
-side. Damped on the way up only, it still swings down almost as far as it started:
+side (with 2 N·s/m). Damped on the way up only, with twice that, because it works on half of
+each swing, it still swings down almost as far as it started:
 
 ```{code-cell} python
 def swing(damper):
@@ -233,7 +234,7 @@ for name, x in swings.items():
     ax.plot(0.01 * np.arange(1, 301), x, label=name)
 ax.set_xlabel("time [s]")
 ax.set_ylabel("position [m]")
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 ```{code-cell} python

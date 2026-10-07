@@ -21,7 +21,7 @@ dependencies = [
 ]
 keywords = ["robotics", "control", "virtual model control", "passivity", "soft robots", "casadi"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Operating System :: POSIX :: Linux",

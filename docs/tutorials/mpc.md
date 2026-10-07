@@ -56,7 +56,7 @@ named in `steps`, one value in each interval:
 ```{code-cell} python
 INTERVALS, SUBSTEPS = 10, 5  # 0.1 s each, a control step of 20 ms
 
-problem = opt.Problem(system, solver="ipopt-exact")
+problem = opt.Problem(system, solver="ipopt-exact")  # exact Hessians
 problem.add(opt.Shooting([0.0], 1.0, INTERVALS + 1, steps=[K, GOAL],
                          substeps=SUBSTEPS))
 problem.add(opt.Effort(0.01))
@@ -91,6 +91,7 @@ from myst_nb import glue
 
 gap = np.abs(np.array(q_run)[::SUBSTEPS] - plan.q[:, 0]).max()
 assert plan.converged and gap < 1e-6, gap
+assert plan.steps[GOAL][0, 0] > 1.0  # the spring is pulled beyond the goal
 glue("gap", 1e3 * float(gap), display=False)
 glue("k0", float(plan.steps[K][0]), display=False)
 glue("g0", float(plan.steps[GOAL][0, 0]), display=False)
@@ -186,9 +187,9 @@ it is ready, as of the time that has passed since `start`, which is the real lat
 
 ```python
 while running:
-    meas = robot.read()
+    meas = plant.read()
     command = controller.step(meas.t, meas)
-    robot.write(command)
+    plant.write(command)
     mpc.poll(controller)  # applies a plan that is ready, else nothing
     if not mpc.busy:
         mpc.start(controller, q, v)  # q and v: your estimate of the state
@@ -242,10 +243,10 @@ ax.set_ylabel("share of the change applied")
 ax.legend(loc="center right", fontsize=18);
 ```
 
-The tank holds 0.05 J, little for a spring of 2 N/m that must move a metre. The plan that knows
+The tank holds 0.05 J, little for a spring of 2 N/m that must move a meter. The plan that knows
 the budget changes the Params in steps the tank pays in full (the share is 1 throughout),
 and the mass has moved {glue:text}`moved:.2f` m by the end. The plan that does not asks for
-more, and the tank applies as little as {glue:text}`cut:.0e` of a change. Both keep the
+more, and the tank applies as little as {glue:text}`cut:.1e` of a change. Both keep the
 tank's level above zero: the tank is what makes it safe, and the term is what makes it
 efficient.
 
@@ -274,7 +275,7 @@ then is not an optimum, only a step towards it; `plan.converged` is false for it
 (the default, with a quasi-Newton Hessian), `"ipopt-exact"` (exact Hessians, far fewer
 iterations on a shooting), `"sqp"` (CasADi's SQP with the QP solver `qrqp`, any other with the
 `qpsol` option), `"rti"` and `"fatrop"`. A preset needs its plugin in your CasADi build, and
-`opt.solver.available(name)` tells. All of them find the same plan here:
+`opt.solver.available(name)` tells. All of them but `"rti"` find the same plan here:
 
 ```{code-cell} python
 import time
@@ -302,13 +303,17 @@ for name, (iterations, cost, ms) in rows.items():
 :tags: [remove-cell]
 costs = [c for name, (_, c, _) in rows.items() if name != "rti"]
 assert max(costs) - min(costs) < 0.01 * min(costs), costs
+assert rows["ipopt"][0] > 2 * rows["ipopt-exact"][0]  # the quasi-Newton Hessian needs more
+glue("it_ipopt", int(rows["ipopt"][0]), display=False)
+glue("it_exact", int(rows["ipopt-exact"][0]), display=False)
 ```
 
-The default `"ipopt"` stops earlier with a slightly different cost, as its Hessian is
-approximate; `"rti"` is one step from a cold start, so it is far from the others here.
+The default `"ipopt"` takes {glue:text}`it_ipopt` iterations against {glue:text}`it_exact` for
+`"ipopt-exact"`, as its Hessian is approximate, and ends at an acceptable level; `"rti"` is one
+step from a cold start, so its plan is not the optimum.
 
 Which QP solver the SQP presets use is the `qpsol` option, and not every one of CasADi's
-suits a shooting. Tried on this problem with CasADi 3.7.2: `qrqp` (the default), `qpoases`
+suits a shooting. Tried on this problem with CasADi 3.7: `qrqp` (the default), `qpoases`
 and `daqp` find the same plan; `proxqp` stops at the iteration limit; `hpipm` needs the QP in
 stage order, and the program orders its variables by kind (all the $q$, then all the $v$);
 `ipqp` needs a positive definite Hessian, which a shooting QP does not have, and returns
@@ -316,9 +321,9 @@ NaN; `highs` reports an optimum with a primal infeasibility above its own tolera
 looser tolerance does not help; `osqp` needs a newer OSQP library than the one in that
 CasADi build. Your build may differ: pass the name in `qpsol` and read `plan.converged`.
 
-`"fatrop"` is as quick as the others at ten intervals, and falls far behind `"ipopt-exact"`
-as the horizon grows, because it treats the program as one general problem, without the
-stages it was made for. For a long horizon take `"ipopt-exact"`.
+The library's `"fatrop"` treats the program as one general problem, without the stages it was
+made for, so it does not scale with the horizon as FATROP can: for a long horizon take
+`"ipopt-exact"`.
 
 ## Good to know
 
@@ -337,11 +342,9 @@ stages it was made for. For a long horizon take `"ipopt-exact"`.
   controller afresh, as after a reset, and `MPC` refuses it.
 - **Applying a plan.** `mpc.interval` is the interval that was applied, and `mpc.result` the
   whole plan. `shift` is how many intervals the horizon moves between two steps (1 by default).
-- **Not yet.** The warm start carries the plan, not the multipliers. On a re-solve after a
-  small change of the start, passing the multipliers saved one SQP iteration of six, and
-  moving them with the plan needs the constraints of every term by interval. The tank's
-  capacity is not planned. Sending a plan over a
-  network is left to your own code: the library only turns a measurement into Params.
+- **Limits.** The warm start carries the plan, not the multipliers. The tank's capacity is not
+  planned. Sending a plan over a network is left to your own code: the library only turns a
+  measurement into Params.
 
 To tune a controller by trial runs instead, see [Tuning](tuning.md), and to plan one motion
 offline with the same terms, see [Optimizing a virtual mechanism](optimize.md).

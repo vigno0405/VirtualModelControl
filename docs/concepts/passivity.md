@@ -33,7 +33,7 @@ $$
 \dot E_c = -P + D + S .
 $$
 
-The compiled controller computes each term (`law.energy`, `law.power`), so the balance can be
+The compiled controller computes each term (`compiled.energy`, `compiled.power`), so the balance can be
 checked on any run.
 
 ## Passive controllers
@@ -73,7 +73,8 @@ weight.
   loop goes unstable even though every element is passive. [Tuning](../tutorials/tuning.md)
   shows the limit on damping.
 - **Changing parameters while running.** Raising a stiffness raises the energy stored in that
-  spring at once; `controller.set` returns that jump ([Parameters](../tutorials/parameters.md)).
+  spring at once; `controller.set` returns that jump ([Parameters](../tutorials/parameters.md)),
+  and a `Tank` pays for it ([Energy and passivity](../tutorials/energy.md)).
   Swapping elements through a smooth blend (`vmc.control.SwapController`) keeps the torques
   continuous.
 - **Sources.** A force source can supply any energy; only gravity compensation is tame.
@@ -81,5 +82,9 @@ weight.
   $\eta P$, and the balance holds with $\eta E_c$. Different efficiencies on motors that one
   element couples make its forces non-conservative, as the [finger example](../examples/finger.md)
   explains.
+- **Joints that no motor drives.** Torques that the motors alone can give, $B^+\tau$, are not
+  the gradient of a potential, so the controller may not be passive any more. [Robots with
+  fewer motors than joints](../tutorials/underactuated.md) shows the controllers that keep it
+  passive.
 - **Output stages.** Friction compensation, pretension and torque limits change the torques the
   motors receive, so the robot's input is no longer the controller's port.

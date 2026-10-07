@@ -20,6 +20,10 @@ import docs_setup
 kinematics, its nine tendon motors and the masses of its segments. A simulator also needs the
 arm's own stiffness and damping, and gravity. `helyx.add_dynamics` adds them.
 
+The string `"145-145-145"` names the geometry: the rest lengths of the three segments in
+millimeters. This arm is mounted on its side, with gravity along $-y$; `"145-290-290"` hangs
+from its base and `"290-145-145"` points up.
+
 ```{code-cell} python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -127,6 +131,9 @@ distance = 100 * np.linalg.norm(tip - goal, axis=1)  # [cm]
 travel = distance[0] - distance
 t = rows["t"].ravel()
 outside = np.abs(travel - travel[-1]) > 0.01 * travel[-1]  # more than 1 % off the end
+assert distance.min() > distance[-1] - 1e-6  # it never goes past its final place
+norms = np.abs(rows["motor_torque"]).max(axis=1)
+assert norms[:50].max() > 10 * norms[-1]  # the torques peak at first, then settle
 glue("start", float(distance[0]), display=False)
 glue("end", float(distance[-1]), display=False)
 glue("fast", 1000 * float(t[np.argmax(travel >= 0.9 * travel[-1])]), display=False)

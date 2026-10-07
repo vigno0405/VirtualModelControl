@@ -42,7 +42,7 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   documentation page or section with at least one figure, a `CHANGELOG.md` line, green CI, and
   the box ticked here.
 
-## Where things stand (5 October 2026)
+## Where things stand
 
 - **0.3.0 is on PyPI** (see `CHANGELOG.md`): the bimanual, hand, turtle and UR5 templates;
   Jacobians and Hessians of every site; experiments in YAML files (`vmc.config`); run logs that
@@ -65,15 +65,18 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   models in PyTorch and numpy (0.7.0), then a full check and the 1.0.0 release. Co-design with
   variable-stiffness actuators, URDF and MuJoCo, continuum models beyond PCC, inverse dynamics,
   realism wrappers, learning from demonstrations and the other model backends are not planned.
-- **Where things stand (6 October 2026):** 0.5.0 is complete: every item below is ticked, and
-  its release is the next thing to do. 0.6.0 has begun.
+- **Where things stand (7 October 2026):** every item of 0.5.0, 0.6.0 and 0.7.0 is built and
+  ticked below. 0.6.0 and 0.7.0 are not released on their own: they ship in 1.0.0, as 0.4.0
+  shipped in 0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
+  newest dependencies and on fresh clones, every page of the documentation read and looked at,
+  the API listed in `__all__`, and a support policy.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
 
 ## The plan, step by step
 
-Everything still to do, in order. Each step is done when its items below are ticked.
+Everything to do, in order. Each step is done when its items below are ticked.
 
 1. **Review the repository** (done, 5 October 2026).
 2. **Finish 0.3.0** (done, 5 October 2026): configurations, run logs, the
@@ -87,10 +90,10 @@ Everything still to do, in order. Each step is done when its items below are tic
    filters; grasp-force tracking on two arms and the hand's fingertip laws; Kalman filters and
    force, stiffness and shape estimates; trees, joints, floating bases, more coordinates and
    components, more contact; the turtle crawling.
-5. **0.6.0, MPC and underactuation:** MPC; underactuated VMC and its templates; robots with
-   unmeasured coordinates; custom dynamics for a `FunctionModel`.
-6. **0.7.0, models in PyTorch and numpy:** every model as a numpy function and a PyTorch
-   function, generated from the CasADi graph.
+5. **0.6.0, MPC and underactuation** (done, 7 October 2026): MPC; underactuated VMC and its
+   templates; robots with unmeasured coordinates; custom dynamics for a `FunctionModel`.
+6. **0.7.0, models in PyTorch and numpy** (done, 7 October 2026): every model as a numpy function
+   and a PyTorch function, generated from the CasADi graph.
 7. **1.0.0:** check everything, from a fresh clone, and publish.
 
 ---
@@ -568,9 +571,9 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   with the gate on throws out every reading after the first swing, so the estimate runs on the
   model alone), and with a process noise of 1e-3 the loop reaches the goal as with the true state;
   a stiffer controller (150 N/m on the three-link arm) outruns the filter. Documented in
-  the underactuated tutorial. Open: adaptation laws and estimators that read a controller's inputs
-  (`ForceTracking`, `ContactForce`, ...) work in the motor layout, so they do not run on a
-  `StateController`.
+  the underactuated tutorial. The adaptation laws and estimators that read a controller's inputs in
+  the motor layout (`ForceTracking`, `ContactForce`, ...) refuse a `StateController` with a clear
+  error (decided with the user on 7 October 2026: not extended to it).
 - [x] **Underactuated templates:** `robots.planar`: a planar three-link arm with one passive
   joint, a five-link arm with three, a two-tendon continuum arm.
 - [x] **Custom dynamics:** a residual r(q, v, a, tau, f, p) = 0 with an optional energy,
@@ -609,10 +612,10 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 
 ## 1.0.0
 
-- [ ] **Check everything and publish:** every page, example and documented command run from a
+- [x] **Check everything and publish:** every page, example and documented command run from a
   fresh clone on each supported Python and numpy; API review and freeze; deprecated names
   removed; a support policy; the release.
-- [ ] **Review all the documentation** page by page, so that the final version is ready: text,
+- [x] **Review all the documentation** page by page, so that the final version is ready: text,
   numbers, figures, animations and links, at desktop and phone width.
 
 ---

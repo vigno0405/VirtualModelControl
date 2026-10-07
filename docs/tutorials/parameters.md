@@ -52,7 +52,7 @@ its Params their scopes:
 
 ```{code-cell} python
 goal = vmc.Ref("goal", value=[0.0, 0.0, 0.40])  # a named goal [m]
-tip = arm.point(s=1.0)
+tip = arm.point(s=1.0)  # s: the arc parameter, 0 at the base, 1 at the tip
 
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("reach", vmc.LinearSpring(tip - goal, 600.0))  # [N/m]
@@ -158,6 +158,8 @@ peak_tip = t[second][np.argmax(paths[second, 0])]
 gap = np.linalg.norm(paths - rows["goal"], axis=1)[second]
 glue("lag", 1000 * float(peak_tip - peak_goal), display=False)
 glue("gap", 100 * float(gap.max()), display=False)
+off = np.abs((paths - rows["goal"])[second])  # the miss along x, y and z
+assert off[:, 2].max() > off[:, 0].max() and off[:, 2].max() > off[:, 1].max()
 ```
 
 The tip follows the goal about {glue:text}`lag:.0f` ms behind and stays within

@@ -32,8 +32,8 @@ Virtual environments, conda, ROS 2 and pinned versions are covered in [Installat
 
 ## Requirements
 
-Python 3.10 or newer, tested with 3.10 to 3.14 on Ubuntu 22.04 and 24.04. Nothing to compile;
-ROS and LaTeX are not needed.
+Python 3.10 or newer, tested with 3.10 to 3.14 on Ubuntu 22.04 and 24.04, and with the oldest
+versions of the packages below. Nothing to compile; ROS and LaTeX are not needed.
 
 ## Dependencies
 
@@ -47,6 +47,7 @@ pip installs them with the library:
 | [matplotlib](https://matplotlib.org) | 3.8 or newer | figures and animations |
 | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | 0.5 or newer | MP4 videos of the animations |
 | [PyYAML](https://pyyaml.org) | 6 or newer | robot and hardware files |
+| [PyTorch](https://pytorch.org) (optional, `pip install virtualmodelcontrol[torch]`) | 2.0 or newer | models as PyTorch code |
 
 ## The example in the figure
 

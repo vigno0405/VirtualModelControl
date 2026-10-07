@@ -17,11 +17,15 @@ import docs_setup
 | To add | Write | Register as |
 |---|---|---|
 | a spring, damper or source | a `Component` subclass | `"component"` |
-| a quantity to act on | a `Custom` coordinate, or a `Coordinate` subclass | |
+| a quantity to act on | a `Custom` coordinate, or a `Coordinate` subclass | `"coordinate"` |
 | a kind of robot | a class with `space`, `params`, `sites` and `frame` | `"model"` |
-| the dynamics of a robot | `Equations`, a residual (and an energy) for a `FunctionModel` | |
-| a transmission | the `Actuation` protocol | `"actuation"` |
+| the dynamics of a robot | `Equations`, a residual (and an energy) for a `FunctionModel` | not registered: a function cannot be written to a file |
+| a transmission | the `Actuation` protocol, below | `"actuation"` |
 | a simulator or hardware | `read`, `write` and `close` (and, simulated, `t`, `reset`, `advance`) | |
+
+A transmission implements `vmc.models.Actuation`: `params`, `motor_sizes`, `motor_angles`,
+`motor_rates`, `generalized_force` ($\tau = B(q)\,u$), `allocate` (the $u$ for a $\tau$),
+`config_from_motors` and `velocity_from_motors`; `vmc.models.Direct` is the simplest example.
 
 ## A new component
 
@@ -154,7 +158,8 @@ $$
 r(q, v, a, \tau, f) = M(q)\,a + h(q, v) - \tau - f ,
 $$
 
-which is zero along a motion. It must be affine in the acceleration $a$. $\tau$ is the
+which is zero along a motion. The function takes `(q, v, a, tau, f, p)`, with `p` the
+model's Params by name, as for `frame`. It must be affine in the acceleration $a$. $\tau$ is the
 generalized force of the motors, through the robot's actuation, and $f$ that of the robot's
 own components, which can still be added to it: springs, dampers and contact. The masses and the weight are in the equations, so the
 robot has no `Inertance` and no `Gravity`. Here the arm is one link of mass $m$ and length

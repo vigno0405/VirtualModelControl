@@ -60,7 +60,7 @@ from virtualmodelcontrol.estimation import TaskStiffness
 
 stiffness = TaskStiffness(controller, site=1.0)  # the tip
 K = stiffness(controller)  # [N/m]
-K.round(0)
+K.round(0) + 0.0  # no -0.
 ```
 
 ```{code-cell} python
@@ -108,7 +108,7 @@ for i, axis in enumerate("xyz"):
 ax.set_xticks(range(4))
 ax.set_xlabel("steps")
 ax.set_ylabel("stiffness at the tip [N/m]")
-ax.legend(loc="center right");
+ax.legend(loc="center right", fontsize=18);
 ```
 
 ```{code-cell} python
@@ -249,7 +249,7 @@ ax.plot(t, 1e3 * sags, label="goals at the points")
 ax.plot(t, 1e3 * held, label="holding goals")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("tip away from its start [mm]")
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 With the goals at the points the arm's own stiffness pulls the tip {glue:text}`sag:.0f` mm away.

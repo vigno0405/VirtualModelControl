@@ -33,8 +33,10 @@ K_i = \bar K\,(1 \pm u_s)\,\big[1 + m\cos(\varphi_i - \varphi_K)\big],
 \qquad u_i = -K_i e_i - C\dot e_i .
 $$
 
-The depth $m$ and the peak $\varphi_K$ shape the stiffness, and the steering $u_s$ makes one
-side stiffer and the other softer. The flywheel, with drive $b_v\bar\omega$ and friction $b_v$,
+$\bar K$ is the mean stiffness, $C$ the damping of each spring. The depth $m$ (between 0 and
+0.9) and the peak $\varphi_K$ shape the stiffness, and the steering $u_s$ makes one side
+stiffer and the other softer. The flywheel has the inertia $J_v$, and $b_v$ is both the
+friction it feels and the gain of its drive $b_v\bar\omega$. With $K_i' = \mathrm{d}K_i/\mathrm{d}\varphi$ it
 obeys
 
 $$
@@ -110,12 +112,12 @@ simulator: a floating body that lies on the ground $z = 0$ with gravity, and two
 turn about its lateral axis, each with a foot {glue:text}`radius:.0f` cm from the axis. At each foot and
 at the four corners of the underside, a contact spring, a contact damper and friction hold the
 body up. The cranks are the only motors; the body has none. It is a stand-in with placeholder
-constants (`turtle.CRAWLER`), not the lab's turtle, and its numbers are not measured.
+constants (`turtle.CRAWLER`); its numbers are not measured.
 
 The simulator runs the crawler, and the controller still sees only the two cranks. This is the
 split of the table in the [contact tutorial](contact.md): the world belongs to the simulated
 robot, not to the controller. The crawler's $q$ holds the body's position and quaternion
-$(x, y, z, w, x, y, z)$, then the two cranks. We start the body 4 cm above the ground, level and
+$(x, y, z, q_w, q_x, q_y, q_z)$, then the two cranks. We start the body 4 cm above the ground, level and
 facing $+x$, with the left foot down and the right one up:
 
 ```{code-cell} python
@@ -293,7 +295,7 @@ The tone must be slow against the gait: its period is the `window`, six seconds 
 of a second, and `frequency` is $2\pi n/$`window` for a whole $n$, so that several Params, each with
 its own $n$, do not see one another. Every change goes through a `Tank`, whose energy comes from
 what the controller's dampers take: a change that would cost more than the tank holds is cut
-short. This is the paper's bound on a slow change of the potential. One `Param` is shared by the
+short. This is the passivity bound on a slow change of a potential ([Passivity](../concepts/passivity.md)). One `Param` is shared by the
 two springs, so that they move together:
 
 ```{code-cell} python
@@ -346,18 +348,17 @@ glue("seek_peak", float(np.mod(seen[-1, 2], 2 * np.pi)), display=False)
 The crawler starts at {glue:text}`seek_start:.1f` cm/s with the stiff-in-stance spring and, in two
 minutes of simulated time, learns to go at {glue:text}`seek_end:.1f` cm/s, {glue:text}`seek_gain:.0f`%
 faster. Its estimate of `peak` ends at {glue:text}`seek_peak:.1f` rad (modulo a turn), near the
-$\pi$ of the sweep above, and the tank never went empty. The estimate creeps at first because the
-cost changes little over a radian, and rings a little at the end: a higher gain rings more. On a
-real robot the cost is a measured speed, or a cost of transport from the flywheel's speed, and the
+$\pi$ of the sweep above. The tank started empty, filled from what the dampers took, and never
+went below zero. On a real robot the cost is a measured speed, or a cost of transport from the flywheel's speed, and the
 run is a long one that you leave alone.
 
 ## Plan the crawler
 
 The planner can run the flywheel controller on the crawler too. `Problem(system, plant=body)`
 takes the dynamics from `body`, the crawler, while the controller stays the one written for the
-two cranks: it reads the motors of the plant as it does in a simulation. We plan one stride at
-the control rate of 150 Hz, from a flywheel that is up to speed (no ramp), once with the
-stiffness peak at 0. A `Shooting` is the closed loop of the simulator, step for step, so we
+two cranks: it reads the motors of the plant as it does in a simulation. We plan 0.8 s of the
+gait, 120 steps at 150 Hz (a third of the crawler's control rate), from a flywheel that is up
+to speed (no ramp), once with the stiffness peak at 0. A `Shooting` is the closed loop of the simulator, step for step, so we
 start it from the simulated run, which it must reproduce:
 
 ```{code-cell} python
@@ -365,16 +366,16 @@ from virtualmodelcontrol import optimization as opt
 
 peak = vmc.Param("peak", 0.0, unit="rad", scope="stage",
                  bounds=(-np.pi, np.pi))
-stride = flywheel(6.0, 0.9, peak=peak)
-stride.params["drive.ramp_time"].value = 0.0  # the flywheel starts at speed
+gait = flywheel(6.0, 0.9, peak=peak)
+gait.params["drive.ramp_time"].value = 0.0  # the flywheel starts at speed
 body = turtle.crawler()
-dt, n = 1 / 150, 120  # a control step [s], and the steps of the stride
+dt, n = 1 / 150, 120  # a control step [s], and the steps of the plan
 q0 = [0, 0, 0.04, 1, 0, 0, 0, 0.0, -np.pi]
 start = [0.0, 6.0]  # the flywheel's angle [rad] and speed [rad/s]
 
 def simulate(angle):
     peak.value = angle
-    system = vmc.VirtualMechanismSystem(robot, stride)
+    system = vmc.VirtualMechanismSystem(robot, gait)
     plant = vmc.sim.ModelPlant(body, q0=q0, max_step=dt)
     controller = vmc.VMCController(vmc.compile(system))
     return vmc.sim.run(plant, controller, vmc.sim.SimClock(dt),
@@ -382,7 +383,7 @@ def simulate(angle):
                        ).arrays()
 
 run = simulate(0.0)
-system = vmc.VirtualMechanismSystem(robot, stride)
+system = vmc.VirtualMechanismSystem(robot, gait)
 problem = opt.Problem(system, plant=body)
 problem.add(opt.Shooting(q0, n * dt, n + 1, v0=np.zeros(8), z0=start,
                          running=False))
@@ -401,9 +402,9 @@ glue("plan_cm", float(100 * plan.q[-1, 0]), display=False)
 ```
 
 The plan has no work to do: the simulated run satisfies the program's equations to rounding
-error ({glue:text}`plan_cm:.1f` cm in the stride), so the planner and the simulator are the same
+error ({glue:text}`plan_cm:.1f` cm in 0.8 s), so the planner and the simulator are the same
 loop, with the contact, the friction and the flywheel's own motion. To search for a gait with
-it we free the `peak` and ask the body to go as far as it can. The distance after the stride, as
+it we free the `peak` and ask the body to go as far as it can. The distance after the 0.8 s, as
 a function of the peak, shows what the search is up against:
 
 ```{code-cell} python
@@ -412,12 +413,12 @@ reach = np.array([simulate(a)["q"][n, 0] for a in angles])  # [m]
 fig, ax = plt.subplots()
 ax.plot(angles, 100 * reach, "o-")
 ax.set_xlabel(r"peak [rad]")
-ax.set_ylabel("distance after a stride [cm]");
+ax.set_ylabel("distance after 0.8 s [cm]");
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-assert 100 * np.ptp(reach) > 2.0  # centimetres, over the peaks of one stride
+assert 100 * np.ptp(reach) > 2.0  # centimetres, over the peaks
 peak.value = 0.0
 problem.add(opt.Cost(body.joint(0) - 1.0, 1.0, t_from=(n - 1) * dt,
                      name="forward"))
@@ -432,7 +433,7 @@ glue("plan_far", float(100 * planned.q[-1, 0]), display=False)
 assert reach.max() > planned.q[-1, 0] + 0.005
 ```
 
-The distance after one stride swings by {glue:text}`swing_cm:.0f` cm as the peak moves, with
+The distance after the 0.8 s swings by {glue:text}`swing_cm:.0f` cm as the peak moves, with
 several maxima, because the feet catch and slip on the ground. A gradient method follows the
 slope under its feet: freeing the peak and starting from 0, the planner ends at
 {glue:text}`plan_peak:.2f` rad and {glue:text}`plan_far:.1f` cm, where the sweep has
@@ -448,5 +449,3 @@ derivatives of that, not for finding the best gait of a rugged one.
   potential, never the torque: clipping the torque would remove the reaction on the flywheel.
 - `friction`, `crank_radius`, `mass` and the other constants of `turtle.CRAWLER` are keywords of
   `turtle.crawler`, so `crawl(friction=0.4)` gives the feet less grip.
-- The crawler is a simple stand-in. Its body, its cranks and its ground are placeholders, not
-  the lab's turtle and not measured.

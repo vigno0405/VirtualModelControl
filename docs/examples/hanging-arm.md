@@ -193,7 +193,7 @@ shows it little. On a real arm, add a run that keeps the motors moving.
 
 A tanh spring pulls the tip towards a target with at most 2 N, and a damper slows the tip
 down. An obstacle of radius 2 cm sits beside the arm's path, and the arm must keep 2 cm clear
-of it. Two Gaussian fields push the arm away from the obstacle's centre. They are attached at
+of it. Two Gaussian fields push the arm away from the obstacle's center. They are attached at
 $s = 0.6$ and at the tip, the ends of the part that has to get past the obstacle.
 
 ```{code-cell} python

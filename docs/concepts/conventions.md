@@ -20,7 +20,8 @@
 - Motor angles are `θ`, a generalized force is `τ`, actuator commands are `u`.
 - A spring's deflection is `y = x − x_ref`, so it pulls `x` towards `x_ref`. Storage gives
   `f = −∂V/∂y`, a damper `f = −D ẏ`, and every force reaches the robot as `τ = Jᵀ f`.
-- Arrays in, arrays out: inputs accept anything array-like; outputs are numpy arrays.
+- Arrays in, arrays out: inputs accept anything array-like; outputs are numpy arrays (torch
+  tensors from a model exported with `backend="torch"`).
 
 ## Continuum robots
 
@@ -60,7 +61,12 @@ site
   parameter `s`.
 
 plant
-  What the controller drives: a simulator such as `ModelPlant`, or the real robot.
+  What the controller drives: a simulator such as `ModelPlant`, or the real robot. A planner's
+  plant is the robot that moves, when the controller is written for other coordinates.
+
+tank
+  An energy budget for changing a running controller: a change is applied as far as the tank
+  pays for the energy it gives the controller, and what the controller's dampers take refills it.
 
 output stage
   An optional correction of the motor commands for real hardware: friction compensation,

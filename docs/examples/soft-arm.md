@@ -52,6 +52,7 @@ from schematics import params
 
 arm = helyx.add_dynamics(helyx.arm("145-145-145"))
 glue("eta", 100 * helyx.EFFICIENCY, display=False)
+glue("pretension", helyx.PRETENSION_WEIGHTS, display=False)
 params.table(arm, {
     "seg1.L0": "rest length of segment 1 (also `seg2.L0`, `seg3.L0`)",
     "seg1.d": "distance of the tendons from the backbone",
@@ -74,8 +75,8 @@ matters for the forces the real arm exerts on its surroundings. The
 [efficiency page](../concepts/efficiency.md) explains when to use it.
 
 The nine motors and their bus are in `helyx.hardware("145-145-145")`. On the real arm,
-`helyx.output_stage()` adds a small pretension to every motor command (0.010 N·m per radian of
-motor angle). The simulations below leave it out.
+`helyx.output_stage()` adds a small pretension to every motor command
+({glue:text}`pretension:.3f` N·m per radian of motor angle). The simulations below leave it out.
 
 ## Reach past an obstacle
 

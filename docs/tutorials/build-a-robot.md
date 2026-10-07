@@ -53,8 +53,8 @@ np.abs(a - b).max()  # [m], the two descriptions agree
 ## Masses, gravity, simulation
 
 A robot is a mechanism around its model. Its physical components are point masses at sites,
-gravity, and here a little viscous friction in the joints. The simulator needs them, the
-controller does not.
+gravity, and here a little viscous friction in the joints. The simulator needs all of them; the
+controller needs only the point masses, for `GravityCompensation`.
 
 ```{code-cell} python
 arm = vmc.Mechanism("arm", model=chain)
@@ -186,7 +186,7 @@ path, tip, times = np.array(path), np.array(tip), np.array(times)
 from myst_nb import glue
 
 com0 = sum(m * np.array(corners[n]) for n, m in mass.items()) / sum(mass.values())
-start = np.array(v0[:3]) + np.cross(v0[3:], com0)  # the centre's speed
+start = np.array(v0[:3]) + np.cross(v0[3:], com0)  # the center's speed
 fall = com0 + np.outer(times, start) + 0.5 * np.outer(times**2, [0, 0, -9.81])
 error = np.abs(path - fall).max()
 assert error < 1e-3 and np.linalg.norm(plant.q[3:]) > 1.0
@@ -196,14 +196,14 @@ glue("error", float(1e3 * error), display=False)
 ```{code-cell} python
 :tags: [remove-input]
 fig, ax = plt.subplots()
-ax.plot(path[:, 0], path[:, 2], label="centre of mass")
+ax.plot(path[:, 0], path[:, 2], label="center of mass")
 ax.plot(tip[:, 0], tip[:, 2], label="corner c")
 ax.set_xlabel("x [m]")
 ax.set_ylabel("z [m]")
 ax.legend();
 ```
 
-The centre of mass follows the parabola of a stone to {glue:text}`error:.2f` mm while the corner
+The center of mass follows the parabola of a stone to {glue:text}`error:.2f` mm while the corner
 winds around it: nothing but gravity acts, so the spin does not change it. The orientation of a
 free joint is a rotation vector, which is smooth until the body has turned once. A body that
 keeps spinning takes a `"floating"` joint: its orientation is a unit quaternion, so $q$ has
@@ -234,10 +234,10 @@ glue("turns", float(turns), display=False)
 
 It turned {glue:text}`turns:.1f` times, and its quaternion is still a unit.
 
-A body does not need its point masses. A `PointMass` at its centre gives its mass, and a
+A body does not need its point masses. A `PointMass` at its center gives its mass, and a
 `RotationalInertia` on the `FrameRotation` of its frame gives the inertia about that point:
 a 3 by 3 matrix in the frame's axes, or its three principal moments. We replace the brick's four
-corners by their total mass and the inertia about their centre, and give both the same spin:
+corners by their total mass and the inertia about their center, and give both the same spin:
 
 ```{code-cell} python
 names = list(corners)
@@ -245,12 +245,12 @@ m = np.array([mass[n] for n in names])
 r = np.array([corners[n] for n in names])
 centre = m @ r / m.sum()  # [m]
 inertia = sum(mk * (x @ x * np.eye(3) - np.outer(x, x))
-              for mk, x in zip(m, r - centre))  # [kg·m²], about the centre
+              for mk, x in zip(m, r - centre))  # [kg·m²], about the center
 
 def brick():
-    """A floating brick that turns about its centre of mass."""
+    """A floating brick that turns about its center of mass."""
     sites = {n: (1, c) for n, c in corners.items()}
-    sites["centre"] = (1, centre)
+    sites["center"] = (1, centre)
     chain = SerialChain(["floating"], axes=[None], points=[centre],
                         sites=sites)
     return vmc.Mechanism("brick", model=chain)
@@ -259,9 +259,9 @@ corner_masses, rigid = brick(), brick()
 for n in names:
     point = corner_masses.point(n)
     corner_masses.add(f"m_{n}", vmc.PointMass(point, mass[n]))
-rigid.add("mass", vmc.PointMass(rigid.point("centre"), m.sum()))
+rigid.add("mass", vmc.PointMass(rigid.point("center"), m.sum()))
 rigid.add("spin", vmc.RotationalInertia(
-    vmc.FrameRotation(rigid.model, "centre"), inertia))
+    vmc.FrameRotation(rigid.model, "center"), inertia))
 
 spins = {}
 for name, robot in (("four corners", corner_masses), ("one body", rigid)):
@@ -300,7 +300,7 @@ The brick of four corners (lines) and the one body (dots) turn alike, to
 
 A rail carries a body along a curve. Its coordinate $s$ is the parameter of the natural cubic
 spline through the waypoints: 0 at the first waypoint and 1 at the last, with the same step
-of $s$ between neighbours, so give waypoints about equally far apart. The waypoints are
+of $s$ between neighbors, so give waypoints about equally far apart. The waypoints are
 `design` Params in the frame of the joint before the rail; the body starts where its site is
 at $q = 0$, so put the site at the first waypoint to draw the path as given. A bead on a
 circular wire swings as a pendulum. The wire runs well past the swing, because a spline
@@ -377,14 +377,14 @@ soft.actuation.motor_sizes(soft.space)  # motor angles, motor rates
 The arm's mass is not lumped by itself. `soft.add_mass_along(name, mass, s0, s1, n)` spreads a mass
 evenly between two arc parameters as $n$ point masses at the nodes of Gauss-Legendre quadrature,
 which is exact for any polynomial of degree $2n - 1$ in the arc length. Here the height of the
-centre of the mass of a rod bent through 1.2 rad in all converges with $n$ to rounding error:
+center of the mass of a rod bent through 1.2 rad in all converges with $n$ to rounding error:
 
 ```{code-cell} python
 q_bent = np.array([0.018, 0, 0, 0.018, 0, 0])  # 0.6 rad in each segment
 kin_soft = vmc.Kinematics(soft)
 
 def moment(n):
-    """The mass times the height of its centre [kg·m], with n masses."""
+    """The mass times the height of its center [kg·m], with n masses."""
     rod = vmc.Mechanism("rod", model=soft.model)
     names = rod.add_mass_along("rod", 1.0, 0.0, 1.0, n)
     parts = [rod.components[k] for k in names]
@@ -411,7 +411,7 @@ glue("four_masses", float(mistake[3]), display=False)
 fig, ax = plt.subplots()
 ax.semilogy(counts, np.maximum(mistake, 1e-16), "o-")
 ax.set_xlabel("masses $n$")
-ax.set_ylabel("error of the centre's height")
+ax.set_ylabel("error of the center's height");
 ```
 
 One mass is {glue:text}`one_mass:.0f` % off, four masses {glue:text}`four_masses:.0e`.
@@ -436,8 +436,9 @@ vmc.Kinematics(both).position([0.0, 0.0, 0.3], "gripper/tip")  # [m]
 ```
 
 The motors of an assembly are those of its parts, stacked in order. A part that nothing drives,
-such as a floating body, gets `models.Passive(nv)` in `assembly.stacked_actuation`, and has none:
-[Crawl with a flywheel](crawl.md) builds a crawler that way.
+such as a floating body, gets `models.Passive(nv)` in `assembly.stacked_actuation` (a dict of
+the actuations by part) and adds no motors: [Crawl with a flywheel](crawl.md) builds a crawler
+that way.
 
 To write a new kind of model, see [Extend the library](extend.md).
 
@@ -445,7 +446,7 @@ To write a new kind of model, see [Extend the library](extend.md).
 
 A robot you describe is controlled like any other, and the controller needs nothing from
 `vmc.sim`. Here a spring takes the tip of the soft arm above to a goal; one control period
-of your node is a `step` with the motors' reading, which for this arm is the tendons' angles and
+of your control loop is a `step` with the motors' reading, which for this arm is the tendons' angles and
 rates:
 
 ```{code-cell} python
@@ -462,3 +463,6 @@ reading = vmc.Signals(0.0, motor_position=np.zeros(angles),
 controller.reset(0.0, reading)
 torques = controller.step(0.0, reading)["motor_torque"]  # [N·m]
 ```
+
+To run a model without CasADi, as numpy or PyTorch code, see
+[Use a model outside CasADi](outside.md).

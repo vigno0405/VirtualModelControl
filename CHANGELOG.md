@@ -4,7 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
-## [Unreleased]
+## [1.0.0] - 2026-10-07
+
+The first stable release. It also carries the work meant for 0.6.0 (planning with virtual states,
+unmeasured coordinates, custom dynamics, the planner on a larger plant, MPC and underactuation) and
+for 0.7.0 (models as numpy and PyTorch code), which were never released on their own, and it adds
+the checking: the whole suite on the oldest and the newest supported Python and numpy, on Linux,
+macOS and Windows, every page of the documentation run from a clean checkout, and a review of the
+public API (what `__all__` lists in each module is the API) and of every page of the docs at desktop
+and phone width. The rules for what changes between versions are on the page "Support policy".
 
 ### Added
 
@@ -99,6 +107,11 @@ All notable changes to this project are documented here. The format follows
   matrix (the soft arm's dynamics) differs by a few parts in 1e11, as PyTorch's `sin` and `cos`
   differ in the last place. The extra `virtualmodelcontrol[torch]` and the tutorial "Use a model
   outside CasADi".
+- `ForceTracking`, `StiffnessTracking`, `PositionRegulation`, `HoldingGoals`, `ContactForce` and
+  `TaskStiffness` refuse a `StateController` (also inside a `Tank`) with a `ValueError` that says
+  so, instead of failing on the shapes of its inputs: they read a controller in the layout of the
+  motors. A robot with fewer motors than coordinates uses the plain frozen controller (it reads the
+  motors), or `control.underactuated.DirectionalForce` for a force.
 - Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
   (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
   `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the
@@ -106,6 +119,19 @@ All notable changes to this project are documented here. The format follows
   `optimization.PRESETS` lists them and `optimization.solver.available(name)` tells whether the
   CasADi build has the plugin. `Result.status` words FATROP's endings as IPOPT's.
 - Docs: tutorial "Model predictive control".
+- Docs: the page "Support policy": which versions of Python and numpy are supported, what
+  semantic versioning means here (a deprecation lasts at least one minor version), what the public
+  API is, the schema of the run logs, where to report an issue, and the safety checks before the
+  first run on a robot (also in "Real time and the robot").
+
+### Changed
+
+- `__all__` in `math`, `testing`, `compiler`, `dynamics` and `system`: what they list is the public
+  API, as in every other module; `from virtualmodelcontrol.x import *` gives only that.
+- The configuration and hardware profile files are read and written as UTF-8 on every platform,
+  so that a file written on Linux reads on Windows.
+- The docs use American spelling, the figure legends are 18 pt (readable on a phone), and wide
+  tables wrap their code on a narrow screen.
 
 ## [0.5.0] - 2026-10-06
 

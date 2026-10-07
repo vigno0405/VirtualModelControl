@@ -128,7 +128,7 @@ on average, and it ripples by {glue:text}`late_ptp:.3f` N from peak to peak: eve
 the force by about `max_force_step`, so near the target it steps over it and back. The goal ends
 {glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A smaller
 `max_force_step` gives a smaller ripple and a slower approach. `max_step` also caps how far a
-Param moves in one step, in the Param's own unit (metres for a goal).
+Param moves in one step, in the Param's own unit (meters for a goal).
 
 ## Through a tank
 
@@ -490,7 +490,9 @@ force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
 
 ## What the calls need
 
-- `ForceTracking(controller, site, params, normal=None)`: `site` is where the contact is, a name
+- `ForceTracking(controller, site, params, normal=None, *, max_force_step=0.01, max_step=None,
+  rate=None)`: a step is the largest one that changes the force by `max_force_step`, or moves
+  a Param by `max_step`, or by a fixed `rate` if one is given. `site` is where the contact is, a name
   such as `"tip"`, an arc parameter `s`, or `(part, s)` for a part of an assembly, as in the
   [two arms](../examples/two-arms.md). `params` are glob patterns of the controller's live Params;
   compile with `runtime=[...]` for the Params that are not live by default.
@@ -515,11 +517,11 @@ force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
 
 ## Take it to the robot
 
-The loops above run a simulated plant. On the robot the same law runs inside the node that talks
+The loops above run a simulated plant. On the robot the same law runs inside the loop that talks
 to the motors, with nothing from `vmc.sim`: the controller steps with the reading, and the law
 changes the controller with the force that a load cell or an estimate gives. Here the finger's
 controller of the first section runs through a tank that starts empty, as one control period of
-your node would, with a made-up reading:
+your control loop would, with a made-up reading:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import Tank
@@ -529,7 +531,7 @@ law = ForceTracking(tank, "tip", "ctrl.press.goal", normal=[0, 0, 1])
 wanted = np.array([0.0, 0.0, 2.0])  # [N]
 
 def control_step(t, reading, force):
-    """What the node does each control period: the torques, then the law."""
+    """What your loop does each period: the torques, then the law."""
     command = tank.step(t, reading)
     law.step(tank, force, wanted)
     return command["motor_torque"]

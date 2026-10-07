@@ -73,7 +73,7 @@ for ratio in (0.25, 0.5, 1.0, 2.0):
 ax.set_xlabel("time [s]")
 ax.set_ylabel("tip to goal [mm]")
 ax.set_xlim(0, 0.5)
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 ```{code-cell} python
@@ -141,6 +141,8 @@ ax.legend(loc="upper right", fontsize=18);
 glue("grid", float(grid.best[0] / D_c), display=False)
 glue("cma", float(search.best[0] / D_c), display=False)
 glue("runs", len(search.history), display=False)
+glue("grid_runs", len(grid.history), display=False)
+glue("bayes_runs", len(bayes.history), display=False)
 glue("bayes", float(bayes.best[0] / D_c), display=False)
 worst = max(search.best_cost, bayes.best_cost) / grid.best_cost - 1
 assert abs(grid.best[0] - search.best[0]) < 0.3 * D_c, (grid.best, search.best)
@@ -148,8 +150,8 @@ assert worst < 0.01, (grid.best_cost, search.best_cost, bayes.best_cost)
 glue("flat", 100 * float(worst), display=False)
 ```
 
-The grid, with 25 runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, CMA-ES, with
-{glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$, and `Bayes`, with 12 runs, at
+The grid, with {glue:text}`grid_runs` runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, CMA-ES, with
+{glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$, and `Bayes`, with {glue:text}`bayes_runs` runs, at
 {glue:text}`bayes:.2f` $D_c$. The cost is flat near its minimum: the three best costs are within
 {glue:text}`flat:.1f` % of each other, so the dampings differ more than the costs do. `Bayes`
 fits a Gaussian process to the costs it has seen and asks for the damping where it expects the
@@ -216,8 +218,9 @@ glue("sampled", first["sampled"], display=False)
 The sampled loop turns unstable at {glue:text}`sampled:.1f` N·s/m against
 $2m/\Delta t$ = {glue:text}`limit2:.1f`, and the delayed loop at {glue:text}`late:.1f` N·s/m
 against $m/\Delta t$ = {glue:text}`limit:.1f`. Keep the damper well below the limit of your
-loop. A faster loop, or less delay, allows more damping. On the real soft arm, whose loop has
-more delay than one step, tip dampers above about 10 N·s/m oscillated.
+loop. A faster loop, or less delay, allows more damping. A real loop usually has more delay
+than one step, so its limit is lower. The runs go unstable a little above the formulas: the
+sweep moves in steps of 0.5 N·s/m, and a damper just past its limit takes time to blow up.
 
 ## Reading the energies
 
@@ -244,7 +247,7 @@ ax.plot(rows["t"], 1000 * dissipated, label="dissipated by the damper")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("energy [mJ]")
 ax.set_xlim(0, 0.5)
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 ```{code-cell} python

@@ -106,7 +106,12 @@ V_c, T_c = along(law.energy, q, v, z, p_c, t)
 port, diss_c, src_c = along(law.power, q, v, z, p_c, t)
 T_r, V_r = along(plant.dynamics.energy, q, v, p_r, t)
 inflow, diss_r, src_r = along(plant.dynamics.power, q, v, u, p_r, t)
-np.abs(inflow - port).max()  # [W]
+float(np.abs(inflow - port).max())  # [W]
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert np.abs(inflow - port).max() < 1e-9
 ```
 
 At every step the robot receives exactly the power the controller gives. So the energy of the

@@ -9,6 +9,7 @@ kernelspec:
 A controller runs the same way on a robot and in a simulation: `vmc.sim.run` reads the plant,
 asks the controller for torques, writes them, and waits for the next step. This page has two
 parts: how to connect a robot and run on it, and how to test a controller in simulation first.
+Read Part 2 before the first run on a robot.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -131,11 +132,19 @@ length of each step. `log.info` counts the `overruns` (steps longer than the per
 `stale` readings the loop refused as too old and the `guard_trips` (readings missing or not
 numbers). A refused reading means zero torque for that step.
 
-`run` does not close the plant: do it yourself, with `try` and `finally`.
+`run` does not close the plant: do it yourself, with `try` and `finally`:
+
+```python
+plant = Plant(driver)
+try:
+    log = vmc.sim.run(plant, controller, clock, T=10.0)
+finally:
+    plant.close()  # a real plant stops its motors
+```
 
 ### Your own loop
 
-If your robot already has a node that loops, skip `run` and call the controller in it:
+If your robot already has a loop that talks to its driver, skip `run` and call the controller in it:
 
 ```python
 controller.reset(plant.t, plant.read())
@@ -160,7 +169,7 @@ Nothing touches a real robot without its owner's go-ahead. Check, in order:
    goal inside the workspace. No torque limit applies unless you ask for one.
 6. **Stale and missing data.** Set `stale` to a few periods, and read `stale` and `guard_trips`
    at the end of every run.
-7. **A way out.** Your node stops the motors when the loop stops writing (a watchdog) and on
+7. **A way out.** Your driver stops the motors when the loop stops writing (a watchdog) and on
    exit, and someone is within reach of the power switch. The last torque stays on the motors
    until something changes it.
 8. **The first step.** The controller starts from the robot's current state; its first torques
@@ -191,7 +200,7 @@ loop in Python. Its rows are those of `run`:
 
 ```{code-cell} python
 r = vmc.sim.rollout(system, np.zeros(9), T=3.0, dt=1 / 330)
-np.abs(r["q"] - sim.arrays()["q"]).max()  # [m]
+float(np.abs(r["q"] - sim.arrays()["q"]).max())  # [m]
 ```
 
 The `integrator` argument of `rollout` chooses how the robot is integrated between control
@@ -206,7 +215,7 @@ from scipy.integrate import solve_ivp
 
 f = vmc.sim.ode(system)
 sol = solve_ivp(f, (0.0, 1.0), np.zeros(18), method="Radau")
-np.abs(sol.y[:9, -1] - r["q"][330]).max()  # [m]
+float(np.abs(sol.y[:9, -1] - r["q"][330]).max())  # [m]
 ```
 
 ```{code-cell} python
@@ -272,7 +281,7 @@ def go(plant, ctrl, T=0.5, stale=0.05):
     return vmc.sim.run(plant, ctrl, clock, T)
 ```
 
-**A late step.** Three steps take 20 ms too long. The loop does not hurry the next steps to catch
+**A late step.** Three steps take 20 ms instead of 3 ms. The loop does not hurry the next steps to catch
 up: that would give the controller a burst of steps shorter than the period. It starts again
 from the moment the late step ended, counts it, and warns once at the end:
 
@@ -290,8 +299,9 @@ str(caught[0].message), late.info["overruns"]
 
 ```{code-cell} python
 fig, ax = plt.subplots()
-for name, result in (("healthy", ok), ("three late steps", late)):
-    ax.plot(1000 * result.arrays()["dt"][1:], label=name)
+for name, result, style in (("three late steps", late, "-"),
+                            ("healthy", ok, "--")):
+    ax.plot(1000 * result.arrays()["dt"][1:], style, label=name)
 ax.set_xlabel("step")
 ax.set_ylabel("step length [ms]")
 ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2,

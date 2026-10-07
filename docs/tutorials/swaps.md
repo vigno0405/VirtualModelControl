@@ -110,7 +110,7 @@ glue("soft", jump["soft"], display=False)
 ```
 
 Swapped at once, the torques jump by {glue:text}`hard:.2f` N·m between two control steps, at the
-swap. Blended, the largest change between two steps after the start is {glue:text}`soft:.3f` N·m.
+swap. Blended, the largest change between two steps after the start is {glue:text}`soft:.1e` N·m.
 
 `ScheduledController(controller, schedules, swaps)` runs the swaps and the schedules below. Each
 swap is a time [s], the controller to swap to and a duration [s]. On its own,
@@ -148,6 +148,22 @@ ax.legend(loc="lower right", fontsize=18);
 schedule sets its Param on every controller that has it live, through `controller.set`. So a
 schedule of a Param that is not live fails when the controller is built, not in the middle of
 a run. `reset` starts a run again from the controller's own values.
+
+Attached to a controller, a schedule moves its Param as the run goes. Here the stiffness of the
+spring falls from 300 to 100 N/m between 0.5 s and 1.5 s:
+
+```{code-cell} python
+fall = Schedule("ctrl.reach.stiffness", [(0.5, 300.0), (1.5, 100.0)])
+scheduled = vmc.control.ScheduledController(stiff, [fall])
+plant = vmc.sim.ModelPlant(experiment.robot)
+run_log = vmc.sim.run(plant, scheduled, vmc.sim.SimClock(1 / 330), T=2.0)
+stiff.live_params()["ctrl.reach.stiffness"]  # where the schedule left it
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(float(stiff.live_params()["ctrl.reach.stiffness"]) - 100.0) < 1e-9
+```
 
 The same swaps and schedules are the `swap` and `schedule` entries of a configuration
 ([Experiments in files](configurations.md)).

@@ -22,6 +22,9 @@ import docs_setup
 | motion capture | markers on the arm: its shape, not its speed | `Inversion` gives $q$, `VelocityFilter` gives $v$ |
 | IMUs | how each section bends, $D_x$ and $D_y$, not its length $D_l$ | `ImuFilter` gives both |
 
+$(D_x, D_y, D_l)$ are the three coordinates of one section of the soft arm: see
+[soft-arm kinematics](../concepts/pcc.md).
+
 ## The arm and its run
 
 The arm points up. A spring pulls its tip to a goal that stays still for 0.3 s and then goes
@@ -62,9 +65,9 @@ u = rows["motor_torque"]  # what the motors were told at each step
 ## What the sensors read
 
 The sensors read the true motion with noise, and the library has them: `Encoders`, `Markers`,
-`Imus` and `LoadCell` take the true state and give a noisy reading, as the estimators take
-it. The encoders read the motors, whose angles are off by a few tenths of a radian because the
-tendons are slack: about a millimetre of $q$. The three markers sit at the ends of the sections,
+`Imus` and `LoadCell` take the true state and give a noisy reading, in the form the
+estimators take. The encoders read the motors, whose angles are off by a few tenths of a radian because the
+tendons are slack: about a millimeter of $q$. The three markers sit at the ends of the sections,
 and an IMU on the base and on each section end reads its angular velocity and the direction of
 gravity in its own axes, with a bias on the gyros.
 
@@ -147,10 +150,10 @@ The filter's model is the simulated arm itself, so `Q` can be small. On a real a
 the model's errors go. The covariances of the measurements are the noise we gave the sensors,
 with the slack counted in for the encoders: 1.5 mm.
 
-`predict` linearises the arm's dynamics at the estimate. That is exact for a linear robot and
-close for an arm whose state is known to a few millimetres. For a state that is much less certain,
+`predict` linearizes the arm's dynamics at the estimate. That is exact for a linear robot and
+close for an arm whose state is known to a few millimeters. For a state that is much less certain,
 build the filter with `KalmanFilter(system, dt, unscented=True)`. Its `predict` sends sigma points
-of the estimate, a root of three standard deviations out, through `substeps` steps of the arm's
+of the estimate, $\sqrt 3$ (about 1.7) standard deviations out, through `substeps` steps of the arm's
 own integrator, and takes the mean and the covariance of where they land, so both follow the
 arm's nonlinearity. It costs about $4n$ times as much for $n$ coordinates, and the sensors are
 fused as before, since they are linear in $q$ and $v$.
@@ -185,9 +188,13 @@ err = {name: rms((est - truth)[:, :9]) for name, (est, _, _) in runs.items()}
 assert err["encoders + markers"] < 0.5 * err["encoders"]
 assert err["encoders + IMUs"] < err["encoders"]
 assert err["all three"] <= err["encoders + markers"]
+assert err["encoders + IMUs"] > err["encoders + markers"]  # the IMUs help less
+err_v = {name: rms((est - truth)[:, 9:]) for name, (est, _, _) in runs.items()}
+assert err_v["encoders"] > 2 * err_v["encoders + markers"]
 glue("enc_error", float(err["encoders"]), display=False)
 glue("mocap_error", float(err["encoders + markers"]), display=False)
 glue("ratio", float(err["encoders"] / err["encoders + markers"]), display=False)
+glue("vratio", float(err_v["encoders"] / err_v["encoders + markers"]), display=False)
 glue("rejected_clean", runs["all three"][1], display=False)
 glue("frames", 2 * int((n - 1) // every), display=False)
 ```
@@ -205,7 +212,7 @@ ax.legend();
 
 The encoders alone are off by {glue:text}`enc_error:.2f` mm: they read the slack. The markers
 anchor the estimate to the arm: with them the error is {glue:text}`mocap_error:.2f` mm,
-{glue:text}`ratio:.1f` times smaller, and the velocity improves as much. The IMUs help less. They
+{glue:text}`ratio:.1f` times smaller, and the velocity improves too, {glue:text}`vratio:.1f` times. The IMUs help less. They
 see how the sections bend and not how long they are, and the markers see all of it. On an arm
 with no markers they still cut the error of the encoders.
 
@@ -214,10 +221,11 @@ with no markers they still cut the error of the encoders.
 Markers jump when a camera swaps two of them, and frames get lost when one is hidden. The
 filter takes both. Each measurement has to pass the *gate* before it is used: its innovation,
 how far it is from what the filter expected, measured in the measurement's own standard
-deviations, must stay below a limit. The default limit is about the 99.9 % bound of the
-chi-squared distribution, so about one good frame in a thousand is turned away: in this run
+deviations, must stay below a limit. The default limit is $d^2 = 40$, about the 99.8 % bound of a
+chi-squared distribution with the 18 values of a reading of $q$ and $v$, so about two good
+readings in a thousand are turned away: in this run
 {glue:text}`rejected_clean` of the {glue:text}`frames` frames and readings, none of them at
-fault. A real outlier is far outside the limit. We move all three markers by 10 cm for two
+fault. A real outlier is far outside the limit. We move all three markers by 10 cm along each axis for two
 frames, and run the filter with the gate and without it:
 
 ```{code-cell} python
@@ -341,7 +349,7 @@ keeps its last result as the start of the next fit; after a long gap, give it `q
 
 ## Take it to the robot
 
-On the robot the filter sits in the node that reads the sensors, with nothing from `vmc.sim`.
+On the robot the filter sits in the loop that reads the sensors, with nothing from `vmc.sim`.
 At each control period it predicts with the torques last sent, then fuses what came in, and the
 controller reads $q$ and $v$ from it. Here is that period for the encoders alone, with the
 readings of the recorded run standing in for the robot's:

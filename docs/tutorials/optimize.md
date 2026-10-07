@@ -154,7 +154,7 @@ glue("flat", float(100 * (costs[ks > 40].max() / plan.cost - 1)),
      display=False)
 ```
 
-The optimized stiffness sits at the bottom of the curve, where the sweep's own minimum is
+The optimized stiffness sits at the bottom of the curve, at the sweep's own minimum
 ({glue:text}`best:.0f` N/m on this grid). The bottom is flat: from 40 N/m up, the cost is at
 most {glue:text}`flat:.0f` % above the minimum. Too soft a spring arrives late, and a stiffer
 one spends effort for little.
@@ -255,8 +255,8 @@ glue("gain", float(100 * (1 - found.result.cost / anchor)), display=False)
 glue("k_search", found.result.params["new.pull.stiffness"].item(), display=False)
 ```
 
-Radius and step are in metres: a radius of 6 cm and a step of 6 cm give the target and its six
-neighbours. The best reference lies {glue:text}`offset:.0f` mm from the target along z, and it
+Radius and step are in meters: a radius of 6 cm and a step of 6 cm give the target and its six
+neighbors. The best reference lies {glue:text}`offset:.0f` mm from the target along z, and it
 lowers the cost by {glue:text}`gain:.1f` %, with a stiffness of {glue:text}`k_search:.0f` N/m.
 Moving it sideways costs many times more. `found.result` is the plan, `found.references` the
 point that gave it, and `found.candidates` every point tried.
@@ -294,7 +294,7 @@ glue("nearest", float(miss(nearest)), display=False)
 The arm rests {glue:text}`there:.1f` mm from the target, where the plan ended, and the solve took
 {glue:text}`ms:.0f` ms. With the reference free, the nearest it can rest is
 {glue:text}`nearest:.1f` mm: the spring saturates at 2 N, so no reference pulls harder. A
-`Bound` holds at the equilibrium too. The node counts once in `Cost` and `Effort`.
+`Bound` holds at the equilibrium too. `Cost` and `Effort` weigh its single node once.
 
 ## Limits
 
@@ -331,14 +331,14 @@ coordinate can be anything the library knows: a joint, a distance to a sphere or
 ## Around an obstacle
 
 A sphere of radius 2 cm stands by the arm's path to a farther target. We add a repulsive
-Gaussian field on the arm, at $s = 0.6$, that pushes that point away from the sphere's centre.
+Gaussian field on the arm, at $s = 0.6$, that pushes that point away from the sphere's center.
 The optimizer chooses its strength together with the spring's stiffness. `SphereDistance` is the
 signed distance from a point to the sphere's surface, and a `Bound` keeps it above 2 cm at every
 node, for 41 points along the arm:
 
 ```{code-cell} python
 goal = [0.20, 0.0, 0.66]  # [m]
-ball, R = [0.15, 0.0, 0.50], 0.02  # the sphere's centre and radius [m]
+ball, R = [0.15, 0.0, 0.50], 0.02  # the sphere's center and radius [m]
 
 k = vmc.Param("k", 20.0, bounds=(1.0, 300.0), scope="stage")  # [N/m]
 A = vmc.Param("A", 50.0, bounds=(0.0, 500.0), scope="stage")  # [N/m]
@@ -535,7 +535,7 @@ swing.add(opt.Collocation(
     [amp], 3.0, nodes, periodic=True, free_time=(2.0, 4.5),
     scheme="hermite-simpson"))
 swing.add(opt.Bound(pos, amp, amp, t_from=0.0, t_to=0.0, name="start"))
-swing.add(opt.Cost(pos, name="small"))
+swing.add(opt.Cost(pos, name="small"));
 ```
 
 `Bound` reaches the first node here, since a periodic motion has no fixed start. A window such
@@ -736,8 +736,8 @@ print(tied_plan.status, tied_plan.params, tied_plan.z.shape)
 ```
 
 `plan.z` holds the virtual state at every node, the position of $z$ and then its velocity, like
-`q` and `v` for the robot. The state starts where the controller starts, which is its `initial`
-value (0 here), at rest; `Collocation(z0=...)` starts it elsewhere. We check the plan by applying
+`q` and `v` for the robot. The state starts where the controller starts, which is the `initial=` of
+`add_state` (0 here), at rest; `Collocation(z0=...)` starts it elsewhere. We check the plan by applying
 the goal and running the closed loop on a simulation with a finer step:
 
 ```{code-cell} python
@@ -796,9 +796,10 @@ closed loop of that simulation to rounding error.
   the free Params, are read at every solve. Everything else (a gain, a limit such as the 2 N
   here) is folded in when the program is built: to change it, make it free or a parameter, or
   build a new `Problem`.
-- **Options.** `Problem(system, options={...})` overrides IPOPT's defaults, listed in
-  `opt.IPOPT`, and takes any other IPOPT option, such as `"ipopt.max_wall_time"`. Changing
-  `problem.options` later makes the next solve create the solver again.
+- **Options.** `Problem(system, solver="ipopt-exact")` takes a preset (the others are in
+  [Model predictive control](mpc.md)), and `options={...}` overrides its defaults: IPOPT's are
+  listed in `opt.IPOPT`, and any other IPOPT option is accepted, such as `"ipopt.max_wall_time"`.
+  Changing `problem.options` later makes the next solve create the solver again.
 - **Status.** `plan.converged` is true for a solution and for an acceptable one; read
   `plan.status` and `plan.violation` before trusting a plan.
 - **Your own term.** Subclass `opt.Term` and write `cost(trajectory)` and
@@ -812,12 +813,11 @@ closed loop of that simulation to rounding error.
   motors): it reads the plant's motors as it does in a simulation. `q0` and the terms are in
   the plant's coordinates, and a plan equals the simulation step for step
   ([Crawl with a flywheel](crawl.md) shows it on the crawler).
-- **Not yet.** `Collocation` needs the robot's configuration in a flat space (every robot
+- **Limits.** `Collocation` needs the robot's configuration in a flat space (every robot
   template here does); `Shooting` also plans a floating body, with unit quaternions at its
   nodes.
 
 To change a running controller within an energy budget, see [Energy and
 passivity](energy.md), and to tune one by trial runs instead of a plan, see
 [Tuning](tuning.md). To plan again at every step from the measured state, with multiple shooting
-and a tank, see [Model predictive control](mpc.md). The next steps are in the
-[roadmap](../development/roadmap.md): other solvers.
+and a tank, see [Model predictive control](mpc.md), which also has the other solver presets.

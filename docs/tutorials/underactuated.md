@@ -136,7 +136,7 @@ for name, rows in runs.items():
     ax.plot(np.ravel(rows["t"])[::10], 1000 * tip_error(rows), label=name)
 ax.set_xlabel("time [s]")
 ax.set_ylabel("distance to the goal [mm]")
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 ```{code-cell} python
@@ -159,10 +159,10 @@ glue("bare_frozen", 1000 * bare_final["frozen"], display=False)
 ```
 
 With the weight compensated, the naive controller settles on the goal, within
-{glue:text}`final_naive:.2f` mm. The plain frozen controller stops {glue:text}`final_frozen:.0f`
+{glue:text}`final_naive:.1e` mm. The plain frozen controller stops {glue:text}`final_frozen:.0f`
 mm short: it renders the force as if the passive joint were at its rest angle, but the
 joint carries the weight of the links beyond it and sags. With `gravity=True` it knows that
-and settles within {glue:text}`final_gravity:.2f` mm. Without the compensation, the arm's own
+and settles within {glue:text}`final_gravity:.1e` mm. Without the compensation, the arm's own
 weight pulls the tip away, and the controllers end {glue:text}`bare_naive:.0f` mm from the
 goal (naive, and frozen with `gravity=True`) and {glue:text}`bare_frozen:.0f` mm (plain
 frozen). Where the passive joint is at rest and carries nothing, naive and frozen send the
@@ -173,7 +173,8 @@ same torques.
 The naive torque is not the gradient of anything, so a controller built on it can put energy
 into the arm that no damper took out. Two output stages of the controller limit that. The
 passive correction removes the least torque that keeps the power the motors inject below the
-power the arm's own dampers dissipate, $\dot q_a^\top u \le \dot V_D$. The tank correction
+power the arm's own dampers dissipate, $\dot\theta^\top u \le P_D$, with $\dot\theta$ the motor
+rates and $P_D$ the power of those dampers. The tank correction
 lets the motors inject more while a tank, which starts with a budget of energy and is refilled
 by the dissipation, is not empty. Both read the passive joint's velocity, so the measurement
 must hold $q$ and $v$ (a simulated plant reports them).
@@ -194,7 +195,7 @@ for name, rows in corrected.items():
             label=name or "no correction")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("energy of the arm [J]")
-ax.legend();
+ax.legend(fontsize=18);
 ```
 
 ```{code-cell} python
@@ -209,13 +210,9 @@ glue("peak_tank", peak["tank"], display=False)
 Without a correction the arm gains up to {glue:text}`peak_none:.2f` J from the controller. With
 the passive correction it gains {glue:text}`peak_passive:.3f` J at most, the rounding of the
 control period (the guarantee holds in continuous time and the gain falls with the period). With
-the tank it gains {glue:text}`peak_tank:.2f` J, the budget it started with. The price of the
-corrections is a slower reach. The frozen controller needs no correction for its own torque,
-which is a gradient: `ua.controller(compiled, "frozen", gravity=True)` has an energy balance
-(`vmc.sim.energy_balance`) that never goes below zero.
-
-With a transmission that loses torque, a scalar efficiency $\eta \le 1$ on the motors keeps
-both guarantees: the corrections work on the commanded torque, and $\eta u$ is never more.
+the tank it gains {glue:text}`peak_tank:.2f` J, the budget it started with (the default
+`tank=1.0` J of `ua.controller`). The frozen controller needs no correction for its own
+torque, which is a gradient.
 
 ## A force along a direction
 
@@ -289,8 +286,7 @@ for ax, (name, robot) in zip(axes, robots.items()):
     viz.draw_robot(ax, robot, poses[name], plane=plane)
     ax.set_title(name)
     ax.set_xlabel("x [m]")
-axes[0].set_ylabel("height [m]")
-fig.tight_layout();
+axes[0].set_ylabel("height [m]");
 ```
 
 ## When the passive joint is not measured
@@ -300,29 +296,31 @@ two motors' only. A Kalman filter on the arm's own model can estimate the rest: 
 joint moves the other two through the coupling, and the filter reads it from them.
 `encoder` knows that this arm has fewer motors than joints. It reports what the motors
 see, $\theta = B^\top q$, as combinations of $q$ (the measurement's `matrix`), not as a reading
-of $q$, so the passive joint is left to the model. Each period the node updates the filter with
+of $q$, so the passive joint is left to the model. Each period the loop updates the filter with
 the encoders, hands the estimate to the controller as the signals `q` and `v`, and predicts
 the next period from the torques it sent.
 
 ```{code-cell} python
 from virtualmodelcontrol.estimation import Encoders, KalmanFilter
 
-def estimated_run(stiffness, Q, T=3.0, dt=5e-4):
+def estimated_run(stiffness, Q, T=3.0, dt=5e-4, estimate=True):
     compiled = reach(arm, stiffness=stiffness)
-    node = ua.controller(compiled, "naive")
+    onboard = ua.controller(compiled, "naive")
     plant = vmc.sim.ModelPlant(arm, q0=[0.5, -0.3, 0.8], max_step=1e-4)
     encoders = Encoders(arm, noise=1e-4, rate_noise=1e-3)
     kf = KalmanFilter(compiled.system, dt, Q=Q)
     kf.reset([0.5, -0.1, 0.8])  # the passive joint starts 0.2 rad off
-    node.reset(0.0, plant.read())
+    onboard.reset(0.0, plant.read())
     rows = []
     try:
         for _ in range(round(T / dt)):
             theta, rate = encoders.read(plant.q, plant.v)
-            kf.update([kf.encoder(theta, rate, 1e-8, 1e-6)])
+            kf.update([kf.encoder(theta, rate, 1e-8, 1e-6)])  # variances
             seen = vmc.Signals(plant.t, motor_position=theta,
                                motor_velocity=rate, q=kf.q, v=kf.v)
-            cmd = node.step(plant.t, seen)
+            if not estimate:  # the controller reads the true state instead
+                seen = plant.read()
+            cmd = onboard.step(plant.t, seen)
             plant.write(cmd)
             plant.advance(dt)
             kf.predict(cmd["motor_torque"], plant.t)
@@ -332,9 +330,9 @@ def estimated_run(stiffness, Q, T=3.0, dt=5e-4):
     return np.array(rows), kf.rejected_total
 ```
 
-Process noise `Q` says how far the filter trusts its model over one period. We run the arm
-from near the goal with the passive joint's estimate 0.2 rad off, at the default $Q = 10^{-6}$
-and at $Q = 10^{-3}$:
+Process noise `Q` says how far the filter trusts its model over one period. We run the arm,
+with a spring of 30 N/m to the goal, from near the goal and with the passive joint's estimate
+0.2 rad off, at the default $Q = 10^{-6}$ and at $Q = 10^{-3}$:
 
 ```{code-cell} python
 estimates = {"Q = 1e-6": estimated_run(30.0, 1e-6),
@@ -351,8 +349,7 @@ for ax, (name, (rows, lost)) in zip(axes, estimates.items()):
     ax.set_title(name)
     ax.set_xlabel("time [s]")
 axes[0].set_ylabel("angle [rad]")
-axes[1].legend(fontsize=18)
-fig.tight_layout();
+axes[1].legend(fontsize=18);
 ```
 
 ```{code-cell} python
@@ -361,56 +358,62 @@ tuned, tuned_lost = estimates["Q = 1e-3"]
 loose, loose_lost = estimates["Q = 1e-6"]
 stiff, stiff_lost = estimated_run(150.0, 1e-3)
 gap = np.abs(tuned[:, 2] - tuned[:, 5])
+after = tuned[:, 0] > 0.02  # the first 20 ms remove the 0.2 rad of the start
+settled = float(tuned[np.flatnonzero(gap >= 5e-3)[-1] + 1, 0])
+true_state = estimated_run(30.0, 1e-3, estimate=False)[0]
+assert abs(tip_error(tuned)[-1] - tip_error(true_state)[-1]) < 2e-3  # as with the true state
+assert settled < 2.0 and gap[after].max() < 0.2
 assert len(tuned) == 6000 and np.isfinite(tuned).all() and tuned_lost == 0
 assert tip_error(tuned)[-1] < 0.015 and gap[-2000:].max() < 5e-3
 assert loose_lost > 0.9 * len(loose) > 1000  # all the readings after the first ones
 assert stiff_lost > 100 and tip_error(stiff)[-1] > 0.3
 glue("e_tip", 1000 * float(tip_error(tuned)[-1]), display=False)
 glue("e_gap", 1000 * float(gap[-2000:].max()), display=False)
+glue("e_peak", 1000 * float(gap[after].max()), display=False)
+glue("e_settle", settled, display=False)
 glue("e_lost", int(stiff_lost), display=False)
 glue("e_loose", int(loose_lost), display=False)
 glue("e_loose_steps", len(loose), display=False)
-glue("e_stiff", 1000 * float(tip_error(stiff)[-1]), display=False)
 ```
 
-With $Q = 10^{-3}$ the estimate finds the passive joint within the first tenth of a second, and
-from the last second on it is within {glue:text}`e_gap:.1f` mrad of the joint. The tip ends
-{glue:text}`e_tip:.1f` mm from the goal, which is where the controller on the true state ends
-(the gravity compensation is not exact on the passive joint). With the default $Q$ the filter
+With $Q = 10^{-3}$ the estimate is on the passive joint within 20 ms, stays within
+{glue:text}`e_peak:.0f` mrad of it through the first swing, within 5 mrad from
+{glue:text}`e_settle:.1f` s on, and within {glue:text}`e_gap:.1f` mrad over the last second. The tip
+ends {glue:text}`e_tip:.1f` mm from the goal, which is where the controller on the true state
+ends (the gravity compensation is not exact on the passive joint). With the default $Q$ the filter
 believes its model to the last digit. In the first swing the model is wrong by more than that,
 the gate throws the readings out, and it goes on throwing them out: {glue:text}`e_loose` of the
 {glue:text}`e_loose_steps` it saw. The estimate then runs on the model alone, and its covariance
 grows until the filter breaks. A count of rejected readings that rises at every
-step (`kf.rejected_total`) means the filter has lost its sensors: raise `Q`, widen the gate or
-turn it off.
+step (`kf.rejected_total`) means the filter has lost its sensors: raise `Q`, widen the `gate`
+of `KalmanFilter` (40 by default) or pass `gate=None`.
 
-The estimate costs gain. At 150 N/m, the stiffness used above, the same filter loses the
-encoders in the first swing ({glue:text}`e_lost` readings thrown out) and the tip ends
-{glue:text}`e_stiff:.0f` mm from the goal: a stiff controller moves the arm faster than a
-model linearised once per period follows. Soften the controller, or use `"frozen"`, which
-needs the motors only.
+The estimate costs gain. With the spring at 150 N/m instead of the 30 N/m of these runs, the
+same filter loses the encoders in the first swing ({glue:text}`e_lost` readings thrown out)
+and the arm runs away from the goal: a stiff controller moves the arm faster than the filter
+follows. Soften the controller, or use `"frozen"`, which needs the motors only.
 
 ## Take it to the robot
 
-On the robot the same law runs in the node that talks to the motors, with nothing from
-`vmc.sim`. The node builds the controller once, and each period it passes the reading to
+On the robot the same law runs in the loop that talks to the motors, with nothing from
+`vmc.sim`. The loop builds the controller once, and each period it passes the reading to
 `step` and sends back the torques. The frozen controller needs only the motors' angles and
 rates; the corrections also read $q$ and $v$, from a plant that reports them or from an
 estimate of the unmeasured joints (see the section above). Here is one period with a
 made-up reading:
 
 ```{code-cell} python
-node = ua.controller(compiled, "frozen", "tank", tank=0.5)  # [J]
+onboard = ua.controller(compiled, "frozen", "tank", tank=0.5)  # [J]
 reading = vmc.Signals(
     0.0, motor_position=[0.3, 0.3], motor_velocity=[0.0, 0.0],
     q=[0.3, 0.3, 0.3], v=[0.0, 0.0, 0.0])
-node.reset(0.0, reading)
-node.step(0.0, reading)["motor_torque"]  # [N·m]
+onboard.reset(0.0, reading)
+onboard.step(0.0, reading)["motor_torque"]  # [N·m]
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-torque = node.step(0.01, reading)["motor_torque"]
+torque = onboard.step(0.01, reading)["motor_torque"]
 assert torque.shape == (2,) and np.isfinite(torque).all()
 ```
 
@@ -422,7 +425,13 @@ assert torque.shape == (2,) and np.isfinite(torque).all()
 - Take `"naive"` when the whole state is measured or estimated well and you want the force the
   spring asks for even away from the passive joints' rest.
 - Add `"passive"` when the arm must never gain energy, and `"tank"` to allow short bursts up
-  to a budget. The corrections cost speed; set `tank` to what the task needs.
+  to a budget. A correction removes torque, so it can slow the reach; set `tank` to what the
+  task needs.
+- The laws and estimators that read a controller's motors (`ForceTracking`, `StiffnessTracking`,
+  `PositionRegulation`, `HoldingGoals`, `ContactForce`, `TaskStiffness`) refuse a
+  `StateController`, which is what `"naive"` and `"frozen"` with `gravity=True` give, with a
+  `ValueError`. Plain `"frozen"` is a `VMCController` and works with them; for a force on
+  an underactuated arm use `DirectionalForce`.
 - `gravity=True` holds the passive joints where their springs balance the arm's weight, not at
   the rest angle: the right reference for an arm that hangs or reaches out. The weight itself
   is compensated by a `GravityCompensation` in the controller, as for any robot.

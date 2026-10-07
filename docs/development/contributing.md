@@ -25,17 +25,19 @@ cd VirtualModelControl
 .venv/bin/sphinx-build -W -b html docs docs/_build/html
 ```
 
-The site then opens from `docs/_build/html/index.html`.
+The site then opens from `docs/_build/html/index.html`. The tests of the PyTorch code skip
+themselves without PyTorch: install it with `pip install -e ".[torch]"` to run them.
 
 ## Code
 
 - SI units inside the library; degrees only in the hardware profiles.
 - No numbers in model code: every geometric or physical number is a `Param`, with its default
   in the robot's template, and templates take their geometry as arguments.
-- Models are written once, with CasADi operations; no second copy in numpy or sympy.
+- Models are written once, with CasADi operations; no second copy in numpy or sympy. The numpy
+  and PyTorch code of a model is generated from its graph (`core.backends`).
 - Docstrings are short (one to three lines, numpydoc, units on physical quantities); theory goes
   in the documentation.
-- New behaviour is opt-in: projects pin a version, and a finished experiment must run the same
+- New behavior is opt-in: projects pin a version, and a finished experiment must run the same
   after an update.
 - Every change adds a line to `CHANGELOG.md` under "Unreleased".
 
@@ -80,4 +82,5 @@ Versions follow semantic versioning and come from git tags. To release:
    ```
 
 The release workflow builds the package, publishes it to PyPI and creates the GitHub release.
+Check that the checks of the pushed commit have passed before you tag it.
 The documentation is rebuilt and published whenever a push to `main` changes it or the code.

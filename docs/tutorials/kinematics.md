@@ -8,7 +8,8 @@ kernelspec:
 
 In this tutorial we compute the position and rotation of the UR5's tool, and its Jacobians and
 Hessian, which we check against finite differences. Then we compute the joint stiffness that a
-spring at the tool produces.
+spring at the tool produces, and put a spring on the tool's orientation and one along the tool's
+own axes.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -179,7 +180,7 @@ for angle in angles:
 fig, ax = plt.subplots()
 ax.plot(angles, 100 * np.array(share), "o-")
 ax.set_xlabel("angle from the goal [rad]")
-ax.set_ylabel(r"error of the $J_\omega$ torque [%]")
+ax.set_ylabel(r"error of the $J_\omega$ torque [%]");
 ```
 
 ```{code-cell} python

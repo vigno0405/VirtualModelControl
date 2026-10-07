@@ -68,7 +68,10 @@ $$
 
 with $B$ the robot's actuation map. For a tendon arm $B = (\partial\theta/\partial q)^\top$,
 with $\theta$ the motor angles. With one motor per joint $B$ is the identity. The controller
-never divides $u$ by an [efficiency](efficiency.md).
+never divides $u$ by an [efficiency](efficiency.md). A robot with fewer motors than joints has
+no $u$ that solves it for every $\tau$: the motors give the least-squares
+$u = B^+\tau$, and what they cannot give is the part that
+[the underactuated tutorial](../tutorials/underactuated.md) calls the defect.
 
 ## Virtual states
 

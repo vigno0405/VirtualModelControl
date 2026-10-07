@@ -243,8 +243,8 @@ A configuration ([Experiments in files](configurations.md)) saves each of its ru
 ```
 
 `name` is the file name (by default the start time of the run), `folder` is relative to the
-configuration file, and `record` lists what to add to the log. We add these lines to the file of
-that tutorial and run it:
+configuration file, and `record` lists what to add to the log. We add these lines, indented by two spaces as in the file, at the end of the `experiment`
+section of that tutorial's file and run it:
 
 ```{code-cell} python
 from pathlib import Path
@@ -305,6 +305,5 @@ glue("peak", float(np.linalg.norm(walked["element/ctrl.reach/force"][first],
 ```
 
 The log holds the first controller's goal and elements until {glue:text}`handover:.1f` s, when
-the swap is done, and the gentle controller's from then on. The first spring pulls harder
-and harder as the swap goes on, up to {glue:text}`peak:.0f` N, because the gentle controller
-already draws the tip away from the walking goal.
+the swap is done, and the gentle controller's from then on. Before the handover the first
+spring pulls with up to {glue:text}`peak:.0f` N.
