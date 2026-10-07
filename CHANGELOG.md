@@ -51,6 +51,17 @@ All notable changes to this project are documented here. The format follows
   `controller.z` when the `Shooting` has a `z0`, which is then a parameter of the program
   (`shooting.z0`). The docstring of `Shooting` now says what the code does: the controller is
   called at every one of an interval's `substeps` control steps.
+- Sensors of combinations of the coordinates: `Measurement(..., matrix=)` takes an (m, n) matrix
+  and reads `matrix @ q` and `matrix @ v` (instead of `observed`, a selection of coordinates).
+  `KalmanFilter.encoder` of a robot with fewer motors than coordinates (`Underactuated`) no longer
+  reads the motors as if they gave `q`, with the passive coordinates frozen: it returns the
+  measurement of the motors themselves, with the Jacobian of the motor angles at the estimate as
+  the matrix, so the passive coordinates are left to the model (`Rq` and `Rv` are then the
+  covariances of the motors' readings). A robot with a motor on every coordinate keeps its encoder
+  as it was. The underactuated tutorial runs the naive controller on such an estimate, and shows
+  what it takes: a process noise that admits the model's error (with the default one the gate
+  throws out every reading after the first swing and the filter breaks) and a controller that
+  does not outrun the filter.
 - Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
   (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
   `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the

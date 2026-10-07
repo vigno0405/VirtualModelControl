@@ -37,7 +37,9 @@ class Measurement:
 
     ``Rq`` and ``Rv`` are their covariances (a variance, one per coordinate or a matrix).
     ``observed`` lists the coordinates the sensor sees, in the order of ``q`` and ``v`` (all by
-    default). ``name`` is how the filter reports the sensor.
+    default). A sensor that sees combinations of them, such as tendon lengths, has a ``matrix``
+    instead (m × n): it reads ``matrix @ q`` and ``matrix @ v``. ``name`` is how the filter
+    reports the sensor.
     """
 
     def __init__(
@@ -48,6 +50,7 @@ class Measurement:
         Rv: ArrayLike | None = None,
         observed: ArrayLike | None = None,
         name: str | None = None,
+        matrix: ArrayLike | None = None,
     ) -> None:
         if q is None and v is None:
             raise ValueError("a measurement needs q, v or both")
@@ -65,14 +68,33 @@ class Measurement:
         self.observed = None if observed is None else np.asarray(observed, dtype=int).ravel()
         if self.observed is not None and self.observed.size != m:
             raise ValueError(f"{self.observed.size} observed coordinates for {m} values")
+        self.matrix = None if matrix is None else np.atleast_2d(np.asarray(matrix, dtype=float))
+        if self.matrix is not None:
+            if self.observed is not None:
+                raise ValueError("a measurement has observed coordinates or a matrix, not both")
+            if self.matrix.shape[0] != m:
+                raise ValueError(f"the matrix has {self.matrix.shape[0]} rows for {m} values")
         self.y = np.concatenate(seen)
         self.R = block_diagonal(covariances)
         self.name = name
         self._has = (q is not None, v is not None)
 
     def H(self, n: int) -> np.ndarray:
-        """The rows of the identity that the sensor sees of a state (q, v) of n coordinates each."""
+        """The rows that the sensor sees of a state (q, v) of n coordinates each: those of the
+        identity, or the ``matrix`` on q and on v."""
         m = self.y.size // sum(self._has)
+        if self.matrix is not None:
+            if self.matrix.shape[1] != n:
+                raise ValueError(f"the matrix has {self.matrix.shape[1]} columns, the state {n}")
+            none = np.zeros_like(self.matrix)
+            rows = [
+                np.hstack(pair)
+                for pair, has in zip(
+                    [(self.matrix, none), (none, self.matrix)], self._has, strict=True
+                )
+                if has
+            ]
+            return np.vstack(rows)
         if self.observed is None and m != n:
             raise ValueError(f"the measurement has {m} coordinates, the state {n}")
         idx = np.arange(n) if self.observed is None else self.observed

@@ -78,8 +78,11 @@ class KalmanFilter:
         self._motors = ca.Function(
             "motors", [q, v], [act.motor_angles(q, pa), act.motor_rates(q, v, pa)]
         )
+        self._motor_jacobian = ca.Function(
+            "motor_jacobian", [q], [ca.jacobian(act.motor_angles(q, pa), q)]
+        )
         self._dynamics = dynamics
-        self._n, self._n_rates = n, n_rates
+        self._n, self._n_angles, self._n_rates = n, n_angles, n_rates
         self._unscented, self._substeps = unscented, substeps
         self._points = dynamics.step.map(4 * n + 1)  # one column per sigma point
         self._neutral = np.asarray(space.neutral(), dtype=float)
@@ -183,14 +186,36 @@ class KalmanFilter:
     ) -> Measurement:
         """The measurement of motor angles [rad] and rates [rad/s], through the transmission.
 
-        ``Rq`` and ``Rv`` are the covariances of the q and v they give, not of the motors.
+        ``Rq`` and ``Rv`` are the covariances of the q and v they give, not of the motors. A robot
+        with fewer motors than coordinates does not give q: the motors see combinations of it
+        (``Underactuated`` sees Bᵀ q), so the measurement is of the motors themselves, linearised
+        at the estimate, and ``Rq`` and ``Rv`` are the covariances of the motors' readings.
         """
+        if self._n_angles < self._n:
+            return self._motor_reading(theta, theta_dot, Rq, Rv, name)
         rates = np.zeros(self._n_rates) if theta_dot is None else theta_dot
         seen = self._config(
             ca.DM(np.asarray(theta, dtype=float)), ca.DM(np.asarray(rates, dtype=float))
         )
         q, v = (np.array(m).ravel() for m in seen)
         return Measurement(q, None if theta_dot is None else v, Rq, Rv, name=name)
+
+    def _motor_reading(
+        self,
+        theta: ArrayLike,
+        theta_dot: ArrayLike | None,
+        Rq: ArrayLike,
+        Rv: ArrayLike | None,
+        name: str,
+    ) -> Measurement:
+        """Motor readings as a measurement of (q, v): the motors' Jacobian at the estimate is the
+        matrix on q and on v (the rates are J v), and the angles are moved by what the matrix
+        leaves out, so that the innovation is the reading minus what the model gives here."""
+        J = np.array(self._motor_jacobian(self.q))
+        model = np.array(self._motors(self.q, self.v)[0]).ravel()
+        y_q = np.asarray(theta, dtype=float) - model + J @ self.q
+        y_v = None if theta_dot is None else np.asarray(theta_dot, dtype=float)
+        return Measurement(y_q, y_v, Rq, Rv, name=name, matrix=J)
 
     @property
     def q(self) -> np.ndarray:

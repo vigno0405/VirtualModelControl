@@ -97,7 +97,10 @@ the transmission. The markers go through `Inversion`, which finds the $q$ that p
 points on them, and the markers' $v$ comes from `VelocityFilter`, a low-passed difference of
 consecutive $q$. The IMUs' $(D_x, D_y)$ and their rates come from `ImuFilter`, which is
 `observed` on those coordinates only. The markers and the IMUs run at a third of the control
-rate, as real ones do.
+rate, as real ones do. A sensor that sees combinations of the coordinates, such as tendon
+lengths or the motors of a robot with fewer motors than joints, gives its `matrix` ($m \times n$)
+instead: it reads `matrix @ q` and `matrix @ v`, and `kf.encoder` does this by itself for such
+a robot (see [Robots with fewer motors than joints](underactuated.md)).
 
 ```{code-cell} python
 from virtualmodelcontrol.estimation import (

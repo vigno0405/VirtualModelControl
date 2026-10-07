@@ -293,13 +293,111 @@ axes[0].set_ylabel("height [m]")
 fig.tight_layout();
 ```
 
+## When the passive joint is not measured
+
+The naive controller needs the angle and the rate of every joint, and the encoders give the
+two motors' only. A Kalman filter on the arm's own model can estimate the rest: the passive
+joint moves the other two through the coupling, and the filter reads it from them.
+`encoder` knows that this arm has fewer motors than joints. It reports what the motors
+see, $\theta = B^\top q$, as combinations of $q$ (the measurement's `matrix`), not as a reading
+of $q$, so the passive joint is left to the model. Each period the node updates the filter with
+the encoders, hands the estimate to the controller as the signals `q` and `v`, and predicts
+the next period from the torques it sent.
+
+```{code-cell} python
+from virtualmodelcontrol.estimation import Encoders, KalmanFilter
+
+def estimated_run(stiffness, Q, T=3.0, dt=5e-4):
+    compiled = reach(arm, stiffness=stiffness)
+    node = ua.controller(compiled, "naive")
+    plant = vmc.sim.ModelPlant(arm, q0=[0.5, -0.3, 0.8], max_step=1e-4)
+    encoders = Encoders(arm, noise=1e-4, rate_noise=1e-3)
+    kf = KalmanFilter(compiled.system, dt, Q=Q)
+    kf.reset([0.5, -0.1, 0.8])  # the passive joint starts 0.2 rad off
+    node.reset(0.0, plant.read())
+    rows = []
+    try:
+        for _ in range(round(T / dt)):
+            theta, rate = encoders.read(plant.q, plant.v)
+            kf.update([kf.encoder(theta, rate, 1e-8, 1e-6)])
+            seen = vmc.Signals(plant.t, motor_position=theta,
+                               motor_velocity=rate, q=kf.q, v=kf.v)
+            cmd = node.step(plant.t, seen)
+            plant.write(cmd)
+            plant.advance(dt)
+            kf.predict(cmd["motor_torque"], plant.t)
+            rows.append([plant.t, *plant.q, *kf.q])
+    except np.linalg.LinAlgError:  # the covariance is no longer a number
+        pass
+    return np.array(rows), kf.rejected_total
+```
+
+Process noise `Q` says how far the filter trusts its model over one period. We run the arm
+from near the goal with the passive joint's estimate 0.2 rad off, at the default $Q = 10^{-6}$
+and at $Q = 10^{-3}$:
+
+```{code-cell} python
+estimates = {"Q = 1e-6": estimated_run(30.0, 1e-6),
+             "Q = 1e-3": estimated_run(30.0, 1e-3)}
+
+def tip_error(rows):  # [m]
+    tips = np.array([kin.position(q, "tip")[:2] for q in rows[::20, 1:4]])
+    return np.linalg.norm(tips - [0.45, 0.15], axis=1)
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
+for ax, (name, (rows, lost)) in zip(axes, estimates.items()):
+    ax.plot(rows[:, 0], rows[:, 2], label="passive joint")
+    ax.plot(rows[:, 0], rows[:, 5], "--", label="estimate")
+    ax.set_title(name)
+    ax.set_xlabel("time [s]")
+axes[0].set_ylabel("angle [rad]")
+axes[1].legend(fontsize=18)
+fig.tight_layout();
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+tuned, tuned_lost = estimates["Q = 1e-3"]
+loose, loose_lost = estimates["Q = 1e-6"]
+stiff, stiff_lost = estimated_run(150.0, 1e-3)
+gap = np.abs(tuned[:, 2] - tuned[:, 5])
+assert len(tuned) == 6000 and np.isfinite(tuned).all() and tuned_lost == 0
+assert tip_error(tuned)[-1] < 0.015 and gap[-2000:].max() < 5e-3
+assert loose_lost > 0.9 * len(loose) > 1000  # all the readings after the first ones
+assert stiff_lost > 100 and tip_error(stiff)[-1] > 0.3
+glue("e_tip", 1000 * float(tip_error(tuned)[-1]), display=False)
+glue("e_gap", 1000 * float(gap[-2000:].max()), display=False)
+glue("e_lost", int(stiff_lost), display=False)
+glue("e_loose", int(loose_lost), display=False)
+glue("e_loose_steps", len(loose), display=False)
+glue("e_stiff", 1000 * float(tip_error(stiff)[-1]), display=False)
+```
+
+With $Q = 10^{-3}$ the estimate finds the passive joint within the first tenth of a second, and
+from the last second on it is within {glue:text}`e_gap:.1f` mrad of the joint. The tip ends
+{glue:text}`e_tip:.1f` mm from the goal, which is where the controller on the true state ends
+(the gravity compensation is not exact on the passive joint). With the default $Q$ the filter
+believes its model to the last digit. In the first swing the model is wrong by more than that,
+the gate throws the readings out, and it goes on throwing them out: {glue:text}`e_loose` of the
+{glue:text}`e_loose_steps` it saw. The estimate then runs on the model alone, and its covariance
+grows until the filter breaks. A count of rejected readings that rises at every
+step (`kf.rejected_total`) means the filter has lost its sensors: raise `Q`, widen the gate or
+turn it off.
+
+The estimate costs gain. At 150 N/m, the stiffness used above, the same filter loses the
+encoders in the first swing ({glue:text}`e_lost` readings thrown out) and the tip ends
+{glue:text}`e_stiff:.0f` mm from the goal: a stiff controller moves the arm faster than a
+model linearised once per period follows. Soften the controller, or use `"frozen"`, which
+needs the motors only.
+
 ## Take it to the robot
 
 On the robot the same law runs in the node that talks to the motors, with nothing from
 `vmc.sim`. The node builds the controller once, and each period it passes the reading to
 `step` and sends back the torques. The frozen controller needs only the motors' angles and
 rates; the corrections also read $q$ and $v$, from a plant that reports them or from an
-estimate of the unmeasured joints. Here is one period with a made-up reading:
+estimate of the unmeasured joints (see the section above). Here is one period with a
+made-up reading:
 
 ```{code-cell} python
 node = ua.controller(compiled, "frozen", "tank", tank=0.5)  # [J]

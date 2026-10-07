@@ -545,12 +545,19 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   controller in place too; `Result.z`; the section "A controller with virtual states" of the
   optimization tutorial. The gait search itself needs the planner to run a controller compiled on
   the cranks against a larger simulated robot (the crawler): that split is not in the planner yet.
-- [ ] **Robots where some coordinates are not measured:** controllers that act through an
-  estimate of them. `StateController` takes the estimate (`Signals(q=, v=)`); open is the
-  estimator side: `KalmanFilter.encoder` turns motors into a measurement of all of q, which an
-  `Underactuated` robot's motors do not give, and `Measurement` can observe coordinates but not
-  combinations of them (a tendon B), and a closed loop of the naive controller on an estimate
-  was not shown to work.
+- [x] **Robots where some coordinates are not measured:** controllers that act through an
+  estimate of them. Done (7 October 2026), with mutation checks: `Measurement(matrix=)` for sensors
+  of combinations of the coordinates (a tendon matrix B, the motors of an underactuated robot);
+  `KalmanFilter.encoder` of a robot with fewer motors than coordinates measures the motors, not
+  the frozen configuration, so the passive coordinates are left to the model, and the naive
+  controller runs on such an estimate (a `StateController` that reads `q` and `v` from the filter):
+  the divergence that was found came from the filter, not the controller (a process noise of 1e-6
+  with the gate on throws out every reading after the first swing, so the estimate runs on the
+  model alone), and with a process noise of 1e-3 the loop reaches the goal as with the true state;
+  a stiffer controller (150 N/m on the three-link arm) outruns the filter. Documented in
+  the underactuated tutorial. Open: adaptation laws and estimators that read a controller's inputs
+  (`ForceTracking`, `ContactForce`, ...) work in the motor layout, so they do not run on a
+  `StateController`.
 - [x] **Underactuated templates:** `robots.planar`: a planar three-link arm with one passive
   joint, a five-link arm with three, a two-tendon continuum arm.
 - [ ] **Custom dynamics:** a residual r(q, v, a, u, f_ext, p) = 0 with an optional energy,
