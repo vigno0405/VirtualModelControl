@@ -35,6 +35,11 @@ class Space(Protocol):
         """G(q) with q̇ = G(q) v, shape (nq, nv)."""
         ...
 
+    def on_manifold(self, q: Any) -> Any:
+        """The equations a configuration must satisfy to lie on the space (the unit norm of a
+        quaternion), a CasADi column that is zero there; empty for a flat space."""
+        ...
+
     def coadjoint(self, v: Any, mu: Any) -> Any:
         """The term that velocities that do not commute add to the momentum's rate: ad*_v μ."""
         ...
@@ -73,6 +78,10 @@ class Euclidean:
     def velocity_map(self, q: Any) -> Any:
         """Identity."""
         return type(q).eye(self.nq) if is_casadi(q) else np.eye(self.nq)
+
+    def on_manifold(self, q: Any) -> Any:
+        """No equations: every vector is a configuration."""
+        return ca.DM.zeros(0, 1)
 
     def coadjoint(self, v: Any, mu: Any) -> Any:
         """Zero: the velocities commute."""
@@ -115,6 +124,10 @@ class SO2:
             return ca.vertcat(-q[1], q[0])
         c, s = np.asarray(q, dtype=float).ravel()
         return np.array([[-s], [c]])
+
+    def on_manifold(self, q: Any) -> Any:
+        """cos² + sin² - 1."""
+        return ca.vertcat(q[0] ** 2 + q[1] ** 2 - 1)
 
     def coadjoint(self, v: Any, mu: Any) -> Any:
         """Zero: there is one angular velocity."""
@@ -179,6 +192,10 @@ class Quaternion:
         w, x, y, z = np.asarray(q, dtype=float).ravel()
         return 0.5 * np.array([[-x, -y, -z], [w, -z, y], [z, w, -x], [-y, x, w]])
 
+    def on_manifold(self, q: Any) -> Any:
+        """The unit norm: ‖q‖² - 1."""
+        return ca.vertcat(ca.dot(q, q) - 1)
+
     def coadjoint(self, v: Any, mu: Any) -> Any:
         """μ × v: what turns a spinning body's angular momentum away from its angular velocity."""
         return ca.cross(mu, v) if is_casadi(v) or is_casadi(mu) else np.cross(mu, v)
@@ -235,6 +252,12 @@ class Product:
             out[i : i + r, j : j + c] = block
             i, j = i + r, j + c
         return out
+
+    def on_manifold(self, q: Any) -> Any:
+        """The equations of each block, stacked."""
+        return ca.vertcat(
+            *[s.on_manifold(x) for s, x in zip(self.spaces, self._blocks(q, "nq"), strict=True)]
+        )
 
     def coadjoint(self, v: Any, mu: Any) -> Any:
         """Block by block."""

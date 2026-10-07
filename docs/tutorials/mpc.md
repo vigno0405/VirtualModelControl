@@ -307,6 +307,19 @@ assert max(costs) - min(costs) < 0.01 * min(costs), costs
 The default `"ipopt"` stops earlier with a slightly different cost, as its Hessian is
 approximate; `"rti"` is one step from a cold start, so it is far from the others here.
 
+Which QP solver the SQP presets use is the `qpsol` option, and not every one of CasADi's
+suits a shooting. Tried on this problem with CasADi 3.7.2: `qrqp` (the default), `qpoases`
+and `daqp` find the same plan; `proxqp` stops at the iteration limit; `hpipm` needs the QP in
+stage order, and the program orders its variables by kind (all the $q$, then all the $v$);
+`ipqp` needs a positive definite Hessian, which a shooting QP does not have, and returns
+NaN; `highs` reports an optimum with a primal infeasibility above its own tolerance, and a
+looser tolerance does not help; `osqp` needs a newer OSQP library than the one in that
+CasADi build. Your build may differ: pass the name in `qpsol` and read `plan.converged`.
+
+`"fatrop"` is as quick as the others at ten intervals, and falls far behind `"ipopt-exact"`
+as the horizon grows, because it treats the program as one general problem, without the
+stages it was made for. For a long horizon take `"ipopt-exact"`.
+
 ## Good to know
 
 - **What is planned.** Every Param named in `steps` takes one value per interval, between its
@@ -324,9 +337,10 @@ approximate; `"rti"` is one step from a cold start, so it is far from the others
   controller afresh, as after a reset, and `MPC` refuses it.
 - **Applying a plan.** `mpc.interval` is the interval that was applied, and `mpc.result` the
   whole plan. `shift` is how many intervals the horizon moves between two steps (1 by default).
-- **Not yet.** The warm start carries the plan, not the multipliers, so the SQP and `"fatrop"`
-  presets gain less from it than IPOPT. `"fatrop"` treats the program as one general problem,
-  without the stages it was made for. The tank's capacity is not planned. Sending a plan over a
+- **Not yet.** The warm start carries the plan, not the multipliers. On a re-solve after a
+  small change of the start, passing the multipliers saved one SQP iteration of six, and
+  moving them with the plan needs the constraints of every term by interval. The tank's
+  capacity is not planned. Sending a plan over a
   network is left to your own code: the library only turns a measurement into Params.
 
 To tune a controller by trial runs instead, see [Tuning](tuning.md), and to plan one motion

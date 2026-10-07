@@ -94,6 +94,18 @@ def test_a_running_controller_advances_its_state_over_the_first_step():
     assert np.abs(fresh.q[:-1] - log["q"][steps : steps + 10]).max() > 1e-3
 
 
+def test_a_controller_that_starts_with_the_plan_from_a_given_state_waits_one_step():
+    system, _ = stateful()
+    z0 = [0.3, 0.4]
+    log = vmc.sim.rollout(system, [0.2], 3.3, 0.3, v0=[0.1], max_step=0.3, z0=z0)
+    for kwargs, matches in (({"running": False}, True), ({}, False)):
+        _, plan = plan_of(system, opt.Shooting([0.2], 3.0, 11, v0=[0.1], z0=z0, **kwargs))
+        gap = np.abs(plan.q - log["q"]).max()
+        assert bool(gap < 1e-9) == matches, (kwargs, gap)  # a controller said to be running moves
+    _, plan = plan_of(system, opt.Shooting([0.2], 3.0, 11, v0=[0.1], z0=z0, running=True))
+    assert np.abs(plan.q - log["q"]).max() > 1e-4
+
+
 def test_the_state_the_plan_starts_from_is_the_one_given_or_the_compiled_one():
     system, _ = stateful()
     _, plan = plan_of(system, opt.Shooting([0.0], 1.0, 5))

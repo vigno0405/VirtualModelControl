@@ -111,3 +111,19 @@ def test_integrating_pulls_a_quaternion_that_drifted_back_to_a_unit():
     space = Quaternion()
     drifted = 1.001 * space.integrate(space.neutral(), [0.3, -0.2, 0.5])
     assert abs(np.linalg.norm(space.integrate(drifted, [0.01, 0.0, 0.0])) - 1.0) < 1e-15
+
+
+def test_the_equations_of_the_manifold_vanish_on_a_configuration_and_not_off_it():
+    assert Euclidean(4).on_manifold(ca.DM.ones(4)).shape == (0, 1)  # a flat space has none
+    quarter = np.array([np.cos(0.3), np.sin(0.3)])
+    assert float(SO2().on_manifold(quarter)[0]) == pytest.approx(0.0, abs=1e-15)
+    assert float(SO2().on_manifold(2.0 * quarter)[0]) == pytest.approx(3.0)  # 4 - 1
+    unit = Quaternion().integrate(Quaternion().neutral(), [0.3, -0.2, 0.5])
+    assert float(Quaternion().on_manifold(unit)[0]) == pytest.approx(0.0, abs=1e-15)
+    assert float(Quaternion().on_manifold(3.0 * unit)[0]) == pytest.approx(8.0)  # 9 - 1
+    mixed = Product(Euclidean(2), Quaternion(), SO2())
+    q = np.concatenate([[0.7, -0.1], unit, quarter])
+    np.testing.assert_allclose(np.array(mixed.on_manifold(q)).ravel(), [0.0, 0.0], atol=1e-15)
+    q[2:6] *= 2.0
+    np.testing.assert_allclose(np.array(mixed.on_manifold(q)).ravel(), [3.0, 0.0], atol=1e-14)
+    assert mixed.on_manifold(q).shape == (2, 1)  # a row for the quaternion and one for the angle

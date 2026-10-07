@@ -76,6 +76,18 @@ All notable changes to this project are documented here. The format follows
   (symmetric, positive) and, with an energy, that a simulation never gains any. A test builds
   the same two-link arm from parts and from textbook equations and finds the same dynamics,
   energy, simulation, Kalman prediction and plan.
+- Plan a controller on some coordinates of a larger robot: `Problem(system, plant=robot)` takes
+  the dynamics from `plant` (every term and `q0` in its coordinates) while the controller stays
+  written for its own robot, and reads the plant's motors as `VMCController` does in a
+  simulation, through its transmission. The law, the energy of a `TankBudget` and the dampers'
+  power of a shooting all go through it. A shooting of the turtle's flywheel controller on
+  `turtle.crawler()` equals the simulation step for step, the flywheel's states included (a
+  test), and the tutorial "Crawl with a flywheel" plans a stride with it. `Shooting(running=)`
+  says whether a controller started from `z0` is already running (`z0` alone still means so)
+  or starts with the plan, as one reset there does. `Space.on_manifold(q)` gives the equations
+  that a configuration obeys (the unit norm of a quaternion; none for a flat space), and
+  `Shooting` and `Equilibrium` constrain their nodes with them: before, a plan of a floating body
+  could drift off unit quaternions and plan another body's motion.
 - Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
   (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
   `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the

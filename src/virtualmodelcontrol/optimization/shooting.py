@@ -57,9 +57,11 @@ class Shooting:
 
     A controller with virtual states (a flywheel, a tank) adds them as unknowns at the nodes, and
     the controller advances them as it does in the simulator. They start from the state it is
-    compiled with, as after a reset. With ``z0`` (positions, then velocities) the controller is
-    already running, as the one an ``MPC`` plans for: ``z0`` is the state its next step reads,
-    and a parameter of the program like ``q0`` (``shooting.z0``).
+    compiled with, as after a reset. With ``z0`` (positions, then velocities) they start from
+    there, and ``z0`` is a parameter of the program like ``q0`` (``shooting.z0``). The controller
+    is then taken to be running already, as the one an ``MPC`` plans for: ``z0`` is the state its
+    next step reads. ``running=False`` says it starts with the plan, from that state, as a
+    controller reset at the start does (the first step does not advance its states).
     """
 
     name = "shooting"
@@ -79,6 +81,7 @@ class Shooting:
         integrator: str = "implicit",
         substeps: int = 1,
         z0: ArrayLike | None = None,
+        running: bool | None = None,
     ) -> None:
         if integrator not in INTEGRATORS:
             raise ValueError(f"integrator takes one of {INTEGRATORS}, got {integrator!r}")
@@ -98,6 +101,7 @@ class Shooting:
         self._v0 = Ref("v0", v0.size, v0, unit="")
         z0 = None if z0 is None else np.asarray(z0, dtype=float).ravel()
         self._z0 = None if z0 is None else Ref("z0", z0.size, z0, unit="")
+        self._running = z0 is not None if running is None else bool(running)
         self.horizon, self.nodes = float(horizon), int(nodes)
         self.steps, self.transition = tuple(steps), float(transition)
         self.scales, self.integrator, self.substeps = scales, integrator, int(substeps)
@@ -110,8 +114,7 @@ class Shooting:
 
     def build(self, builder: Builder) -> None:
         """Add the unknowns, the continuity constraints, the steps and the trajectory."""
-        system = builder.system
-        space = system.robot.model.space
+        space = builder.plant.model.space
         nq, nv, n = space.nq, space.nv, self.nodes
         k_int = n - 1
         q_now, v_now = self._q0.param.value, self._v0.param.value
@@ -136,13 +139,13 @@ class Shooting:
         hold = self._check_hold(builder)
         blend = np.array([blend_weight(float(tk), self.transition) if hold else 1.0 for tk in t])
         # a controller that is running goes on, one that is not starts with the plan
-        running = self._z0 is not None
+        running = self._running
         held = self._hold is not None and self._hold[3]
         z_now = None if self._z0 is None else self._z0.param.value
         z_new = start_of(compiled, z_now, "z0")
         z_old = hold[2] if hold else np.zeros(0)
         zn, zo = nodes(builder, "z", z_new, n), nodes(builder, "zh", z_old, n)
-        law = blended_law(compiled, hold)
+        law = blended_law(builder, compiled, hold)
 
         h = dt / self.substeps
         step = _advance(_rhs(space, dynamics), dynamics, space, self.integrator, h, h)
@@ -161,7 +164,7 @@ class Shooting:
                 first = k == 0 and j == 0
                 z = advance(z, zdot, 0.0 if first and not running else h)
                 z_prev = advance(z_prev, zdot_old, 0.0 if first and not held else h)
-                power = compiled.power(x[:nq], x[nq:], z, law_params[k], tj + h)[1]
+                power = builder.dissipation(compiled, x[:nq], x[nq:], z, law_params[k], tj + h)
                 taken -= h * power
             dissipated.append(taken)
             joins.append(space.difference(qs[k + 1], x[:nq]))
@@ -182,6 +185,9 @@ class Shooting:
         )
         builder.constrain("start", start, 0.0, 0.0)
         builder.constrain("continuity", ca.vertcat(*joins), 0.0, 0.0)
+        on_manifold = ca.vertcat(*[space.on_manifold(q) for q in qs])
+        if on_manifold.shape[0]:  # the nodes of a quaternion are unit ones
+            builder.constrain("manifold", on_manifold, 0.0, 0.0)
         accel = [dynamics.forward(qs[k], vs[k], us[k], p_dyn, float(t[k])) for k in range(n)]
         builder.output("u", ca.horzcat(*us))
         builder.output("a", ca.horzcat(*accel))
@@ -255,4 +261,4 @@ class Shooting:
         compiled, values, z, _ = self._hold
         if compiled.system.robot is not builder.system.robot:
             raise ValueError("the initial controller must control the same robot")
-        return compiled.law, ca.DM(values), z
+        return compiled, ca.DM(values), z

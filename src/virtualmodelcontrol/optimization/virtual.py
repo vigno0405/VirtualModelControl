@@ -41,15 +41,16 @@ def advance(z: Any, zdot: Any, w: Any) -> Any:
     return ca.vertcat(z[:half] + w * velocity, velocity)
 
 
-def blended_law(compiled: Any, hold: tuple[Any, Any, np.ndarray] | None) -> Any:
+def blended_law(builder: Builder, compiled: Any, hold: tuple[Any, Any, np.ndarray] | None) -> Any:
     """``law(q, v, z, z_old, t, w, p)`` gives the motor torques of the controller with weight
-    ``w`` and of the one in place with weight ``1 - w``, and the rates of both virtual states."""
+    ``w`` and of the one in place (compiled, live Params, virtual state) with weight ``1 - w``,
+    and the rates of both virtual states, at the state of the plant."""
 
     def law(q: Any, v: Any, z: Any, z_old: Any, tk: Any, w: float, p: Any) -> tuple[Any, Any, Any]:
-        u, zdot = compiled.law(q, v, z, p, tk)
+        u, zdot = builder.command(compiled, q, v, z, p, tk)
         if hold is None:
             return u, zdot, NO_Z
-        u_old, zdot_old = hold[0](q, v, z_old, hold[1], tk)
+        u_old, zdot_old = builder.command(hold[0], q, v, z_old, hold[1], tk)
         return (u if w >= 1.0 else w * u + (1.0 - w) * u_old), zdot, zdot_old
 
     return law

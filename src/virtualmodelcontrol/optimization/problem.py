@@ -32,6 +32,11 @@ class Problem:
     stays at its value when the program was built. ``options`` overrides IPOPT's defaults
     (``optimization.IPOPT``); changing ``options`` later makes the next solve create the solver
     again.
+
+    ``plant`` is the robot that moves, when the controller is written for other coordinates than
+    its own: the dynamics are the plant's, and the controller reads the plant's motors as it does
+    in a simulation (``ModelPlant`` and ``VMCController``). Terms and ``q0`` are in the plant's
+    coordinates. By default the plant is the system's robot.
     """
 
     def __init__(
@@ -40,8 +45,10 @@ class Problem:
         *,
         solver: str = "ipopt",
         options: Mapping[str, Any] | None = None,
+        plant: Any = None,
     ):
         self.system = system
+        self.plant = plant
         self.solver = solver
         self.options: dict[str, Any] = dict(options or {})
         self.params = ParamSet()
@@ -107,7 +114,7 @@ class Problem:
     def build(self) -> NLP:
         """The program, built at the first call and kept."""
         if self._nlp is None:
-            builder = Builder(self.system, self.params, self._free, self._parameters)
+            builder = Builder(self.system, self.params, self._free, self._parameters, self.plant)
             for block in self._blocks:
                 block.build(builder)
             self._nlp = builder.finish()

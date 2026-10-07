@@ -517,7 +517,7 @@ turtle crawling.
 
 Controllers that look ahead, and robots with passive joints or unmeasured coordinates.
 
-- [ ] **MPC:** initial state and references as parameters, shifted warm start, a horizon of
+- [x] **MPC:** initial state and references as parameters, shifted warm start, a horizon of
   stiffness and reference trajectories under passivity (tank) constraints; runs asynchronously
   and applies its result through `controller.set` with the measured latency; a
   real-time-iteration option.
@@ -528,9 +528,13 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   planned and checked against a real `Tank`), `MPC` (parameters of one program, shifted warm
   start, latency as the interval applied, `rti`, `start` and `poll` in a thread), the presets
   `ipopt`, `ipopt-exact`, `sqp`, `rti`, `fatrop`, and the tutorial. There is no lab code for MPC to port: the scheme is the
-  textbook one. Still open in 0.6.0: FATROP with the stage structure it was made for
-  (variables and constraints ordered by stage, the tank's level already is a state); the
-  multipliers in the warm start, for the SQP presets; acados as an optional solver.
+  textbook one. Dropped on 7 October 2026 (the user's decision, after measuring):
+  FATROP with the stage structure (the general-mode preset is slower than IPOPT beyond ten
+  intervals, IPOPT-exact solves 80 intervals in about 26 ms, and the structure needs a rewrite: the
+  tank couples three stages and free Params span all of them), the multipliers in the warm start
+  (one SQP iteration saved of six) and acados (not installable with pip). Why the other QP solvers
+  fail on a shooting is in the MPC tutorial. A controller with virtual states is planned from
+  `controller.z` (`Shooting(z0=)`).
 - [x] **Underactuated VMC:** actuation projector, torque defect, feasible force set; naive and
   frozen controllers; passive and tank corrections; direction-constrained force tracking; each a
   flag of `control.underactuated.controller`, so the old and new behaviour compare; the
@@ -543,8 +547,17 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   Done (7 October 2026), with mutation checks: `Collocation`, `Shooting` (equal to `rollout`, states
   included, to rounding error), `Equilibrium`, `TankBudget` and `MPC` (`Shooting(z0=)`), with the
   controller in place too; `Result.z`; the section "A controller with virtual states" of the
-  optimization tutorial. The gait search itself needs the planner to run a controller compiled on
-  the cranks against a larger simulated robot (the crawler): that split is not in the planner yet.
+  optimization tutorial. (The crawler under the flywheel controller is planned through the next item.)
+- [x] **Plan a controller on some coordinates of a larger robot:** the turtle's controller is
+  compiled against the two cranks, and the crawler it moves is a floating body with nine
+  coordinates. Done (7 October 2026, decided with the user), with mutation checks:
+  `Problem(system, plant=robot)` takes the dynamics from `plant` and lets the controller read the
+  plant's motors, as `VMCController` does in a simulation; a shooting of the flywheel controller
+  on the crawler equals the simulation step for step, the flywheel's states included;
+  `Shooting(running=)`; `Space.on_manifold` and the unit-quaternion constraint of the nodes (a
+  floating body was not planned correctly before). The tutorial "Crawl with a flywheel" plans a
+  stride and shows why the gait is still searched by trial runs: the distance of a stride is
+  rugged in the gait's peak phase, and a gradient search stalls where it starts.
 - [x] **Robots where some coordinates are not measured:** controllers that act through an
   estimate of them. Done (7 October 2026), with mutation checks: `Measurement(matrix=)` for sensors
   of combinations of the coordinates (a tendon matrix B, the motors of an underactuated robot);

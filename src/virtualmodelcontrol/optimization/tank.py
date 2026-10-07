@@ -46,8 +46,8 @@ class TankBudget(Term):
             before = trajectory.now if k == 0 else trajectory.params[k - 1]
             q, v, tk = trajectory.q[k], trajectory.v[k], float(trajectory.t[k])
             z = trajectory.z[k]
-            stored = compiled.energy(q, v, z, trajectory.params[k], tk)[0]
-            was = compiled.energy(q, v, z, before, tk)[0]
+            stored = builder.stored(compiled, q, v, z, trajectory.params[k], tk)
+            was = builder.stored(compiled, q, v, z, before, tk)
             level = builder.value(self._level.param)
             if k and self.refill:
                 level = levels[k - 1] + trajectory.dissipated[k - 1]

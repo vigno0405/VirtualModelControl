@@ -807,8 +807,14 @@ closed loop of that simulation to rounding error.
 - **Stopping.** `progress(iteration, cost, params, q)` of `solve` is called at every
   iteration; return `True` from it to stop the solve there (the status is
   `User_Requested_Stop`).
+- **A larger plant.** `Problem(system, plant=robot)` takes the dynamics from `robot` while the
+  controller stays written for other coordinates (the two cranks of the turtle, a robot's
+  motors): it reads the plant's motors as it does in a simulation. `q0` and the terms are in
+  the plant's coordinates, and a plan equals the simulation step for step
+  ([Crawl with a flywheel](crawl.md) shows it on the crawler).
 - **Not yet.** `Collocation` needs the robot's configuration in a flat space (every robot
-  template here does; `Shooting` has no such limit).
+  template here does); `Shooting` also plans a floating body, with unit quaternions at its
+  nodes.
 
 To change a running controller within an energy budget, see [Energy and
 passivity](energy.md), and to tune one by trial runs instead of a plan, see

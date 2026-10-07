@@ -351,6 +351,96 @@ cost changes little over a radian, and rings a little at the end: a higher gain 
 real robot the cost is a measured speed, or a cost of transport from the flywheel's speed, and the
 run is a long one that you leave alone.
 
+## Plan the crawler
+
+The planner can run the flywheel controller on the crawler too. `Problem(system, plant=body)`
+takes the dynamics from `body`, the crawler, while the controller stays the one written for the
+two cranks: it reads the motors of the plant as it does in a simulation. We plan one stride at
+the control rate of 150 Hz, from a flywheel that is up to speed (no ramp), once with the
+stiffness peak at 0. A `Shooting` is the closed loop of the simulator, step for step, so we
+start it from the simulated run, which it must reproduce:
+
+```{code-cell} python
+from virtualmodelcontrol import optimization as opt
+
+peak = vmc.Param("peak", 0.0, unit="rad", scope="stage",
+                 bounds=(-np.pi, np.pi))
+stride = flywheel(6.0, 0.9, peak=peak)
+stride.params["drive.ramp_time"].value = 0.0  # the flywheel starts at speed
+body = turtle.crawler()
+dt, n = 1 / 150, 120  # a control step [s], and the steps of the stride
+q0 = [0, 0, 0.04, 1, 0, 0, 0, 0.0, -np.pi]
+start = [0.0, 6.0]  # the flywheel's angle [rad] and speed [rad/s]
+
+def simulate(angle):
+    peak.value = angle
+    system = vmc.VirtualMechanismSystem(robot, stride)
+    plant = vmc.sim.ModelPlant(body, q0=q0, max_step=dt)
+    controller = vmc.VMCController(vmc.compile(system))
+    return vmc.sim.run(plant, controller, vmc.sim.SimClock(dt),
+                       T=(n + 1) * dt, z0=lambda meas: np.array(start)
+                       ).arrays()
+
+run = simulate(0.0)
+system = vmc.VirtualMechanismSystem(robot, stride)
+problem = opt.Problem(system, plant=body)
+problem.add(opt.Shooting(q0, n * dt, n + 1, v0=np.zeros(8), z0=start,
+                         running=False))
+guess = {"q": run["q"][: n + 1], "v": run["v"][: n + 1],
+         "z": np.vstack([start, run["z"][:n]])}  # z is logged after a step
+plan = problem.solve(warm_start=guess)
+print(plan.status, plan.iterations, plan.violation)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert plan.converged and plan.violation < 1e-9
+assert np.abs(plan.q[:-1] - run["q"][:n]).max() < 1e-9
+assert np.abs(plan.u[:-1] - run["law_torque"][:n]).max() < 1e-9
+glue("plan_cm", float(100 * plan.q[-1, 0]), display=False)
+```
+
+The plan has no work to do: the simulated run satisfies the program's equations to rounding
+error ({glue:text}`plan_cm:.1f` cm in the stride), so the planner and the simulator are the same
+loop, with the contact, the friction and the flywheel's own motion. To search for a gait with
+it we free the `peak` and ask the body to go as far as it can. The distance after the stride, as
+a function of the peak, shows what the search is up against:
+
+```{code-cell} python
+angles = np.linspace(-np.pi, np.pi, 25)
+reach = np.array([simulate(a)["q"][n, 0] for a in angles])  # [m]
+fig, ax = plt.subplots()
+ax.plot(angles, 100 * reach, "o-")
+ax.set_xlabel(r"peak [rad]")
+ax.set_ylabel("distance after a stride [cm]");
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert 100 * np.ptp(reach) > 2.0  # centimetres, over the peaks of one stride
+peak.value = 0.0
+problem.add(opt.Cost(body.joint(0) - 1.0, 1.0, t_from=(n - 1) * dt,
+                     name="forward"))
+problem.free("ctrl.spring0.peak")
+planned = problem.solve(warm_start=guess)
+assert planned.converged
+found = float(planned.params["ctrl.spring0.peak"])
+glue("swing_cm", float(100 * np.ptp(reach)), display=False)
+glue("best_cm", float(100 * reach.max()), display=False)
+glue("plan_peak", found, display=False)
+glue("plan_far", float(100 * planned.q[-1, 0]), display=False)
+assert reach.max() > planned.q[-1, 0] + 0.005
+```
+
+The distance after one stride swings by {glue:text}`swing_cm:.0f` cm as the peak moves, with
+several maxima, because the feet catch and slip on the ground. A gradient method follows the
+slope under its feet: freeing the peak and starting from 0, the planner ends at
+{glue:text}`plan_peak:.2f` rad and {glue:text}`plan_far:.1f` cm, where the sweep has
+{glue:text}`best_cm:.1f` cm. This is why the gait above is searched by trial runs
+(`DitherSeeking` moves its estimate slowly across many strides). The planner is for smooth
+problems: a plan of the crawler is good for what the simulator would do, and for the
+derivatives of that, not for finding the best gait of a rugged one.
+
 ## Going further
 
 - `limit` is the largest stretch $e_{max}$ of a spring: with it the torque saturates at

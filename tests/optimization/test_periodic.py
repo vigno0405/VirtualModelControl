@@ -528,7 +528,7 @@ def test_a_free_horizon_does_not_go_with_a_controller_in_place():
 
 def test_a_periodic_motion_needs_a_flat_space_as_every_collocation_does():
     space = SimpleNamespace(space=vmc.SO2())
-    builder = SimpleNamespace(system=SimpleNamespace(robot=SimpleNamespace(model=space)))
+    builder = SimpleNamespace(plant=SimpleNamespace(model=space))
     with pytest.raises(NotImplementedError, match="Euclidean"):
         opt.Collocation([0.0], 3.0, 10, periodic=True, free_time=(1.0, 4.0)).build(builder)
 

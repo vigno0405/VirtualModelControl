@@ -133,8 +133,7 @@ class Collocation:
 
     def build(self, builder: Builder) -> None:
         """Add the unknowns, the dynamics and integration constraints, and the trajectory."""
-        system = builder.system
-        space = system.robot.model.space
+        space = builder.plant.model.space
         if not _flat(space):
             raise NotImplementedError(
                 "collocation needs a Euclidean configuration space (or a product of them)"
@@ -184,10 +183,10 @@ class Collocation:
         bias = ca.DM.zeros(nv)
         if hold is not None:
             rest = ca.DM.zeros(nv)
-            u_rest = hold[0](ca.DM(self.q0), rest, z_old, hold[1], 0.0)[0]
+            u_rest = builder.command(hold[0], ca.DM(self.q0), rest, z_old, hold[1], 0.0)[0]
             bias = dynamics.residual(ca.DM(self.q0), rest, rest, u_rest, p_dyn, 0.0)
 
-        blended = blended_law(compiled, hold)
+        blended = blended_law(builder, compiled, hold)
         split = z_new.size
 
         def law(q: Any, v: Any, z: Any, tk: Any, w: float) -> tuple[Any, Any]:
@@ -265,4 +264,4 @@ class Collocation:
         compiled, values, z, _ = self._hold
         if compiled.system.robot is not builder.system.robot:
             raise ValueError("the initial controller must control the same robot")
-        return compiled.law, ca.DM(values), z
+        return compiled, ca.DM(values), z

@@ -40,7 +40,7 @@ class Equilibrium:
 
     def build(self, builder: Builder) -> None:
         """Add the configuration, and the balance of the closed loop there."""
-        space = builder.system.robot.model.space
+        space = builder.plant.model.space
         nq, nv = space.nq, space.nv
         if self.q0.size != nq:
             raise ValueError(f"q0 needs {nq} entries, got {self.q0.size}")
@@ -62,8 +62,10 @@ class Equilibrium:
                 np.r_[np.full(half, inf), np.zeros(half)],
                 np.r_[z_start[:half], np.zeros(half)],
             )
-        u, zdot = compiled.law(q, v, z, p_law, 0.0)
+        u, zdot = builder.command(compiled, q, v, z, p_law, 0.0)
         builder.constrain("equilibrium", dynamics.residual(q, v, a, u, p_dyn, 0.0), 0.0, 0.0)
+        if space.on_manifold(q).shape[0]:
+            builder.constrain("manifold", space.on_manifold(q), 0.0, 0.0)
         if half:
             builder.constrain("virtual", zdot[half:], 0.0, 0.0)
         builder.output("u", u)

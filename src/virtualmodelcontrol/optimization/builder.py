@@ -37,14 +37,28 @@ class Builder:
     """Assembles one problem. A Param is a decision variable (``free``), an input of the program
     (``parameters``, set at every solve) or a constant at its current value."""
 
-    def __init__(self, system: Any, params: Any, free: list[str], parameters: list[str]) -> None:
+    def __init__(
+        self,
+        system: Any,
+        params: Any,
+        free: list[str],
+        parameters: list[str],
+        plant: Any = None,
+    ) -> None:
         self.system = system
+        self.plant = system.robot if plant is None else plant
         self.params = params
         self.free = free
         self.parameters = parameters
         declared = [literal(name) for name in (*free, *parameters)]
         self.compiled = compile_system(system, runtime=declared)
-        self.dynamics = compile_dynamics(system.robot, declared, system.actuation)
+        own = self.plant is system.robot
+        self.dynamics = compile_dynamics(self.plant, declared, system.actuation if own else None)
+        if not own and self.dynamics.n_u != self.compiled.n_motors[1]:
+            raise ValueError(
+                f"the controller commands {self.compiled.n_motors[1]} motors and the plant "
+                f"{self.plant.name!r} has {self.dynamics.n_u}"
+            )
         self.variables = Variables()
         self.trajectory: Trajectory | None = None
         self._constraints: list[tuple[str, Any, Any, Any]] = []
@@ -64,6 +78,35 @@ class Builder:
             self._values[id(param)] = self._p[offset : offset + param.size]
             offset += param.size
         self._functions: dict[int, tuple[ca.Function, list[str]]] = {}
+        self._p_plant: Any = None
+
+    def command(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> tuple[Any, Any]:
+        """The motor torques of ``compiled`` and the rate of its virtual state at the plant's state
+        (q, v): its law, or, if the controller is for other coordinates than the plant's, the law
+        of the motors the plant reports, as a controller in a simulation reads them."""
+        if self.plant is self.system.robot:
+            return compiled.law(q, v, z, p, t)
+        out = compiled.fast(self._at_motors(q, v, z, p, t))
+        return out[: compiled.n_u], out[compiled.n_u :]
+
+    def stored(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
+        """The energy [J] of ``compiled`` at the plant's state: stored plus virtual kinetic."""
+        if self.plant is self.system.robot:
+            return sum(compiled.energy(q, v, z, p, t))
+        return compiled.fast_energy(self._at_motors(q, v, z, p, t))
+
+    def dissipation(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
+        """The power [W] that the dampers of ``compiled`` take at the plant's state."""
+        if self.plant is self.system.robot:
+            return compiled.power(q, v, z, p, t)[1]
+        return compiled.fast_power(self._at_motors(q, v, z, p, t))[3]
+
+    def _at_motors(self, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
+        """The controller's packed inputs [θ, θ̇, z, p, t] at the plant's state."""
+        if self._p_plant is None:
+            self._p_plant = self.pack(self.dynamics.params, self.dynamics.live)
+        theta, rate = self.dynamics.motors(q, v, self._p_plant)
+        return ca.vertcat(theta, rate, z, p, t)
 
     def value(self, param: Param) -> Any:
         """The Param as a column: a decision variable, an input or a constant."""
@@ -133,7 +176,7 @@ class Builder:
                     "a task coordinate can depend on the robot, the Params and time only, "
                     "not on a controller's virtual states"
                 )
-            space = self.system.robot.model.space
+            space = self.plant.model.space
             q, v, t = ca.SX.sym("q", space.nq), ca.SX.sym("v", space.nv), ca.SX.sym("t")
             binding = Binding(self.params, [*self.free, *self.parameters])
             y = Context(q, binding, t=t).value(coord)
