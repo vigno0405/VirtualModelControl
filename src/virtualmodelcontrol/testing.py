@@ -32,8 +32,11 @@ def check_model(
     orthonormal, that the Jacobians and the Hessian agree with finite differences, and that the
     model survives ``to_dict`` and ``from_dict``. Along the ``s`` it checks that the body has no
     jump. A robot mechanism with masses and no dampers must also keep its energy in a
-    simulation. Building the derivatives of a site takes a moment: name a few sites in ``at``
-    for a big robot.
+    simulation. For a robot with equations of motion of its own (``models.Equations``) it checks
+    that the residual is affine in the acceleration, that the mass matrix is symmetric and
+    positive definite, and, when they give an energy, that a simulation never gains energy.
+    Building the derivatives of a site takes a moment: name a few sites in ``at`` for a big
+    robot.
     """
     robot = model if hasattr(model, "components") else None
     kinematic = robot.model if robot is not None else model
@@ -60,6 +63,8 @@ def check_model(
     _serialization(kinematic, kin, spots, configs, note)
     if robot is not None and energy:
         _energy(robot, configs[-1], rng, note)
+    if robot is not None and getattr(kinematic, "equations", None) is not None:
+        _equations(robot, configs, rng, note, energy)
     if failed:
         raise AssertionError("the model breaks the contract: " + "; ".join(failed))
     return worst
@@ -178,6 +183,48 @@ def _energy(robot: Any, q: np.ndarray, rng: np.random.Generator, note: Any) -> N
     note(
         "energy",
         max(drifts[1] - 0.5 * drifts[0], 0.0) / (abs(start) + 1e-12),
+        1e-6,
+        "half a second",
+    )
+
+
+def _equations(
+    robot: Any, configs: list[np.ndarray], rng: np.random.Generator, note: Any, energy: bool
+) -> None:
+    """Equations of motion given as a function: the mass matrix is symmetric and positive
+    definite, and (with an energy, and no source in the robot) the energy never grows."""
+    from .dynamics import compile_dynamics
+    from .sim.model_plant import ModelPlant
+
+    try:
+        dynamics = compile_dynamics(robot)
+    except ValueError as error:  # not affine in a, or an inertance next to the equations
+        note("equations", np.inf, 0.0, f"the equations of motion: {error}")
+        return
+    p = dynamics.live_values()
+    for q in configs:
+        M = np.array(dynamics.mass(q, p))
+        scale = max(np.abs(M).max(), 1e-12)
+        note("mass_finite", int(not np.isfinite(M).all()), 0, "the mass matrix")
+        if not np.isfinite(M).all():
+            continue
+        note("mass_symmetric", np.abs(M - M.T).max() / scale, 1e-9, "the mass matrix")
+        note(
+            "mass_positive",
+            max(-np.linalg.eigvalsh((M + M.T) / 2).min(), 0.0) / scale,
+            0.0,
+            "the mass matrix",
+        )
+    kinds = [component.kind for component in robot.components.values()]
+    if dynamics.energy is None or "source" in kinds or not energy:
+        return
+    v = 0.1 * rng.standard_normal(robot.model.space.nv)
+    plant = ModelPlant(robot, q0=configs[-1], v0=v, max_step=1e-4)
+    start = plant.energy()
+    plant.advance(0.5)
+    note(
+        "energy_growth",
+        max(plant.energy() - start, 0.0) / (abs(start) + 1e-12),
         1e-6,
         "half a second",
     )

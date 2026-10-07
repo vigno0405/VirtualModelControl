@@ -15,7 +15,7 @@ from numpy.typing import ArrayLike
 
 from ..core.params import constants
 from ..core.signals import Signals
-from ..dynamics import compile_dynamics
+from ..dynamics import compile_dynamics, needs_energy
 from ..models.kinematics import Kinematics
 from .controller import VMCController
 from .state import StateController
@@ -135,7 +135,8 @@ class Passivation:
         if self.level is not None and self._t is not None:
             self.level += (meas.t - self._t) * self._rate
         rate = meas["motor_velocity"]
-        out = d.power(meas["q"], meas["v"], np.zeros(d.n_u), d.live_values(), meas.t)
+        _, power = needs_energy(d, "the passivity correction")
+        out = power(meas["q"], meas["v"], np.zeros(d.n_u), d.live_values(), meas.t)
         self.dissipation = -float(out[1])
         excess = float(rate @ u) - self.dissipation
         w = self.width

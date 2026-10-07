@@ -560,10 +560,18 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   `StateController`.
 - [x] **Underactuated templates:** `robots.planar`: a planar three-link arm with one passive
   joint, a five-link arm with three, a two-tendon continuum arm.
-- [ ] **Custom dynamics:** a residual r(q, v, a, u, f_ext, p) = 0 with an optional energy,
+- [x] **Custom dynamics:** a residual r(q, v, a, tau, f, p) = 0 with an optional energy,
   attached to a `FunctionModel`, for black-box or external models. The passivity tools need the
-  energy and refuse without it.
-- [ ] **Docs:** MPC; custom dynamics. (The underactuation tutorial is done.)
+  energy and refuse without it. Done (7 October 2026), with mutation checks: `models.Equations`,
+  `FunctionModel(equations=)`; `tau` is the motors' generalized force and `f` the components', so
+  the actuation, springs, dampers and contact still work and the masses and the weight are in the
+  equations; the simulator, rollouts, planners, Kalman filter and momentum observer run on it,
+  equal to the same arm built from parts (tested on a two-link arm); `Dynamics.energy` and
+  `power` are `None` without an energy, and `ModelPlant.energy` and `Passivation` refuse;
+  `check_model` checks the mass matrix and that the energy never grows; the section "Dynamics
+  from a function" of the extension tutorial.
+- [x] **Docs:** MPC, underactuation, planning with virtual states, estimating through the motors,
+  custom dynamics. Done (7 October 2026).
 
 ---
 

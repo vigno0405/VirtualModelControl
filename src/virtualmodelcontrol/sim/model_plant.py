@@ -12,7 +12,7 @@ from numpy.typing import ArrayLike
 
 from ..core.params import constants
 from ..core.signals import Signals
-from ..dynamics import compile_dynamics
+from ..dynamics import compile_dynamics, needs_energy
 from ..mechanisms.mechanism import Mechanism
 from ..models.actuation import Direct
 
@@ -97,7 +97,8 @@ class ModelPlant:
 
     def energy(self) -> float:
         """Kinetic plus stored energy of the robot [J]."""
-        T, V = self.dynamics.energy(self.q, self.v, self.p, self.t)
+        energy, _ = needs_energy(self.dynamics, "the energy of a simulated robot")
+        T, V = energy(self.q, self.v, self.p, self.t)
         return float(T) + float(V)
 
     def close(self) -> None:

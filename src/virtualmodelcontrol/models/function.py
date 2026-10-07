@@ -10,6 +10,7 @@ import numpy as np
 
 from ..core.params import Param, ParamSet
 from ..core.space import Euclidean, Space
+from .equations import Equations
 from .kinematic import KinematicModel
 
 
@@ -32,7 +33,8 @@ class FunctionModel(KinematicModel):
 
     ``space`` is a configuration space, or the number of joints of a flat one. ``params`` are
     the geometric numbers (each a ``Param``), ``sites`` the named points, ``q_unit`` the unit of
-    ``q``. A function cannot be written to a file, so a function model has no ``to_dict``.
+    ``q``. ``equations`` gives the robot's dynamics from a function (``Equations``) in place of
+    inertances. A function cannot be written to a file, so a function model has no ``to_dict``.
     """
 
     def __init__(
@@ -42,8 +44,10 @@ class FunctionModel(KinematicModel):
         params: Iterable[Param] = (),
         sites: Iterable[str] = (),
         q_unit: str = "rad",
+        equations: Equations | None = None,
     ) -> None:
         self._frame = frame
+        self.equations = equations
         self._space: Space = Euclidean(space) if isinstance(space, int) else space
         self._params = params if isinstance(params, ParamSet) else ParamSet(params)
         self._sites = tuple(sites)

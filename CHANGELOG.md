@@ -62,6 +62,20 @@ All notable changes to this project are documented here. The format follows
   what it takes: a process noise that admits the model's error (with the default one the gate
   throws out every reading after the first swing and the filter breaks) and a controller that
   does not outrun the filter.
+- Equations of motion from a function: `models.Equations(residual, energy=None)`, given to
+  `FunctionModel(..., equations=)`, for a black-box, learned or external model whose dynamics
+  are not built from parts. The residual `r(q, v, a, tau, f, p) = M(q) a + h(q, v) - tau - f` is
+  written with CasADi operations and affine in `a`; `tau` is the generalized force of the motors
+  and `f` that of the robot's own components, which still add springs, dampers and contact (the
+  masses and the weight are in the equations, so there is no `Inertance` or `Gravity`).
+  Everything that runs on a robot runs on it: the simulator, `rollout`, the planners, the
+  Kalman filter, the momentum observer. With an `energy(q, v, p)` returning (T, V) it has the
+  robot's energy and power; without one `Dynamics.energy` and `power` are `None` and what needs
+  them (`ModelPlant.energy`, the `Passivation` stage) raises a `ValueError` that says so
+  (`dynamics.needs_energy`). `testing.check_model` checks such a robot's mass matrix
+  (symmetric, positive) and, with an energy, that a simulation never gains any. A test builds
+  the same two-link arm from parts and from textbook equations and finds the same dynamics,
+  energy, simulation, Kalman prediction and plan.
 - Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
   (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
   `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the

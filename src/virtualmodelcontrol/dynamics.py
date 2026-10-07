@@ -25,7 +25,8 @@ class Dynamics:
     """CasADi functions of a robot's dynamics; p holds its live Params.
 
     ``forward`` (q, v, u, p, t) → a; ``residual`` (q, v, a, u, p, t) → r; ``mass`` (q, p) → M;
-    ``energy`` (q, v, p, t) → (T, V); ``power`` (q, v, u, p, t) → (input, dissipation, source);
+    ``energy`` (q, v, p, t) → (T, V); ``power`` (q, v, u, p, t) → (input, dissipation, source)
+    (both ``None`` for equations of motion without an energy: see ``needs_energy``);
     ``motors`` (q, v, p) → (θ, θ̇); ``step`` (q, v, u, p, t, h) → (q⁺, v⁺), a linearly implicit
     Euler step, stable for stiff springs and dampers; ``elements`` (q, v, p, t) → the coordinate,
     its rate, the force and the generalized force of each component that is not a mass, in the
@@ -38,8 +39,8 @@ class Dynamics:
     forward: ca.Function
     residual: ca.Function
     mass: ca.Function
-    energy: ca.Function
-    power: ca.Function
+    energy: ca.Function | None
+    power: ca.Function | None
     motors: ca.Function
     step: ca.Function
     elements: ca.Function
@@ -49,6 +50,18 @@ class Dynamics:
     def live_values(self) -> Any:
         """Current values of the live Params, packed like p."""
         return self.params.vector(self.live)
+
+
+def needs_energy(dynamics: Dynamics, what: str) -> tuple[ca.Function, ca.Function]:
+    """The ``energy`` and ``power`` functions of ``dynamics``, or a ``ValueError`` that says what
+    needed them: equations of motion given as a function (``models.Equations``) have them only
+    when they come with an energy."""
+    if dynamics.energy is None or dynamics.power is None:
+        raise ValueError(
+            f"{what} needs the energy of the robot, and its equations of motion have none: "
+            "give models.Equations an energy"
+        )
+    return dynamics.energy, dynamics.power
 
 
 def compile_dynamics(
@@ -79,6 +92,7 @@ def compile_dynamics(
     u, t, h = ca.SX.sym("u", n_u), ca.SX.sym("t"), ca.SX.sym("h")
     ctx = Context(q, binding, t=t)
     G = space.velocity_map(q)
+    equations = getattr(robot.model, "equations", None)
 
     M = ca.SX.zeros(space.nv, space.nv)
     f_gen = ca.SX.zeros(space.nv, 1)
@@ -89,6 +103,11 @@ def compile_dynamics(
         y = ctx.value(comp.coord)
         J = ca.mtimes(ca.jacobian(y, q), G)
         if comp.kind == "inertance":
+            if equations is not None:
+                raise ValueError(
+                    f"{name}: a robot with equations of motion has no inertances, "
+                    "its masses are in the equations"
+                )
             M += ca.mtimes([J.T, comp.inertance(ctx, y), J])
             continue
         yd = ca.mtimes(J, v) + ca.jacobian(y, t)
@@ -105,22 +124,43 @@ def compile_dynamics(
         else:
             raise ValueError(f"{name}: unknown component kind {comp.kind!r}")
 
-    T = 0.5 * ca.dot(v, ca.mtimes(M, v))
-    h_vec = ca.mtimes(ca.jacobian(ca.mtimes(M, v), q), ca.mtimes(G, v)) - ca.mtimes(
-        G.T, ca.gradient(T, q)
-    )
-    h_vec -= space.coadjoint(v, ca.mtimes(M, v))  # velocities that do not commute (a spinning body)
     tau_u = actuation.generalized_force(u, q, pa)
-    rhs = f_gen + tau_u - h_vec
-    acc = ca.solve(M, rhs)
+    if equations is None:
+        T = 0.5 * ca.dot(v, ca.mtimes(M, v))
+        h_vec = ca.mtimes(ca.jacobian(ca.mtimes(M, v), q), ca.mtimes(G, v)) - ca.mtimes(
+            G.T, ca.gradient(T, q)
+        )
+        h_vec -= space.coadjoint(
+            v, ca.mtimes(M, v)
+        )  # velocities that do not commute (a spinning body)
+        rhs = f_gen + tau_u - h_vec
+        acc = ca.solve(M, rhs)
+        r = ca.mtimes(M, a) - rhs
 
-    # Linearly implicit Euler: (M − h ∂f/∂v − h² ∂f/∂q G) Δv = h (rhs + h ∂f/∂q G v). Only the
-    # component and input forces f are linearized (stiffness and damping); the velocity-squared
-    # terms h stay explicit, which keeps the step first order and cheap.
-    f_lin = f_gen + tau_u
-    dq = ca.mtimes(ca.jacobian(f_lin, q), G)
-    dv = ca.jacobian(f_lin, v)
-    delta_v = ca.solve(M - h * dv - h**2 * dq, h * (rhs + h * ca.mtimes(dq, v)))
+        # Linearly implicit Euler: (M − h ∂f/∂v − h² ∂f/∂q G) Δv = h (rhs + h ∂f/∂q G v). Only
+        # the component and input forces f are linearized (stiffness and damping); the
+        # velocity-squared terms h stay explicit, which keeps the step first order and cheap.
+        f_lin = f_gen + tau_u
+        dq = ca.mtimes(ca.jacobian(f_lin, q), G)
+        dv = ca.jacobian(f_lin, v)
+        delta_v = ca.solve(M - h * dv - h**2 * dq, h * (rhs + h * ca.mtimes(dq, v)))
+        has_energy = True
+    else:  # the equations of motion are the user's: M from r, the whole acceleration linearized
+        p_model = binding.view(robot.model.params)
+        r = equations.residual(q, v, a, tau_u, f_gen, p_model)
+        M = ca.jacobian(r, a)
+        if ca.depends_on(M, a):
+            raise ValueError("the residual of the equations of motion must be affine in a")
+        acc = ca.solve(M, -ca.substitute(r, a, ca.SX.zeros(space.nv)))
+        dq = ca.mtimes(ca.jacobian(acc, q), G)
+        dv = ca.jacobian(acc, v)
+        delta_v = ca.solve(
+            ca.SX.eye(space.nv) - h * dv - h**2 * dq, h * (acc + h * ca.mtimes(dq, v))
+        )
+        has_energy = equations.energy is not None
+        if has_energy:
+            T, V_model = equations.energy(q, v, p_model)
+            V += V_model
     v_next = v + delta_v
     q_next = space.integrate(q, h * v_next)
 
@@ -137,13 +177,15 @@ def compile_dynamics(
         residual=ca.Function(
             "residual",
             [q, v, a, u, p, t],
-            [ca.mtimes(M, a) - rhs],
+            [r],
             ["q", "v", "a", "u", "p", "t"],
             ["r"],
             OPTS,
         ),
         mass=ca.Function("mass", [q, p], [M], ["q", "p"], ["M"], OPTS),
-        energy=ca.Function("energy", [q, v, p, t], [T, V], ["q", "v", "p", "t"], ["T", "V"], OPTS),
+        energy=ca.Function("energy", [q, v, p, t], [T, V], ["q", "v", "p", "t"], ["T", "V"], OPTS)
+        if has_energy
+        else None,
         power=ca.Function(
             "power",
             [q, v, u, p, t],
@@ -151,7 +193,9 @@ def compile_dynamics(
             ["q", "v", "u", "p", "t"],
             ["input", "dissipation", "source"],
             OPTS,
-        ),
+        )
+        if has_energy
+        else None,
         motors=ca.Function(
             "motors", [q, v, p], [theta, theta_dot], ["q", "v", "p"], ["theta", "theta_dot"], OPTS
         ),

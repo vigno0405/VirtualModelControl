@@ -19,6 +19,7 @@ import docs_setup
 | a spring, damper or source | a `Component` subclass | `"component"` |
 | a quantity to act on | a `Custom` coordinate, or a `Coordinate` subclass | |
 | a kind of robot | a class with `space`, `params`, `sites` and `frame` | `"model"` |
+| the dynamics of a robot | `Equations`, a residual (and an energy) for a `FunctionModel` | |
 | a transmission | the `Actuation` protocol | `"actuation"` |
 | a simulator or hardware | `read`, `write` and `close` (and, simulated, `t`, `reset`, `advance`) | |
 
@@ -140,6 +141,124 @@ from virtualmodelcontrol.testing import check_model
 
 worst = check_model(bob)
 {name: f"{error:.0e}" for name, error in worst.items()}
+```
+
+### Dynamics from a function
+
+A robot's dynamics are the sum of its parts: masses, springs, dampers. A model that is not
+built from parts (a rigid-body library, a learned model, equations derived by hand) gives its
+equations of motion as a function instead, and `FunctionModel` takes them as `equations=`.
+`Equations(residual, energy)` holds the function
+
+$$
+r(q, v, a, \tau, f) = M(q)\,a + h(q, v) - \tau - f ,
+$$
+
+which is zero along a motion. It must be affine in the acceleration $a$. $\tau$ is the
+generalized force of the motors, through the robot's actuation, and $f$ that of the robot's
+own components, which can still be added to it: springs, dampers and contact. The masses and the weight are in the equations, so the
+robot has no `Inertance` and no `Gravity`. Here the arm is one link of mass $m$ and length
+$L$ on a joint, with its angle taken from the horizontal, so that it hangs at $q = \pi/2$:
+
+```{code-cell} python
+L, mass, g = 0.5, 1.2, 9.81  # [m], [kg], [m/s²]
+
+
+def residual(q, v, a, tau, f, p):
+    return mass * L**2 * a - mass * g * L * ca.cos(q) - tau - f
+
+
+def stored(q, v, p):  # kinetic and potential energy [J]
+    return 0.5 * mass * L**2 * v[0] ** 2, -mass * g * L * ca.sin(q[0])
+
+
+def frame(q, at, p):
+    c, s = ca.cos(q[0]), ca.sin(q[0])
+    return [[c, 0, s], [0, 1, 0], [-s, 0, c]], [L * c, 0, -L * s]
+
+
+def black_box(energy=stored):
+    model = vmc.models.FunctionModel(
+        frame, 1, sites=("tip",),
+        equations=vmc.models.Equations(residual, energy))
+    robot = vmc.Mechanism("link", model=model)
+    robot.add("friction", vmc.LinearDamper(robot.joint(0), 0.05))
+    return robot
+```
+
+The same link built from parts, a point mass and gravity, is the reference. The two simulate
+alike, with the same controller, a spring to a goal:
+
+```{code-cell} python
+import matplotlib.pyplot as plt
+
+chain = vmc.models.SerialChain(
+    ["revolute"], axes=[(0, 1, 0)], points=[(0, 0, 0)],
+    sites={"tip": (1, (L, 0, 0))})
+parts = vmc.Mechanism("link", model=chain)
+parts.add_param(vmc.Param("gravity", [0, 0, -g], scope="design"))
+parts.add("bob", vmc.PointMass(parts.point("tip"), mass))
+parts.add("weight", vmc.Gravity(parts))
+parts.add("friction", vmc.LinearDamper(parts.joint(0), 0.05))
+
+
+def swing(robot, T=3.0):
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("hold", vmc.LinearSpring(robot.joint(0) - 0.6, 6.0))
+    ctrl.add("damp", vmc.LinearDamper(robot.joint(0), 0.4))
+    system = vmc.VirtualMechanismSystem(robot, ctrl)
+    return vmc.sim.rollout(system, [1.2], T, 0.002, max_step=0.001)
+
+
+runs = {"parts": swing(parts), "equations": swing(black_box())}
+fig, ax = plt.subplots()
+for name, log in runs.items():
+    ax.plot(log["t"], log["q"][:, 0], label=name)
+ax.set_xlabel("time [s]")
+ax.set_ylabel("joint angle [rad]")
+ax.legend();
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+gap = np.abs(runs["parts"]["q"] - runs["equations"]["q"]).max()
+swung = np.ptp(runs["parts"]["q"])
+assert gap < 1e-9 and swung > 0.2, (gap, swung)
+glue("eq_swing", float(swung), display=False)
+```
+
+The link swings {glue:text}`eq_swing:.2f` rad, and the two runs agree to better than a
+nanoradian. (With several joints they differ a little: the simulator linearizes the black box
+as a whole at each step, where it linearizes only the springs and dampers of the parts.)
+`check_model` takes the robot as it takes any model, and checks the mass matrix (symmetric,
+positive) and, when there is an energy, that a simulation never gains any:
+
+```{code-cell} python
+worst = check_model(black_box())
+{name: f"{error:.0e}" for name, error in worst.items()
+ if name in ("mass_symmetric", "mass_positive", "energy_growth")}
+```
+
+The energy is optional. Without it the robot still simulates, plans and is controlled, but
+what needs the energy of the robot refuses, because the equations alone do not say what the
+robot dissipates: the energy of a simulation, and the passivity correction of an
+underactuated controller.
+
+```{code-cell} python
+plant = vmc.sim.ModelPlant(black_box(energy=None), q0=[1.2])
+plant.advance(0.1)  # simulating needs none
+try:
+    plant.energy()
+except ValueError as error:
+    refusal = str(error)
+refusal
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert "needs the energy" in refusal
 ```
 
 ## A new plant
