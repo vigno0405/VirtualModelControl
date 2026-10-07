@@ -65,9 +65,9 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   models in PyTorch and numpy (0.7.0), then a full check and the 1.0.0 release. Co-design with
   variable-stiffness actuators, URDF and MuJoCo, continuum models beyond PCC, inverse dynamics,
   realism wrappers, learning from demonstrations and the other model backends are not planned.
-- **Where things stand (7 October 2026):** every item of 0.5.0, 0.6.0 and 0.7.0 is built and
-  ticked below. 0.6.0 and 0.7.0 are not released on their own: they ship in 1.0.0, as 0.4.0
-  shipped in 0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
+- **Where things stand (7 October 2026):** 1.0.0 is released and every item below is ticked.
+  0.6.0 and 0.7.0 were not released on their own: they shipped in 1.0.0, as 0.4.0 shipped in
+  0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
   newest dependencies and on fresh clones, every page of the documentation read and looked at,
   the API listed in `__all__`, and a support policy.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
@@ -94,7 +94,7 @@ Everything to do, in order. Each step is done when its items below are ticked.
    templates; robots with unmeasured coordinates; custom dynamics for a `FunctionModel`.
 6. **0.7.0, models in PyTorch and numpy** (done, 7 October 2026): every model as a numpy function
    and a PyTorch function, generated from the CasADi graph.
-7. **1.0.0:** check everything, from a fresh clone, and publish.
+7. **1.0.0** (done, 7 October 2026): everything checked, from a fresh clone, and published.
 
 ---
 
