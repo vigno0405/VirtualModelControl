@@ -27,6 +27,12 @@ def flywheel(robot, omega=6.0, depth=0.5):
     return ctrl
 
 
+# Solved to 1e-10, so that a plan is compared with the simulation and not with where the solver
+# stops: under the default options the end point differs by platform (on macOS 1e-4 from the
+# simulation in v, on Linux 4e-6), under these it is 5e-12 on Linux.
+TIGHT = {"ipopt.tol": 1e-10, "ipopt.acceptable_iter": 0, "ipopt.constr_viol_tol": 1e-10}
+
+
 def crawl(steps, warm=False, depth=0.5):
     """The crawler run by the simulator under the controller of the cranks, and the same run
     planned (from rest, or from the simulated run itself with ``warm``): the log, the plan and
@@ -40,7 +46,7 @@ def crawl(steps, warm=False, depth=0.5):
     log = vmc.sim.run(
         plant, controller, vmc.sim.SimClock(DT), T=(steps + 1) * DT, z0=turtle.initial_state
     ).arrays()
-    problem = opt.Problem(system, plant=body)
+    problem = opt.Problem(system, plant=body, options=TIGHT)
     block = opt.Shooting(q0, steps * DT, steps + 1, v0=np.zeros(8), z0=[0.0, 0.0], running=False)
     problem.add(block)
     guess = None
@@ -57,16 +63,14 @@ def crawl(steps, warm=False, depth=0.5):
 @pytest.mark.parametrize("steps, warm", [(25, False), (60, True)])
 def test_a_plan_of_the_crawler_under_the_flywheel_is_the_simulation_step_for_step(steps, warm):
     log, plan, problem = crawl(steps, warm)
-    assert plan.converged and plan.violation < 1e-5
+    assert plan.converged and plan.violation < 1e-8
     q, v, z = (np.asarray(log[key])[:steps] for key in ("q", "v", "z"))
     assert np.ptp(q[:, 7]) > 5e-5 and np.abs(z[:, 1]).max() > 0.02  # the cranks turn, it spins
     assert np.abs(q[:, 0]).max() > 1e-6  # and the body moves
-    # the plan solves to the solver's tolerance (the violation above): on macOS a cold start
-    # ends 1.6e-6 from the simulation, on Linux less than 1e-6
-    np.testing.assert_allclose(plan.q[:-1], q, atol=1e-5)
-    np.testing.assert_allclose(plan.v[:-1], v, atol=1e-5)
-    np.testing.assert_allclose(plan.z[1 : steps + 1], z, atol=1e-5)
-    np.testing.assert_allclose(plan.u[:-1], np.asarray(log["law_torque"])[:steps], atol=1e-5)
+    np.testing.assert_allclose(plan.q[:-1], q, atol=1e-7)
+    np.testing.assert_allclose(plan.v[:-1], v, atol=1e-6)
+    np.testing.assert_allclose(plan.z[1 : steps + 1], z, atol=1e-7)
+    np.testing.assert_allclose(plan.u[:-1], np.asarray(log["law_torque"])[:steps], atol=1e-7)
     norms = np.linalg.norm(plan.q[:, 3:7], axis=1)
     np.testing.assert_allclose(norms, 1.0, atol=1e-8)  # the nodes are on the manifold
     assert "manifold" in problem.build().constraints
