@@ -9,6 +9,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..control.state import require_motor_layout
 from ..estimation.balance import balance
 from ..models.kinematics import Kinematics
 from .limits import NOISE, admissible, live_matching
@@ -22,6 +23,7 @@ class PositionRegulation:
     """
 
     def __init__(self, controller: Any, sites: Mapping[str, Any], gain: float = 0.05) -> None:
+        require_motor_layout(controller, "PositionRegulation")
         compiled = controller.compiled
         for name in sites:
             live_matching(compiled, name)  # refuses a Param that is not live
@@ -56,6 +58,7 @@ class HoldingGoals:
     """
 
     def __init__(self, controller: Any, sites: Mapping[str, Any], robot: Any = None) -> None:
+        require_motor_layout(controller, "HoldingGoals")
         compiled = controller.compiled
         for name in sites:
             live_matching(compiled, name)  # refuses a Param that is not live

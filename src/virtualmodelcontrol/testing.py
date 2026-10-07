@@ -137,7 +137,7 @@ def _extremes(kinematic: Any, spots: list[Any], configs: list[np.ndarray], note:
 
 
 def _continuity(kinematic: Any, grid: list[float], configs: list[np.ndarray], note: Any) -> None:
-    """The body has no jump along ``s``: neighbouring points are about as far apart everywhere."""
+    """The body has no jump along ``s``: neighboring points are about as far apart everywhere."""
     for q in configs:
         frames = [evaluate_frame(kinematic, q, x) for x in grid]
         points = np.array([p for _, p in frames])

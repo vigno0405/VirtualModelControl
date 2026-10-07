@@ -31,7 +31,7 @@ _Loader.add_implicit_resolver(
 
 def read(path: str | os.PathLike[str]) -> dict[str, Any]:
     """The configuration in a YAML file."""
-    data = yaml.load(Path(path).read_text(), Loader=_Loader)  # a safe loader
+    data = yaml.load(Path(path).read_text(encoding="utf-8"), Loader=_Loader)  # a safe loader
     if not isinstance(data, dict):
         raise ValueError(f"{path}: a configuration is a mapping of sections, got {data!r}")
     return data
@@ -63,5 +63,5 @@ def dumps(data: dict[str, Any]) -> str:
 def write(data: dict[str, Any], path: str | os.PathLike[str]) -> Path:
     """Write a configuration as YAML; returns the path."""
     path = Path(path)
-    path.write_text(dumps(data))
+    path.write_text(dumps(data), encoding="utf-8")
     return path

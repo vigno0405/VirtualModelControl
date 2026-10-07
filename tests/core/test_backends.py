@@ -144,7 +144,7 @@ def test_the_source_runs_with_numpy_alone(tmp_path):
     q, v, u = rng.normal(size=9) * 0.004, rng.normal(size=9) * 0.01, rng.normal(size=9)
     p = dynamics.live_values()
     path = tmp_path / "forward.py"
-    path.write_text(out.forward.source)
+    path.write_text(out.forward.source, encoding="utf-8")
     want = np.array(dynamics.forward(q, v, u, p, 0.0)).ravel()
     program = (
         "import sys\n"

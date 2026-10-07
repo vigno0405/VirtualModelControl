@@ -108,8 +108,8 @@ def finger(
 ) -> Mechanism:
     """The finger as a robot mechanism; q holds the two motor angles [rad].
 
-    Sites: ``pip``, ``dip``, ``tip`` and the phalanges' centres of gravity ``*_cog``. The
-    phalanges' lengths [m], masses [kg] and centres of gravity [m, in each phalanx's frame], the
+    Sites: ``pip``, ``dip``, ``tip`` and the phalanges' centers of gravity ``*_cog``. The
+    phalanges' lengths [m], masses [kg] and centers of gravity [m, in each phalanx's frame], the
     joint axes, the pulley radii [m], the PIP cable constant [m] and the motors' ``efficiency``
     (delivered over commanded torque, 1 by default; see ``MOTOR_EFFICIENCY``) override the
     defaults.
@@ -510,7 +510,7 @@ def hand_model(
 
     Each argument overrides the default table of the same name (``HAND_FINGER_BASES``,
     ``HAND_JOINTS``, ...) by key: ``tip_offsets={"thumb": (0.0, 0.0, 0.02)}`` changes the thumb
-    only. Lengths in metres, axes as directions.
+    only. Lengths in meters, axes as directions.
     """
     geometry = {
         "palm_origin": palm_origin,

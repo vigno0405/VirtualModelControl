@@ -266,7 +266,7 @@ def test_a_depth_changes_the_closed_loop_against_the_plain_spring():
 
 def test_the_phase_spring_is_built_from_a_file_and_survives_saving_and_loading(tmp_path):
     path = tmp_path / "crawl.yaml"
-    path.write_text(FILE)
+    path.write_text(FILE, encoding="utf-8")
     experiment = vmc.config.load(path)
     assert isinstance(experiment.mechanism.components["spring_left"], vmc.PhaseSpring)
 

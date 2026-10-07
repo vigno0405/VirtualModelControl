@@ -31,7 +31,7 @@ class KalmanFilter:
     state at a reset; ``gate`` is the largest innovation d² a measurement may have (None: no
     test). ``robot`` is the arm alone when the system's has surroundings. Read at construction.
 
-    The prediction linearises the dynamics at the estimate. With ``unscented``, it takes sigma
+    The prediction linearizes the dynamics at the estimate. With ``unscented``, it takes sigma
     points of the estimate through the dynamics instead, in ``substeps`` steps of the robot's own
     integrator each, which follows a strongly nonlinear arm (the sensors stay linear).
     """
@@ -102,7 +102,7 @@ class KalmanFilter:
         self.missing: tuple[str, ...] = ()
 
     def predict(self, u: ArrayLike, t: float = 0.0) -> None:
-        """Advance ``dt`` under the motor command ``u``, held, with the model linearised here (or,
+        """Advance ``dt`` under the motor command ``u``, held, with the model linearized here (or,
         unscented, through sigma points)."""
         from scipy.linalg import expm  # SciPy loads when a filter first predicts
 
@@ -188,7 +188,7 @@ class KalmanFilter:
 
         ``Rq`` and ``Rv`` are the covariances of the q and v they give, not of the motors. A robot
         with fewer motors than coordinates does not give q: the motors see combinations of it
-        (``Underactuated`` sees Bᵀ q), so the measurement is of the motors themselves, linearised
+        (``Underactuated`` sees Bᵀ q), so the measurement is of the motors themselves, linearized
         at the estimate, and ``Rq`` and ``Rv`` are the covariances of the motors' readings.
         """
         if self._n_angles < self._n:

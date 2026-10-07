@@ -9,6 +9,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..control.state import require_motor_layout
 from ..core.params import constants
 from ..models.kinematics import Kinematics, contact_map
 from .limits import TINY, admissible, live_matching
@@ -33,6 +34,7 @@ class ForceTracking:
         max_step: float | None = None,
         rate: float | None = None,
     ) -> None:
+        require_motor_layout(controller, "ForceTracking")
         compiled = controller.compiled
         self.names = live_matching(compiled, params)
         self.max_force_step, self.max_step, self.rate = max_force_step, max_step, rate

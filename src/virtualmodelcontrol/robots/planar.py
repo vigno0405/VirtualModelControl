@@ -41,7 +41,7 @@ PASSIVE_DAMPING = 0.40  # [N·m·s/rad] torsional damper of each passive joint
 def model(lengths: Any) -> SerialChain:
     """The kinematics: revolute joints about z, links along x at q = 0 (q = relative angles).
 
-    Sites: ``tip`` and the centre of each link, ``link1`` … ``linkN``.
+    Sites: ``tip`` and the center of each link, ``link1`` … ``linkN``.
     """
     length = np.asarray(lengths, dtype=float)
     x = np.concatenate([[0.0], np.cumsum(length)])  # [m] where each joint sits
@@ -66,7 +66,7 @@ def arm(
 ) -> Mechanism:
     """The arm as a robot mechanism: q holds the joint angles [rad], the motors drive the
     ``actuated`` joints only, and every link is a uniform rod (a mass and the inertia m l²/12 at
-    its centre).
+    its center).
 
     ``preset`` gives the defaults; ``lengths`` [m], ``masses`` [kg], ``actuated`` joints,
     ``gravity`` [m/s², base frame], ``rest`` (the passive joints' rest angles [rad], also the
@@ -91,7 +91,7 @@ def arm(
     for i in range(n):
         link = f"link{i + 1}"
         robot.add(f"m{i + 1}", PointMass(robot.point(link), mass[i]))
-        rod = mass[i] * length[i] ** 2 / 12.0  # [kg·m²] about the centre, along the link's axis
+        rod = mass[i] * length[i] ** 2 / 12.0  # [kg·m²] about the center, along the link's axis
         robot.add(f"I{i + 1}", RotationalInertia(FrameRotation(robot.model, link), (0.0, rod, rod)))
     return robot
 

@@ -61,10 +61,10 @@ def test_a_plan_of_the_crawler_under_the_flywheel_is_the_simulation_step_for_ste
     q, v, z = (np.asarray(log[key])[:steps] for key in ("q", "v", "z"))
     assert np.ptp(q[:, 7]) > 5e-5 and np.abs(z[:, 1]).max() > 0.02  # the cranks turn, it spins
     assert np.abs(q[:, 0]).max() > 1e-6  # and the body moves
-    np.testing.assert_allclose(plan.q[:-1], q, atol=1e-7)
+    np.testing.assert_allclose(plan.q[:-1], q, atol=1e-6)  # the solver's tolerance
     np.testing.assert_allclose(plan.v[:-1], v, atol=1e-5)
-    np.testing.assert_allclose(plan.z[1 : steps + 1], z, atol=1e-7)
-    np.testing.assert_allclose(plan.u[:-1], np.asarray(log["law_torque"])[:steps], atol=1e-7)
+    np.testing.assert_allclose(plan.z[1 : steps + 1], z, atol=1e-6)
+    np.testing.assert_allclose(plan.u[:-1], np.asarray(log["law_torque"])[:steps], atol=1e-6)
     norms = np.linalg.norm(plan.q[:, 3:7], axis=1)
     np.testing.assert_allclose(norms, 1.0, atol=1e-8)  # the nodes are on the manifold
     assert "manifold" in problem.build().constraints

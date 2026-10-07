@@ -57,7 +57,7 @@ class DitherSeeking:
         self.window = float(window)
         live = controller.live_params()
         self.estimate = np.array([float(np.ravel(live[name])[0]) for name in names])
-        """θ̂, the centre of each Param's dither."""
+        """θ̂, the center of each Param's dither."""
         self.slope = np.zeros(n)
         """The last estimate of the cost's slope with respect to each Param."""
         self._t: list[float] = []

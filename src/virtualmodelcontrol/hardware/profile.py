@@ -99,7 +99,7 @@ class HardwareProfile:
         import yaml
 
         path = Path(path)
-        path.write_text(yaml.safe_dump(self.to_dict(), sort_keys=False))
+        path.write_text(yaml.safe_dump(self.to_dict(), sort_keys=False), encoding="utf-8")
         return path
 
     @classmethod
@@ -107,7 +107,7 @@ class HardwareProfile:
         """Read a profile written by ``save``."""
         import yaml
 
-        return cls.from_dict(yaml.safe_load(Path(path).read_text()))
+        return cls.from_dict(yaml.safe_load(Path(path).read_text(encoding="utf-8")))
 
     def replace(self, **changes: Any) -> HardwareProfile:
         """A copy with some fields changed."""

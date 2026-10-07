@@ -22,7 +22,7 @@ def test_code_lines_fit_the_page():
         f"{page.relative_to(ROOT)}: {line}"
         for page in PAGES
         if "_build" not in page.parts
-        for line in visible_code(page.read_text())
+        for line in visible_code(page.read_text(encoding="utf-8"))
         if len(line) > WIDTH
     ]
     assert not long, "\n".join(long)
@@ -38,7 +38,7 @@ def test_no_em_dashes_in_public_text():
     hits = [
         str(f.relative_to(ROOT))
         for f in files
-        if "_build" not in f.parts and "\u2014" in f.read_text()
+        if "_build" not in f.parts and "\u2014" in f.read_text(encoding="utf-8")
     ]
     assert not hits, hits
 
@@ -50,14 +50,16 @@ def figure_code():
     """Code that draws figures: the pages' cells, the docs' scripts and schematics, and viz."""
     for page in PAGES:
         if "_build" not in page.parts:
-            for block in re.findall(r"```\{code-cell\} python\n(.*?)```", page.read_text(), re.S):
+            for block in re.findall(
+                r"```\{code-cell\} python\n(.*?)```", page.read_text(encoding="utf-8"), re.S
+            ):
                 yield page, block.splitlines()
     for f in [
         *(ROOT / "docs").rglob("*.py"),
         *(ROOT / "src" / "virtualmodelcontrol" / "viz").rglob("*.py"),
     ]:
         if "_build" not in f.parts:
-            yield f, f.read_text().splitlines()
+            yield f, f.read_text(encoding="utf-8").splitlines()
 
 
 def test_figure_text_renders_in_the_figure_font():

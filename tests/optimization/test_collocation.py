@@ -89,7 +89,7 @@ def test_velocities_and_accelerations_satisfy_the_trapezoid_rule():
 def test_the_motion_starts_at_rest_or_at_the_given_velocity():
     problem, _, _ = plain(31)
     r = problem.solve()
-    assert r.q[0, 0] == 0.0 and r.v[0, 0] == 0.0
+    assert r.q[0, 0] == pytest.approx(0.0, abs=1e-12) and r.v[0, 0] == pytest.approx(0.0, abs=1e-12)
     problem, _, _ = plain(31, v0=[0.5])
     assert problem.solve().v[0, 0] == pytest.approx(0.5)
 

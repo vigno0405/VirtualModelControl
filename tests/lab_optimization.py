@@ -17,7 +17,7 @@ from virtualmodelcontrol.robots import helyx
 
 DATA = Path(__file__).parent / "data"
 ARRAYS = np.load(DATA / "optimization.npz")
-INFO = json.loads((DATA / "optimization.json").read_text())
+INFO = json.loads((DATA / "optimization.json").read_text(encoding="utf-8"))
 COMMON = INFO["common"]
 SECTION_RADIUS = helyx.SECTION_RADIUS
 SIGN = helyx.ENCODER_SIGN["145-290-290"]  # the lab's motor torques are SIGN times the library's

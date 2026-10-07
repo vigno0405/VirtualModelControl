@@ -208,7 +208,7 @@ controller:
 
 def test_every_coordinate_kind_builds_what_python_builds(tmp_path):
     path = tmp_path / "coordinates.yaml"
-    path.write_text(COORDINATES)
+    path.write_text(COORDINATES, encoding="utf-8")
     experiment = vmc.config.load(path)
 
     arm = helyx.arm("145-145-145")
@@ -258,7 +258,7 @@ def test_every_coordinate_kind_builds_what_python_builds(tmp_path):
 
 def test_saved_files_carry_the_current_values(tmp_path):
     path = tmp_path / "coordinates.yaml"
-    path.write_text(COORDINATES)
+    path.write_text(COORDINATES, encoding="utf-8")
     experiment = vmc.config.load(path)
     elements = experiment.mechanism.components
     elements["a"].stiffness.value = 1.5
@@ -298,7 +298,9 @@ def test_saved_files_carry_the_current_values(tmp_path):
 
 def test_numbers_read_as_numbers(tmp_path):
     path = tmp_path / "numbers.yaml"
-    path.write_text("a: 1e-3\nb: -2.5E+2\nc: .5\nd: 3\ne: '1e-3'\nf: [1e4, 2]\ng: true\n")
+    path.write_text(
+        "a: 1e-3\nb: -2.5E+2\nc: .5\nd: 3\ne: '1e-3'\nf: [1e4, 2]\ng: true\n", encoding="utf-8"
+    )
     data = files.read(path)
     expected = {"a": 0.001, "b": -250.0, "c": 0.5, "d": 3, "e": "1e-3", "f": [1e4, 2], "g": True}
     assert data == expected
@@ -405,7 +407,7 @@ def test_a_run_is_saved_beside_its_file_with_the_configuration_it_started_from(
 
     # The log holds the configuration it started from; run again, it gives the run back.
     text = tmp_path / "from-the-log.yaml"
-    text.write_text(loaded.meta["configuration"])
+    text.write_text(loaded.meta["configuration"], encoding="utf-8")
     assert vmc.config.load(text).to_dict() == experiment.to_dict()
     spec = files.read(text)
     del spec["experiment"]["run"]

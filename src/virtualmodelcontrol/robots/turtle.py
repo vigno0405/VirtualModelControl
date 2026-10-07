@@ -125,8 +125,8 @@ def initial_state(meas: Signals) -> np.ndarray:
 
 CRAWLER = {
     "mass": 1.0,  # [kg] the body, with the cranks
-    "inertia": (3.6e-3, 7.8e-3, 1.08e-2),  # [kg·m²] about its centre: x forward, y left, z up
-    "belly": (0.12, 0.07, 0.03),  # [m] its four underside corners: ±x, ±y, and z below the centre
+    "inertia": (3.6e-3, 7.8e-3, 1.08e-2),  # [kg·m²] about its center: x forward, y left, z up
+    "belly": (0.12, 0.07, 0.03),  # [m] its four underside corners: ±x, ±y, and z below the center
     "axle": (0.0, 0.11, 0.0),  # [m] the left crank's axis in the body (the right one is mirrored)
     "crank_radius": 0.05,  # [m] from the axis to the foot, which hangs at the bottom at q = 0
     "crank_inertia": 2e-3,  # [kg·m²] of each crank about its axis

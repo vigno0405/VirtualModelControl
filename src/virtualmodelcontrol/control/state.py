@@ -23,8 +23,10 @@ class StateController(VMCController):
 
     ``read(meas)`` returns (q, v) of a measurement; by default ``meas["q"]`` and ``meas["v"]``,
     which a simulated plant reports and an estimator can supply for the coordinates no sensor
-    sees. On a robot with motors on every coordinate it is the same controller. Adaptation laws
-    and estimators that read a controller's inputs expect the motor layout of ``VMCController``.
+    sees. On a robot with motors on every coordinate it is the same controller. The laws and
+    estimators that read a controller's inputs in the layout of the motors (``ForceTracking``,
+    ``StiffnessTracking``, ``PositionRegulation``, ``HoldingGoals``, ``ContactForce``,
+    ``TaskStiffness``) refuse it with a ``ValueError``.
     """
 
     def __init__(
@@ -57,3 +59,17 @@ class StateController(VMCController):
         elapsed = t - (t if self.t0 is None else self.t0)
         q, v = self.read(meas)
         return np.concatenate([q, v, self.z, self.params, [elapsed]])
+
+
+def require_motor_layout(controller: Any, what: str) -> None:
+    """Refuse a ``StateController`` (also inside a ``Tank``): ``what`` reads the controller's
+    inputs in the layout of the motors, and this controller's are the state (q, v)."""
+    while hasattr(controller, "controller"):  # a Tank around the controller
+        controller = controller.controller
+    if isinstance(controller, StateController):
+        raise ValueError(
+            f"{what} reads the motors of a controller, and a StateController reads the state "
+            "(q, v) of the robot. For a robot with fewer motors than coordinates, use the plain "
+            "frozen controller, which reads the motors, or control.underactuated.DirectionalForce "
+            "for a force"
+        )

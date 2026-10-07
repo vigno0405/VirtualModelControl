@@ -251,7 +251,7 @@ def draw_force(
     scale: float = 0.05,
     **kwargs: Any,
 ) -> Any:
-    """An arrow for a force [N] at a point, ``scale`` metres per newton."""
+    """An arrow for a force [N] at a point, ``scale`` meters per newton."""
     (x,), (y,) = project(origin, plane)
     (fx,), (fy,) = project(np.asarray(force, dtype=float) * scale, plane)
     kwargs.setdefault("color", PALETTE[1])

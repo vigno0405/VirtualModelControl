@@ -9,6 +9,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..control.state import require_motor_layout
 from ..estimation import TaskStiffness
 from .limits import NOISE, admissible, live_matching
 
@@ -31,6 +32,7 @@ class StiffnessTracking:
         robot: Any = None,
         fraction: float = 1.0,
     ) -> None:
+        require_motor_layout(controller, "StiffnessTracking")
         compiled = controller.compiled
         self.names, self.fraction = live_matching(compiled, params), fraction
         self._params = {n: compiled.params[n] for n in self.names}

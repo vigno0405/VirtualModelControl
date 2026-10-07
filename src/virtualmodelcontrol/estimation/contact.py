@@ -8,6 +8,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ..control.state import require_motor_layout
 from ..models.kinematics import Kinematics, contact_map
 from .balance import balance
 
@@ -23,6 +24,7 @@ class ContactForce:
     def __init__(
         self, controller: Any, site: Any, normal: ArrayLike | None = None, robot: Any = None
     ) -> None:
+        require_motor_layout(controller, "ContactForce")
         x, theta, held = balance(controller, robot)
         robot_model = controller.compiled.system.robot
         J = Kinematics(robot_model, coordinates="motors").functions(site)(theta)[2]

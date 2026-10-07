@@ -25,7 +25,7 @@ GRAVITY = (0.0, 0.0, -9.81)
 """Gravity in the frame [m/s²]: the arms point up."""
 
 SEGMENT_MASS = 0.030
-"""Lumped mass [kg] per 145 mm of arm, at each section's centre (60, 30, 30 g)."""
+"""Lumped mass [kg] per 145 mm of arm, at each section's center (60, 30, 30 g)."""
 
 EFFICIENCY = 0.12
 """Delivered over commanded motor torque, calibrated against a load cell: for estimates of

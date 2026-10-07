@@ -60,8 +60,8 @@ def test_the_planned_level_is_the_level_of_the_real_tank_executing_the_plan(refi
     x[nlp.variables.slices["level:tank"]] = levels  # the tank's own, in the plan's equations
     g = np.array(nlp.functions()[1](x, np.zeros(0))).ravel()
     assert plan.converged and plan.violation < 1e-6
-    assert np.abs(g[nlp.constraints["tank"]]).max() < 1e-7
-    assert np.abs(g[nlp.constraints["continuity"]]).max() < 1e-7
+    assert np.abs(g[nlp.constraints["tank"]]).max() < 1e-6  # the solver's tolerance
+    assert np.abs(g[nlp.constraints["continuity"]]).max() < 1e-6
     assert (fractions == 1.0).all()  # the tank never had to cut a step
     assert levels.min() > -1e-9 and levels.min() < 1e-4  # and the budget was used up
 

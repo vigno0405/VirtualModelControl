@@ -16,7 +16,7 @@ from .result import Result
 
 
 def sphere_points(center: ArrayLike, radius: float, step: float) -> np.ndarray:
-    """The grid points ``step`` apart inside the ball of ``radius`` around ``center``, the centre
+    """The grid points ``step`` apart inside the ball of ``radius`` around ``center``, the center
     first, then by distance. Shape (points, len(center))."""
     center = np.asarray(center, dtype=float).ravel()
     n = int(np.floor(radius / step + 1e-9))
