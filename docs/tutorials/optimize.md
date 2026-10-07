@@ -703,6 +703,83 @@ Good to know about periodic problems and a free horizon:
 - **Not together.** `initial` and `transition` blend two controllers by the nodes' times, which
   must be numbers: they go with neither `periodic` nor `free_time`.
 
+## A controller with virtual states
+
+A controller can have states of its own, such as a virtual mass that the robot is tied to, or the
+flywheel of a gait. The plan then has them as unknowns too, with the controller's own dynamics,
+and nothing changes in the problem: `Collocation`, `Equilibrium` and `Shooting` find the states
+in the controller. As an example, a mass is held by a spring to a virtual mass $z$, and $z$ is
+pulled by a spring to a goal. We free the goal, and ask for the mass to be at 1 m after 2 s:
+
+```{code-cell} python
+line = vmc.Mechanism("line", model=vmc.models.JointSpace(1, unit="m"))
+pos3 = line.joint(0)
+line.add("mass", vmc.Inertance(pos3, 1.0))
+line.add("friction", vmc.LinearDamper(pos3, 1.0))
+
+goal = vmc.Param("goal", 1.0, bounds=(-5.0, 5.0), unit="m", scope="stage")
+follower = vmc.Mechanism("follower")
+z = follower.add_state("z", 1, unit="m")  # the virtual mass
+follower.add("inertia", vmc.Inertance(z, 0.5))
+follower.add("link", vmc.LinearSpring(pos3 - z, 10.0))
+follower.add("anchor", vmc.LinearSpring(z - vmc.Ref("goal", 1, goal), 4.0))
+follower.add("damper", vmc.LinearDamper(z, 2.0))
+tied = vmc.VirtualMechanismSystem(line, follower)
+
+reach = opt.Problem(tied)
+reach.add(opt.Collocation([0.0], 3.0, 31, scheme="hermite-simpson"))
+reach.add(opt.Bound(pos3, 1.0, 1.0, t_from=2.0, t_to=2.0, name="arrive"))
+reach.add(opt.Effort(0.1))
+reach.free("follower.anchor.goal")
+tied_plan = reach.solve()
+print(tied_plan.status, tied_plan.params, tied_plan.z.shape)
+```
+
+`plan.z` holds the virtual state at every node, the position of $z$ and then its velocity, like
+`q` and `v` for the robot. The state starts where the controller starts, which is its `initial`
+value (0 here), at rest; `Collocation(z0=...)` starts it elsewhere. We check the plan by applying
+the goal and running the closed loop on a simulation with a finer step:
+
+```{code-cell} python
+tied_plan.apply(tied)
+check = vmc.sim.rollout(tied, [0.0], 3.001, 0.001, max_step=0.001,
+                      integrator="rk4")
+rows = np.round(tied_plan.t / 0.001).astype(int)
+error = np.abs(tied_plan.q[:, 0] - check["q"][rows, 0]).max()
+
+fig, ax = plt.subplots()
+ax.plot(tied_plan.t, tied_plan.q[:, 0], label="mass")
+ax.plot(tied_plan.t, tied_plan.z[:, 0], label="virtual mass")
+ax.plot(check["t"], check["q"][:, 0], "k:", label="simulation")
+found = tied_plan.params["follower.anchor.goal"]
+ax.axhline(found, color="gray", linestyle="--")
+ax.set_xlabel("time [s]")
+ax.set_ylabel("position [m]")
+ax.legend(loc="lower right", fontsize=18);
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert tied_plan.converged, tied_plan.status
+assert abs(tied_plan.q[20, 0] - 1.0) < 1e-6 and tied_plan.z.shape == (31, 2)
+assert error < 2e-3, error
+assert np.abs(tied_plan.z[:, 0]).max() > 0.5
+glue("v_goal", float(tied_plan.params["follower.anchor.goal"]), display=False)
+glue("v_error", float(1e3 * error), display=False)
+```
+
+The goal that does it is {glue:text}`v_goal:.3f` m: the mass passes 1 m at 2 s and overshoots
+the goal. The plan agrees with the simulation to {glue:text}`v_error:.1f` mm. A controller
+advances its virtual states as a step of the simulator does, so a plan from `Shooting` is the
+closed loop of that simulation to rounding error.
+
+- **A controller in place with states.** `initial` may have virtual states, as a system (it
+  starts with the plan) or as a running controller, whose state is where it is now.
+- **A periodic motion** repeats the virtual states too. A state that only grows, such as the
+  angle of a flywheel, has no periodic orbit.
+- **At rest.** `Equilibrium` puts the states at rest too, with their accelerations at zero, so
+  a controller with a drive has none.
+
 ## Good to know
 
 - **Scales.** The solver works on q, v and a divided by `Collocation(scales=(s_q, s_v, s_a))`,
@@ -730,8 +807,8 @@ Good to know about periodic problems and a free horizon:
 - **Stopping.** `progress(iteration, cost, params, q)` of `solve` is called at every
   iteration; return `True` from it to stop the solve there (the status is
   `User_Requested_Stop`).
-- **Not yet.** The controller to plan cannot have virtual states, and the robot's
-  configuration must live in a flat space (every robot template here does).
+- **Not yet.** `Collocation` needs the robot's configuration in a flat space (every robot
+  template here does; `Shooting` has no such limit).
 
 To change a running controller within an energy budget, see [Energy and
 passivity](energy.md), and to tune one by trial runs instead of a plan, see

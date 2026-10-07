@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -15,7 +15,8 @@ Evaluate = Callable[[Any, list[Any], list[Any], list[Any]], tuple[list[Any], lis
 class Trajectory:
     """Node times ``t`` [s], and per node the configuration ``q``, velocity ``v``, acceleration
     ``a`` and motor torques ``u`` as CasADi columns, plus the ``blend`` weight of the new
-    controller. ``shapes`` gives the (nodes, size) of q, v and a. The first node is the fixed
+    controller and, when it has virtual states, its state ``z`` (positions, then velocities).
+    ``shapes`` gives the (nodes, size) of q, v, a and z. The first node is the fixed
     start of a motion, unless ``fixed_start`` is off (a static problem or a periodic one).
 
     The spacing ``dt`` is a number, or an expression of the horizon when it is free: integrate
@@ -33,6 +34,7 @@ class Trajectory:
     shapes: dict[str, tuple[int, int]]
     evaluate: Evaluate
     fixed_start: bool = True
+    z: list[Any] = field(default_factory=list)
 
     @property
     def times(self) -> list[Any]:

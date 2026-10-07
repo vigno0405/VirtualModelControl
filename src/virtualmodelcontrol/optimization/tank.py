@@ -37,7 +37,7 @@ class TankBudget(Term):
         trajectory = builder.trajectory
         if not isinstance(trajectory, ShootingTrajectory):
             raise ValueError(f"{self.name!r} needs a Shooting: the Params must step")
-        compiled, no_z = builder.compiled, ca.DM.zeros(0, 1)
+        compiled = builder.compiled
         count = len(trajectory.params)
         start = float(self._level.param.value[0])
         levels = builder.variables.add(f"level:{self.name}", count, 0.0, np.inf, start)
@@ -45,8 +45,9 @@ class TankBudget(Term):
         for k in range(count):
             before = trajectory.now if k == 0 else trajectory.params[k - 1]
             q, v, tk = trajectory.q[k], trajectory.v[k], float(trajectory.t[k])
-            stored = compiled.energy(q, v, no_z, trajectory.params[k], tk)[0]
-            was = compiled.energy(q, v, no_z, before, tk)[0]
+            z = trajectory.z[k]
+            stored = compiled.energy(q, v, z, trajectory.params[k], tk)[0]
+            was = compiled.energy(q, v, z, before, tk)[0]
             level = builder.value(self._level.param)
             if k and self.refill:
                 level = levels[k - 1] + trajectory.dissipated[k - 1]

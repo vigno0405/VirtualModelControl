@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
 from .builder import Builder
 from .trajectory import Trajectory
+from .virtual import NO_Z, start_of
 
 
 class Equilibrium:
@@ -20,15 +20,19 @@ class Equilibrium:
     It stands in for a ``Collocation``, as a motion of one node: the terms see it as their only
     node, and ``Cost`` and ``Effort`` count it once. A ``Bound`` holds there too, as the node is
     not a fixed start. ``scale`` is the typical size of q.
+
+    A controller with virtual states is at rest too: their positions are unknowns (from the
+    state it is compiled with, or ``z0``), their velocities zero, and their accelerations zero.
     """
 
     name = "equilibrium"
     motion = True
 
-    def __init__(self, q0: ArrayLike, *, scale: float = 1.0) -> None:
+    def __init__(self, q0: ArrayLike, *, scale: float = 1.0, z0: ArrayLike | None = None) -> None:
         if scale <= 0.0:
             raise ValueError("the scale of q must be positive")
         self.q0, self.scale = np.asarray(q0, dtype=float).ravel(), float(scale)
+        self.z0 = None if z0 is None else np.asarray(z0, dtype=float).ravel()
 
     def coordinates(self) -> tuple[Any, ...]:
         """No task coordinates."""
@@ -47,8 +51,21 @@ class Equilibrium:
         compiled, dynamics = builder.compiled, builder.dynamics
         p_law = builder.pack(compiled.params, compiled.live)
         p_dyn = builder.pack(dynamics.params, dynamics.live)
-        u = compiled.law(q, v, ca.DM.zeros(0, 1), p_law, 0.0)[0]
+        z_start = start_of(compiled, self.z0, "z0")
+        half = z_start.size // 2
+        z = NO_Z
+        if half:
+            z = builder.variables.add(
+                "z",
+                z_start.size,
+                np.r_[np.full(half, -inf), np.zeros(half)],  # at rest: velocities fixed at zero
+                np.r_[np.full(half, inf), np.zeros(half)],
+                np.r_[z_start[:half], np.zeros(half)],
+            )
+        u, zdot = compiled.law(q, v, z, p_law, 0.0)
         builder.constrain("equilibrium", dynamics.residual(q, v, a, u, p_dyn, 0.0), 0.0, 0.0)
+        if half:
+            builder.constrain("virtual", zdot[half:], 0.0, 0.0)
         builder.output("u", u)
         builder.trajectory = Trajectory(
             t=np.zeros(1),
@@ -58,7 +75,13 @@ class Equilibrium:
             a=[a],
             u=[u],
             blend=np.ones(1),
-            shapes={"q": (1, nq), "v": (1, nv), "a": (1, nv)},
+            shapes={
+                "q": (1, nq),
+                "v": (1, nv),
+                "a": (1, nv),
+                **({"z": (1, 2 * half)} if half else {}),
+            },
             evaluate=builder.evaluate,
             fixed_start=False,
+            z=[z],
         )

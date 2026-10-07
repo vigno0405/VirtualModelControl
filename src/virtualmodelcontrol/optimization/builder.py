@@ -45,8 +45,6 @@ class Builder:
         declared = [literal(name) for name in (*free, *parameters)]
         self.compiled = compile_system(system, runtime=declared)
         self.dynamics = compile_dynamics(system.robot, declared, system.actuation)
-        if self.compiled.z0.size:
-            raise NotImplementedError("controllers with virtual states cannot be planned yet")
         self.variables = Variables()
         self.trajectory: Trajectory | None = None
         self._constraints: list[tuple[str, Any, Any, Any]] = []

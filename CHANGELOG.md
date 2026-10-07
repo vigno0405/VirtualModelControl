@@ -38,6 +38,19 @@ All notable changes to this project are documented here. The format follows
   as it is not safe to create one in a second thread). `Problem.warm_up()` builds the program and
   the solver now, and `Problem.solve` attaches the iteration callback only when it is given a
   `progress`.
+- Planning with virtual states: `Collocation`, `Shooting` and `Equilibrium` accept controllers
+  with virtual states (a flywheel, a mass the robot is tied to). The states are unknowns of the
+  plan at every node, with the controller's own dynamics: collocated with the same scheme as the
+  robot (`Collocation`), or advanced as `VMCController.step` and `vmc.sim.rollout` advance them
+  (`Shooting`, which then reproduces `rollout` to rounding error, the states included). They
+  start from the state the controller is compiled with, or from `z0` (positions, then
+  velocities); a periodic motion repeats them; `Equilibrium` rests them. `Result.z` holds them,
+  `warm_start` takes them, `TankBudget` reads the energy at them, and the controller in place
+  (`initial`) may have states too, as a system (it starts with the plan) or as a running
+  controller (its state is where it is now). `MPC` plans a running controller from
+  `controller.z` when the `Shooting` has a `z0`, which is then a parameter of the program
+  (`shooting.z0`). The docstring of `Shooting` now says what the code does: the controller is
+  called at every one of an interval's `substeps` control steps.
 - Solver presets: `Problem(system, solver=...)` takes `"ipopt"` (the default), `"ipopt-exact"`
   (exact Hessians: 40 iterations instead of 165 on the tutorial's shooting), `"sqp"` (CasADi's
   `sqpmethod` with `qrqp`, the Hessian's negative eigenvalues clipped; other QP solvers by the

@@ -15,7 +15,8 @@ class Result:
     """A planned motion and the Params found.
 
     ``t`` [s], ``q``, ``v``, ``a`` and the motor torques ``u`` are per node (rows), ``blend`` is
-    the weight of the new controller. ``horizon`` [s] is the time from the first node to the last:
+    the weight of the new controller and ``z`` its virtual state (positions, then velocities;
+    no columns when it has none). ``horizon`` [s] is the time from the first node to the last:
     the one found when it is free (0 for an equilibrium). ``params`` holds the free Params at
     their optimum and ``references`` the values the parameters had in this solve, both by name.
     ``cost`` is the total, ``costs`` the part of each term, ``violation`` the largest violation of
@@ -38,6 +39,7 @@ class Result:
     violation: float
     horizon: float = 0.0
     steps: dict[str, np.ndarray] = field(default_factory=dict)
+    z: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
 
     @property
     def converged(self) -> bool:

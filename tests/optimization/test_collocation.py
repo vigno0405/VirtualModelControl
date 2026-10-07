@@ -152,23 +152,6 @@ def test_the_initial_controller_must_control_the_same_robot():
         problem.build()
 
 
-def test_virtual_states_cannot_be_planned_yet():
-    system, x, _ = mass_spring()
-    ctrl = vmc.Mechanism("virtual")
-    z = ctrl.add_state("z", 1, unit="m")
-    ctrl.add("mass", vmc.Inertance(z, 1.0))
-    ctrl.add("link", vmc.LinearSpring(x - z, 5.0))
-    stateful = vmc.VirtualMechanismSystem(system.robot, ctrl)
-    problem = opt.Problem(stateful)
-    problem.add(opt.Collocation([0.0], 3.0, 11))
-    with pytest.raises(NotImplementedError, match="virtual states"):
-        problem.build()
-    plan = opt.Problem(system)
-    plan.add(opt.Collocation([0.0], 3.0, 11, initial=stateful, transition=1.0))
-    with pytest.raises(NotImplementedError, match="virtual states"):
-        plan.build()
-
-
 def test_only_flat_spaces_are_supported():
     assert _flat(vmc.Euclidean(3))
     assert _flat(vmc.Product(vmc.Euclidean(2), vmc.Euclidean(1)))

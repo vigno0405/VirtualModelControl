@@ -537,9 +537,14 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   allocation reports the part it cannot realize (`Underactuated.defect`). Done, against the
   lab's own code. Open: adaptation laws and estimators that read a controller's inputs expect the
   motor layout, so they do not run on a `StateController`.
-- [ ] **Planning with virtual states:** `Collocation` and the shooting transcription accept
+- [x] **Planning with virtual states:** `Collocation` and the shooting transcription accept
   controllers with virtual states (the turtle's flywheel, a tank), so that the gait search runs on
   the flywheel controller itself; the states are unknowns of the plan with their own dynamics.
+  Done (7 October 2026), with mutation checks: `Collocation`, `Shooting` (equal to `rollout`, states
+  included, to rounding error), `Equilibrium`, `TankBudget` and `MPC` (`Shooting(z0=)`), with the
+  controller in place too; `Result.z`; the section "A controller with virtual states" of the
+  optimization tutorial. The gait search itself needs the planner to run a controller compiled on
+  the cranks against a larger simulated robot (the crawler): that split is not in the planner yet.
 - [ ] **Robots where some coordinates are not measured:** controllers that act through an
   estimate of them. `StateController` takes the estimate (`Signals(q=, v=)`); open is the
   estimator side: `KalmanFilter.encoder` turns motors into a measurement of all of q, which an

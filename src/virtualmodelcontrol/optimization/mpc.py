@@ -26,10 +26,11 @@ class MPC:
     A plan that took ``latency`` [s] to compute is applied as of that time (its value in the
     interval the time falls in), since the robot has moved on by then. With ``rti`` the solver
     takes one SQP iteration per step (the real-time iteration) instead of solving to convergence.
-    The controller's time counts from the start of each plan. ``start`` and ``poll`` do the same
-    in a thread, so that a control loop is not held while a plan is made (a solve lets the other
-    threads run). The solver is created with the MPC, so set the problem's solver and options
-    before it.
+    A controller with virtual states is planned from the state it runs in (``controller.z``):
+    give the ``Shooting`` a ``z0``. The controller's time counts from the start of each plan.
+    ``start`` and ``poll`` do the same in a thread, so that a control loop is not held while a
+    plan is made (a solve lets the other threads run). The solver is created with the MPC, so
+    set the problem's solver and options before it.
     """
 
     def __init__(self, problem: Problem, *, shift: int = 1, rti: bool = False) -> None:
@@ -43,9 +44,15 @@ class MPC:
         if rti:
             problem.solver = "rti"
         self._start = (f"{shooting.name}.q0", f"{shooting.name}.v0")
+        self._z = None if shooting._z0 is None else f"{shooting.name}.z0"
         self._level = next((f"{b.name}.level" for b in blocks if isinstance(b, TankBudget)), None)
-        problem.parameter(*self._start, *shooting.steps, *([self._level] if self._level else []))
+        extra = [name for name in (self._z, self._level) if name]
+        problem.parameter(*self._start, *shooting.steps, *extra)
         self.nlp = problem.build()
+        if self.nlp.trajectory.z and self.nlp.trajectory.z[0].shape[0] and self._z is None:
+            raise ValueError(
+                "the controller has virtual states: give the Shooting z0, the state it runs from"
+            )
         problem.warm_up()  # a thread only runs the solver, it does not create it
         stepped = self.nlp.trajectory.stepped  # type: ignore[attr-defined]
         self.names = list(stepped)
@@ -130,6 +137,8 @@ class MPC:
         q, v = np.asarray(q, dtype=float).ravel(), np.asarray(v, dtype=float).ravel()
         live = {name: np.array(value) for name, value in controller.live_params().items()}
         refs: dict[str, Any] = {**(references or {}), self._start[0]: q, self._start[1]: v}
+        if self._z is not None:
+            refs[self._z] = np.array(controller.z)
         refs.update({name: live[name] for name in self.names})
         if self._level is not None:
             refs[self._level] = controller.level
@@ -144,6 +153,8 @@ class MPC:
                 "v": np.tile(v, (rows + 1, 1)),
                 "steps": {name: np.stack([live[name]] * rows) for name in self.names},
             }
+            if self._z is not None:
+                self._warm["z"] = np.tile(refs[self._z], (rows + 1, 1))
         result = self.problem.solve(refs, warm_start=self._warm)
         self.result = result
         self._warm = self._shifted(result)
@@ -158,9 +169,12 @@ class MPC:
         """The plan one control period on: its nodes and intervals moved up, the last repeated."""
         nodes = np.minimum(np.arange(self.intervals + 1) + self.shift, self.intervals)
         rows = np.minimum(np.arange(self.intervals) + self.shift, self.intervals - 1)
-        return {
+        shifted = {
             "q": plan.q[nodes],
             "v": plan.v[nodes],
             "steps": {name: value[rows] for name, value in plan.steps.items()},
             "params": plan.params,
         }
+        if plan.z.size:
+            shifted["z"] = plan.z[nodes]
+        return shifted

@@ -318,6 +318,10 @@ approximate; `"rti"` is one step from a cold start, so it is far from the others
   The `integrator` is the implicit step of `vmc.sim.rollout` by default, which is stable for
   stiff springs, or `"rk4"` for robots that are not stiff.
 - **Time.** The controller's time counts from the start of each plan.
+- **Virtual states.** A controller with virtual states is planned from the state it runs in:
+  give the `Shooting` a `z0` (positions, then velocities), which `mpc.step` reads from
+  `controller.z` at every step, and shifts with the plan. Without `z0` the plan starts the
+  controller afresh, as after a reset, and `MPC` refuses it.
 - **Applying a plan.** `mpc.interval` is the interval that was applied, and `mpc.result` the
   whole plan. `shift` is how many intervals the horizon moves between two steps (1 by default).
 - **Not yet.** The warm start carries the plan, not the multipliers, so the SQP and `"fatrop"`

@@ -18,7 +18,7 @@ from .result import Result
 from .solver import IterationCallback, create_solver, status_of
 
 Progress = Callable[[int, float, dict[str, np.ndarray], np.ndarray], "bool | None"]
-WARM_START = ("q", "v", "a", "horizon", "params", "steps")
+WARM_START = ("q", "v", "a", "z", "horizon", "params", "steps")
 
 
 class Problem:
@@ -120,8 +120,8 @@ class Problem:
     def initial_guess(self, warm_start: Result | Mapping[str, Any] | None = None) -> np.ndarray:
         """The solver's starting point (scaled): the robot at rest at ``q0`` with the free Params
         at their values, or ``warm_start``, a previous ``Result`` or a dict with ``q``, ``v``,
-        ``a`` (nodes × size), ``horizon`` (of a free one), ``params`` and ``steps`` (intervals × the
-        Param's shape)."""
+        ``a`` and ``z`` (nodes × size), ``horizon`` (of a free one), ``params`` and ``steps``
+        (intervals × the Param's shape)."""
         nlp = self.build()
         variables, x = nlp.variables, nlp.x0.copy()
         for name in nlp.free:
@@ -218,6 +218,7 @@ class Problem:
             seconds=seconds,
             violation=violation,
             steps=found["steps"],
+            z=found["z"] if "z" in found else np.zeros((nodes, 0)),
         )
 
     def _select(self, patterns: tuple[str, ...]) -> list[str]:
