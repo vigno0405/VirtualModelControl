@@ -285,8 +285,8 @@ def closed_loop(plant_system, mpc, output=(), seconds=2.0):
     controller.reset(0.0, plant.read())
     predicted, converged = {}, []
     for i in range(round(seconds / H)):
-        if i % PERIOD == 0:  # the plan is applied before the step it starts at
-            mpc.step(controller, plant.q, plant.v)
+        if i % PERIOD == 0:  # applied before the step it starts at, with no solve time
+            mpc.step(controller, plant.q, plant.v, latency=0.0)
             predicted[i + PERIOD] = float(mpc.result.q[1, 0])
             converged.append(bool(mpc.result.converged))
         command = controller.step(plant.t, plant.read())
