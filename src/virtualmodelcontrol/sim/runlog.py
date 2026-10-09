@@ -50,6 +50,17 @@ class RunLog:
         """Each signal as an (n_steps, ...) array."""
         return {name: np.array(rows) for name, rows in self.rows.items()}
 
+    def crop(self, t_min: float | None = None, t_max: float | None = None) -> RunLog:
+        """The steps with ``t_min`` ≤ t ≤ ``t_max`` [s] (an end left out is open), as a new log with
+        the same ``info`` and ``meta``."""
+        t = np.array([row[0] for row in self.rows["t"]])
+        keep = np.flatnonzero(
+            (t >= (-np.inf if t_min is None else t_min))
+            & (t <= (np.inf if t_max is None else t_max))
+        )
+        rows = {name: [values[i] for i in keep] for name, values in self.rows.items()}
+        return RunLog(rows, dict(self.info), dict(self.meta))
+
     def save(self, path: str | os.PathLike[str], *, overwrite: bool = False) -> Path:
         """Write the log as a compressed ``.npz`` and return its path. The file is written whole or
         not at all (through a temporary file), and an existing one is kept unless ``overwrite``."""

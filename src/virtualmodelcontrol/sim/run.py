@@ -62,6 +62,7 @@ def run(
     guard: Guard | None = None,
     z0: Any = None,
     record: Iterable[str] | str = (),
+    window: float | None = None,
 ) -> RunLog:
     """Run ``controller`` on ``plant`` for ``T`` [s]; returns the recorded run.
 
@@ -73,7 +74,9 @@ def run(
     step, the measurements, the command (and the law's torque before any output stage), the
     virtual state ``z`` when the controller has one, and what ``record`` asks for (see
     ``RECORDS``); a value the step did not compute is NaN. Its ``meta`` holds the Params at the
-    start and the plant's hardware profile.
+    start and the plant's hardware profile. On real time, ``window`` [s] keeps only the last
+    seconds of a run that goes on for hours (up to a quarter more, until the next trim);
+    ``info["steps"]`` still counts them all.
     """
     guard = Guard() if guard is None else guard
     extras = _extras(record)
@@ -83,8 +86,10 @@ def run(
         raise ValueError(
             "record='robot' needs a simulated plant: a real robot does not report forces"
         )
+    if window is not None and not isinstance(clock, WallClock):
+        raise ValueError("window is for a real-time run: a simulated one has its duration")
     if isinstance(clock, WallClock):
-        return _run_wall(plant, controller, clock, T, guard, z0, extras)
+        return _run_wall(plant, controller, clock, T, guard, z0, extras, window)
     if T is None:
         raise ValueError("a simulated run needs its duration T")
     log = RunLog()
@@ -189,6 +194,7 @@ def _run_wall(
     guard: Guard,
     z0: Any,
     extras: Callable[[Any, Any], dict[str, Any]],
+    window: float | None,
 ) -> RunLog:
     """The run loop on real time: measured steps, stale readings refused, rate statistics."""
     log, limit = RunLog(), None if T is None else round(T / clock.dt)
@@ -197,7 +203,7 @@ def _run_wall(
     t0 = previous = tick = clock.now()
     _reset(controller, 0.0, meas, z0)
     _describe(log, plant, controller)
-    steps = overruns = stale = 0
+    steps = overruns = stale = dropped = 0
     try:
         while limit is None or steps < limit:
             now = clock.now()
@@ -214,6 +220,12 @@ def _run_wall(
             values = _values(t, cmd, meas, controller, plant, extras if good else None)
             log.step(dt=now - previous, **values)
             steps += 1
+            if window is not None and len(log.rows["t"]) > 1.25 * window / clock.dt:
+                # a fifth at a time: trimming a list costs its length
+                drop = len(log.rows["t"]) // 5
+                dropped += drop
+                for rows in log.rows.values():
+                    del rows[:drop]
             previous, tick = now, tick + clock.dt
             wait = tick - clock.now()
             if wait > 0:
@@ -221,7 +233,7 @@ def _run_wall(
             else:  # late: start again from now rather than catching up in a burst
                 overruns, tick = overruns + 1, clock.now()
     except KeyboardInterrupt:  # Ctrl-C ends a real-time run with the log so far
-        log.rows = {name: rows[:steps] for name, rows in log.rows.items()}
+        log.rows = {name: rows[: steps - dropped] for name, rows in log.rows.items()}
     dt = np.diff(log.arrays()["t"].ravel()) if steps > 1 else np.array([clock.dt])
     log.info = {
         "steps": steps,

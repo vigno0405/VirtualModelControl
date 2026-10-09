@@ -123,3 +123,49 @@ def test_ctrl_c_ends_a_real_time_run_with_the_log_so_far():
 def test_a_simulated_run_needs_its_duration():
     with pytest.raises(ValueError, match="duration"):
         vmc.sim.run(None, None, vmc.sim.SimClock(0.01), T=None)
+
+
+def test_a_window_keeps_the_last_seconds_of_a_run_that_goes_on():
+    for steps in range(300, 313):  # the run ends at every point of the trimming cycle
+        time = FakeTime()
+        clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+        log = vmc.sim.run(Plant(time), Controller(time), clock, T=steps * 0.01, window=0.5)
+        rows = log.arrays()
+        t = rows["t"].ravel()
+        assert log.info["steps"] == steps  # every step ran
+        assert 50 <= len(t) <= 62  # the last 0.5 s, and at most a quarter more
+        assert t[-1] == pytest.approx((steps - 1) * 0.01)  # the newest steps are the kept ones
+        np.testing.assert_allclose(np.diff(t), 0.01, atol=1e-9)  # no gap: the oldest rows went
+        assert all(len(v) == len(t) for v in rows.values())  # every signal was trimmed together
+    time = FakeTime()
+    clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+    full = vmc.sim.run(Plant(time), Controller(time), clock, T=3.0)
+    assert len(full.arrays()["t"]) == 300  # without a window nothing is dropped
+
+
+def test_ctrl_c_in_the_middle_of_a_step_of_a_windowed_run_keeps_only_whole_steps(monkeypatch):
+    original = vmc.sim.runlog.RunLog.step
+    calls = []
+
+    def interrupted(self, **values):
+        calls.append(1)
+        if len(calls) == 121:  # the signal comes after the first signal of the step is logged
+            first, *_ = values
+            self.rows.setdefault(first, []).append(np.array([0.0]))
+            raise KeyboardInterrupt
+        original(self, **values)
+
+    monkeypatch.setattr(vmc.sim.runlog.RunLog, "step", interrupted)
+    time = FakeTime()
+    clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+    log = vmc.sim.run(Plant(time), Controller(time), clock, T=None, window=0.5)
+    rows = log.arrays()
+    assert log.info["steps"] == 120 and 50 <= len(rows["t"]) <= 62
+    assert len({len(v) for v in rows.values()}) == 1 and rows["t"].ravel()[-1] == pytest.approx(
+        1.19
+    )
+
+
+def test_a_window_is_for_a_run_on_real_time():
+    with pytest.raises(ValueError, match="real-time"):
+        vmc.sim.run(None, None, vmc.sim.SimClock(0.01), T=1.0, window=0.5)

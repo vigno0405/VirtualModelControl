@@ -167,3 +167,31 @@ def test_the_library_reads_runs_of_its_own_simulator(tmp_path):
     assert back.meta == log.meta and back.meta["library"] == vmc.__version__
     for name, values in log.arrays().items():
         np.testing.assert_array_equal(back.arrays()[name], values, err_msg=name)
+
+
+def test_crop_keeps_the_steps_of_a_time_window_and_leaves_the_log_as_it_was():
+    log = example_log()
+    part = log.crop(0.25, 1.0)
+    rows = part.arrays()
+    np.testing.assert_array_equal(rows["t"].ravel(), [0.5, 1.0])
+    np.testing.assert_array_equal(rows["q"], [[3.0, 4.0], [5.0, 6.0]])
+    assert rows["tag"].shape == (2, 1) and np.isnan(rows["tag"]).all()  # the names stay, aligned
+    assert part.info == log.info and part.meta == log.meta
+    part.info["steps"] = 0  # a copy: the original is not touched
+    assert log.info["steps"] == 3 and len(log.arrays()["t"]) == 3
+    np.testing.assert_array_equal(
+        log.crop(t_max=0.5).arrays()["t"].ravel(), [0.0, 0.5]
+    )  # open ends
+    np.testing.assert_array_equal(log.crop(t_min=0.6).arrays()["t"].ravel(), [1.0])
+    assert len(log.crop().arrays()["t"]) == 3 and len(log.crop(2.0, 3.0).rows["t"]) == 0
+    np.testing.assert_array_equal(
+        log.crop(0.5, 0.5).arrays()["t"].ravel(), [0.5]
+    )  # both ends count
+
+
+def test_crop_with_an_open_end_takes_every_time_on_that_side():
+    log = RunLog()
+    for t in (-1.0, 0.0, 5.0):
+        log.step(t=t, q=[t])
+    np.testing.assert_array_equal(log.crop(t_max=0.0).arrays()["t"].ravel(), [-1.0, 0.0])
+    np.testing.assert_array_equal(log.crop(t_min=0.0).arrays()["t"].ravel(), [0.0, 5.0])

@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [Unreleased]
+
+### Added
+
+- `sim.run(..., window=)`: on real time, a run that goes on for hours keeps only the last `window`
+  seconds of its log (up to a quarter more, until the next trim) instead of every step in memory;
+  `info["steps"]` still counts them all, and a Ctrl-C keeps only whole steps.
+- `RunLog.crop(t_min, t_max)`: the steps of a time window as a new log, with the same `info` and
+  `meta`; an end left out is open.
+
 ## [1.1.0] - 2026-10-09
 
 Static friction of the motors: a model of it, a compensation for it, its identification and a

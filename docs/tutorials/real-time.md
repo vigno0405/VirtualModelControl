@@ -132,6 +132,29 @@ length of each step. `log.info` counts the `overruns` (steps longer than the per
 `stale` readings the loop refused as too old and the `guard_trips` (readings missing or not
 numbers). A refused reading means zero torque for that step.
 
+A run that goes on for hours would keep every step in memory. With `window` [s], `run` keeps
+only the last seconds of the log (up to a quarter more, until it trims), and `log.info["steps"]`
+still counts every step. `log.crop(t_min, t_max)` takes a part of any log:
+
+```{code-cell} python
+driver = Driver()
+clock = vmc.sim.WallClock(1 / 330, 0.05, now=driver.time,
+                          sleep=driver.sim.advance)
+long = vmc.sim.run(Plant(driver), controller, clock, T=3.0, window=1.0)
+kept = long.arrays()["t"].ravel()
+last = long.crop(t_min=kept[-1] - 0.5)  # the last half second
+len(kept), len(last.arrays()["t"])
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert long.info["steps"] == 990 and 330 <= len(kept) <= 413
+assert abs(kept[-1] - 989 / 330) < 1e-9 and 160 <= len(last.arrays()["t"]) <= 167
+glue("kept", len(kept), display=False)
+```
+
+The log holds {glue:text}`kept` of the 990 steps, the last second or so, and nothing older.
+
 `run` does not close the plant: do it yourself, with `try` and `finally`:
 
 ```python
