@@ -11,7 +11,7 @@ from ..core.params import Param
 from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
-from ..models import Assembly, Direct, LinearCoupling, SerialChain
+from ..models import Assembly, Direct, LinearCoupling, SerialChain, StaticFriction
 
 LINK_LENGTHS = (0.040, 0.030, 0.0175)
 """Proximal, middle and distal phalanx [m], from the MCP joint to the fingertip."""
@@ -84,6 +84,13 @@ def finger_hardware() -> HardwareProfile:
 
 
 FRICTION = (0.20, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
+
+
+def finger_friction(width: float = 0.02) -> StaticFriction:
+    """The static friction of the finger's motors, from the lab's friction identification: the
+    breakaway torque is ``FRICTION[0]`` and none is left once they move. Off unless you ask:
+    ``finger(efficiency=Efficiency(1.0, friction=finger_friction()))``."""
+    return StaticFriction(FRICTION[0], 0.0, width)
 
 
 @register("output", "adapt.output_stage")
@@ -572,6 +579,12 @@ def hand(
         )
     )
     return add_hand_masses(robot, link_masses=link_masses)
+
+
+def hand_friction(width: float = 0.02) -> StaticFriction:
+    """The static friction of the hand's motors, as ``finger_friction`` for the finger, with
+    ``HAND_FRICTION[0]`` as the breakaway torque."""
+    return StaticFriction(HAND_FRICTION[0], 0.0, width)
 
 
 @register("output", "adapt.hand_output_stage")

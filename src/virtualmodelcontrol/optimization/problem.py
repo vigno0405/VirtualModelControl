@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -37,6 +37,10 @@ class Problem:
     its own: the dynamics are the plant's, and the controller reads the plant's motors as it does
     in a simulation (``ModelPlant`` and ``VMCController``). Terms and ``q0`` are in the plant's
     coordinates. By default the plant is the system's robot.
+
+    ``output`` lists output stages with a ``symbolic`` form (``StaticFrictionCompensation``),
+    applied to the controller's command in the plan as ``VMCController(output=)`` applies them in
+    a simulation. The robot's own friction (``Efficiency(friction=)``) is in its dynamics already.
     """
 
     def __init__(
@@ -46,9 +50,16 @@ class Problem:
         solver: str = "ipopt",
         options: Mapping[str, Any] | None = None,
         plant: Any = None,
+        output: Sequence[Any] | None = None,
     ):
         self.system = system
         self.plant = plant
+        self.output = list(output or [])
+        for stage in self.output:
+            if not hasattr(stage, "symbolic"):
+                raise ValueError(
+                    f"{type(stage).__name__} has no symbolic form: it cannot be in a plan"
+                )
         self.solver = solver
         self.options: dict[str, Any] = dict(options or {})
         self.params = ParamSet()
@@ -114,7 +125,9 @@ class Problem:
     def build(self) -> NLP:
         """The program, built at the first call and kept."""
         if self._nlp is None:
-            builder = Builder(self.system, self.params, self._free, self._parameters, self.plant)
+            builder = Builder(
+                self.system, self.params, self._free, self._parameters, self.plant, self.output
+            )
             for block in self._blocks:
                 block.build(builder)
             self._nlp = builder.finish()

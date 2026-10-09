@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [Unreleased]
+
+### Added
+
+- Static friction of the motors, off by default. `StaticFriction(breakaway, kinetic, width)`
+  [N·m] is the torque that friction takes from a motor as a smooth function of the torque applied
+  to it: all of it below the breakaway torque F (the motor is stuck), the kinetic torque Fc with
+  the sign of the command past it (Fc = 0: static friction gone once it moves; Fc = F: it stays),
+  smooth (C^∞) over `width`, so solvers differentiate it. It depends on the torque only, not on
+  the speed. `Efficiency(c1, ..., friction=StaticFriction(...))` takes it before the polynomial, so
+  every transmission carries it (`Direct`, `Underactuated`, `TendonTransmission`, stacked ones, and
+  configuration files), and the simulator, `compile_dynamics`, `Collocation`, `Shooting`, `MPC`, the
+  Kalman filter and the force law all have it. Its Params are `friction.breakaway`,
+  `friction.kinetic` and `friction.width`; with F = Fc = 0, the default, nothing changes. Not passive
+  by construction: when a command brakes the motion it can create up to F |θ̇| of power, which the
+  tutorial states and measures.
+- `control.StaticFrictionCompensation(kinetic, width, fraction)` (and `.of(friction, fraction)`), an
+  output stage that adds the kinetic friction torque in the direction of the command, smooth in the
+  command. Against a `StaticFriction(F, Fc)` it delivers the command once the motor moves and
+  narrows the dead band from F to F − Fc. Nothing turns it on but you: no template or controller
+  has it by default. It has a `symbolic` form, so `Problem(system, output=[...])` and
+  `sim.rollout(..., output=[...])` apply it in a plan as `VMCController(output=)` does in a run
+  (`Problem` now raises for an output stage that has no `symbolic` form).
+- Identification of the friction: its Params are the robot's, so `identification.fit_params` fits
+  them, with the stiffness and damping, to a run in which the command rises slowly from rest;
+  `fit_efficiency(commanded, delivered, friction=True, width=)` fits the efficiency and the friction
+  to static torques (per motor or `shared`), by a grid and a refinement over the breakaway and the
+  kinetic torque.
+- `robots.adapt.finger_friction()` and `hand_friction()`: the lab's friction values of the finger
+  (0.20 N·m) and the hand (0.10 N·m) as a `StaticFriction`, to ask for.
+- Docs: the tutorial "Static friction of the motors".
+
 ## [1.0.0] - 2026-10-07
 
 The first stable release. It also carries the work meant for 0.6.0 (planning with virtual states,

@@ -95,6 +95,9 @@ Everything to do, in order. Each step is done when its items below are ticked.
 6. **0.7.0, models in PyTorch and numpy** (done, 7 October 2026): every model as a numpy function
    and a PyTorch function, generated from the CasADi graph.
 7. **1.0.0** (done, 7 October 2026): everything checked, from a fresh clone, and published.
+8. **1.1.0, static friction of the motors:** the smooth force-only friction in the transmission,
+   its compensation, identification and tutorial (all ticked below; the release comes after the
+   gate).
 
 ---
 
@@ -617,6 +620,19 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   removed; a support policy; the release.
 - [x] **Review all the documentation** page by page, so that the final version is ready: text,
   numbers, figures, animations and links, at desktop and phone width.
+
+---
+
+## 1.1.0: static friction of the motors
+
+- [x] **The model:** `StaticFriction(breakaway, kinetic, width)`, a smooth map of the applied
+  torque, in `Efficiency(friction=)` and so in every transmission, the simulator, the planners and
+  MPC. Off by default.
+- [x] **The compensation:** `control.StaticFrictionCompensation`, opt-in, with a symbolic form for
+  `Problem(output=)` and `sim.rollout(output=)`.
+- [x] **Identification:** the friction Params through `fit_params`; `fit_efficiency(friction=True)`.
+- [x] **Templates and docs:** `adapt.finger_friction()`, `adapt.hand_friction()`; the tutorial
+  "Static friction of the motors".
 
 ---
 

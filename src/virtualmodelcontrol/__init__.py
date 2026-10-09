@@ -55,7 +55,7 @@ from .mechanisms import (
     TanhSpring,
     Time,
 )
-from .models import Efficiency, Kinematics
+from .models import Efficiency, Kinematics, StaticFriction
 from .system import VirtualMechanismSystem
 
 try:
@@ -128,6 +128,7 @@ __all__ = [
     "SpeedRegulator",
     "SphereDistance",
     "Stack",
+    "StaticFriction",
     "Sum",
     "TanhDamper",
     "TanhSpring",

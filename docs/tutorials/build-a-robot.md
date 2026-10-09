@@ -54,7 +54,9 @@ np.abs(a - b).max()  # [m], the two descriptions agree
 
 A robot is a mechanism around its model. Its physical components are point masses at sites,
 gravity, and here a little viscous friction in the joints. The simulator needs all of them; the
-controller needs only the point masses, for `GravityCompensation`.
+controller needs only the point masses, for `GravityCompensation`. The static friction of the
+motors, which holds a joint until the command passes a breakaway torque, is a part of the
+transmission: see [static friction of the motors](friction.md).
 
 ```{code-cell} python
 arm = vmc.Mechanism("arm", model=chain)

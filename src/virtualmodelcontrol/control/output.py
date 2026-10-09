@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -31,6 +32,40 @@ class FrictionCompensation:
         """Add the friction torque in the direction of the command."""
         v = meas["motor_velocity"]
         return u + np.asarray(self.max_torque) * np.exp(-((v / self.velocity) ** 2)) * np.sign(u)
+
+
+@register("output", "static_friction_compensation")
+@dataclass
+class StaticFrictionCompensation:
+    """The kinetic friction torque added in the direction of the command, smooth in the command:
+    u + fraction · Fc · u / √(u² + w²).
+
+    ``kinetic`` Fc [N·m] (scalar or per motor), ``width`` w [N·m], ``fraction`` of Fc that is
+    compensated. Against an actuator with ``StaticFriction(F, Fc)`` it delivers the command once
+    the actuator moves and narrows the dead band from F to F − Fc. It adds energy (up to Fc |θ̇|),
+    so nothing turns it on but you. ``symbolic`` is the same map for a plan (``Problem(output=)``).
+    """
+
+    kinetic: ArrayLike
+    width: float = 0.01
+    fraction: float = 1.0
+
+    @classmethod
+    def of(cls, friction: Any, fraction: float = 1.0) -> StaticFrictionCompensation:
+        """The compensation of a ``StaticFriction``, at its current kinetic torque and width."""
+        return cls(
+            friction.params["kinetic"].value, float(friction.params["width"].value), fraction
+        )
+
+    def __call__(self, u: np.ndarray, meas: Signals) -> np.ndarray:
+        """Add the compensation."""
+        a = np.sqrt(u * u + self.width**2)
+        return u + self.fraction * np.asarray(self.kinetic) * u / a
+
+    def symbolic(self, u: Any) -> Any:
+        """The same map for CasADi expressions."""
+        a = ca.sqrt(u * u + self.width**2)
+        return u + self.fraction * ca.DM(np.asarray(self.kinetic, dtype=float)) * u / a
 
 
 @register("output", "pretension")

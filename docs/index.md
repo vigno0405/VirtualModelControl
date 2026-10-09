@@ -108,6 +108,7 @@ tutorials/parameters
 tutorials/configurations
 tutorials/kinematics
 tutorials/build-a-robot
+tutorials/friction
 tutorials/extend
 tutorials/outside
 ```

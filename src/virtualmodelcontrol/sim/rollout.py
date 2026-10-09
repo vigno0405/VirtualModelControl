@@ -31,6 +31,7 @@ def rollout(
     p: Any = None,
     z0: ArrayLike | None = None,
     u: ArrayLike | None = None,
+    output: Iterable[Any] = (),
 ) -> dict[str, Any]:
     """Simulate the closed loop for ``T`` [s]: the controller every ``dt``, held, and the robot
     in steps of at most ``max_step`` of ``integrator`` (``implicit``, ``rk4``, ``cvodes``).
@@ -40,7 +41,9 @@ def rollout(
     ``run``. ``p`` replaces the live Params (as ``compiled.live_values()``); a CasADi MX symbol
     gives the results as MX expressions to differentiate. With ``u``, motor torques [N·m] with one
     row per step, the robot gets them instead of the controller's command (open loop, as in a
-    logged run).
+    logged run). ``output`` lists output stages with a ``symbolic`` form
+    (``control.StaticFrictionCompensation``), applied to the controller's command as
+    ``VMCController(output=)`` applies them.
     """
     if integrator not in INTEGRATORS:
         raise ValueError(f"integrator takes one of {INTEGRATORS}, got {integrator!r}")
@@ -59,6 +62,8 @@ def rollout(
     pp = ca.MX.sym("p", compiled.live_values().size)
     q, v, z, t, w = x[:nq], x[nq:nx], x[nx:], tw[0], tw[1]
     command, zdot = compiled.law(q, v, z, pp, t)
+    for stage in output:
+        command = stage.symbolic(command)
     if given is not None:
         command = tw[2:]
     zvel = z[nz:] + w * zdot[nz:]  # the virtual state moves over the time since the last step

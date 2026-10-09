@@ -44,9 +44,11 @@ class Builder:
         free: list[str],
         parameters: list[str],
         plant: Any = None,
+        output: Any = (),
     ) -> None:
         self.system = system
         self.plant = system.robot if plant is None else plant
+        self.stages = tuple(output)
         self.params = params
         self.free = free
         self.parameters = parameters
@@ -83,11 +85,16 @@ class Builder:
     def command(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> tuple[Any, Any]:
         """The motor torques of ``compiled`` and the rate of its virtual state at the plant's state
         (q, v): its law, or, if the controller is for other coordinates than the plant's, the law
-        of the motors the plant reports, as a controller in a simulation reads them."""
+        of the motors the plant reports, as a controller in a simulation reads them, then the
+        output stages."""
         if self.plant is self.system.robot:
-            return compiled.law(q, v, z, p, t)
-        out = compiled.fast(self._at_motors(q, v, z, p, t))
-        return out[: compiled.n_u], out[compiled.n_u :]
+            u, zdot = compiled.law(q, v, z, p, t)
+        else:
+            out = compiled.fast(self._at_motors(q, v, z, p, t))
+            u, zdot = out[: compiled.n_u], out[compiled.n_u :]
+        for stage in self.stages:
+            u = stage.symbolic(u)
+        return u, zdot
 
     def stored(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The energy [J] of ``compiled`` at the plant's state: stored plus virtual kinetic."""
