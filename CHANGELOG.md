@@ -4,7 +4,10 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
-## [Unreleased]
+## [1.1.0] - 2026-10-09
+
+Static friction of the motors: a model of it, a compensation for it, its identification and a
+tutorial, all off unless asked for. Nothing that worked before changes.
 
 ### Added
 
