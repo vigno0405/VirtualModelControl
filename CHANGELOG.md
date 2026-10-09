@@ -4,7 +4,10 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
-## [Unreleased]
+## [1.2.0] - 2026-10-09
+
+A robot that runs for hours: the log of a real-time run can keep only its last seconds. Nothing that
+worked before changes.
 
 ### Added
 

@@ -120,10 +120,10 @@ pip install -e .
 An experiment should always run the same code. Pin the version, and move the pin on purpose:
 
 ```bash
-pip install "virtualmodelcontrol==1.1.0"
+pip install "virtualmodelcontrol==1.2.0"
 ```
 
-In a `requirements.txt` file, write `virtualmodelcontrol==1.1.0`. In a conda `environment.yml`,
+In a `requirements.txt` file, write `virtualmodelcontrol==1.2.0`. In a conda `environment.yml`,
 list it under `pip:`. `pip show virtualmodelcontrol` tells you which version you have, and the
 [changelog](development/changelog.md) what changed between versions.
 
