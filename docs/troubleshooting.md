@@ -32,7 +32,7 @@ sudo apt install python3-venv
 pip installs CasADi from a prebuilt wheel. If pip starts building CasADi from source, or
 `import casadi` fails, there is no wheel for your Python version or platform. Create the
 environment with a Python version listed among the files on CasADi's
-[PyPI page](https://pypi.org/project/casadi/#files).
+[PyPI page](https://pypi.org/project/casadi/).
 
 ## Compiling takes long
 
