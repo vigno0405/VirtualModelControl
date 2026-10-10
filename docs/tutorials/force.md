@@ -127,8 +127,9 @@ the force stays within 0.1 N of the wanted one. At the end it is {glue:text}`lat
 on average, and it ripples by {glue:text}`late_ptp:.3f` N from peak to peak: every step changes
 the force by about `max_force_step`, so near the target it steps over it and back. The goal ends
 {glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A smaller
-`max_force_step` gives a smaller ripple and a slower approach. `max_step` also caps how far a
-Param moves in one step, in the Param's own unit (meters for a goal).
+`max_force_step` gives a smaller ripple and a slower approach. The law's `max_step` also caps how
+far a Param moves in one step, in the Param's own unit (meters for a goal). It has nothing to do
+with the `max_step` of `ModelPlant`, the integration step.
 
 ## Through a tank
 

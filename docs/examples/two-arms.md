@@ -28,7 +28,8 @@ schematic.figure();
 
 The frame's origin lies midway between the bases, with $z$ up. Both arms keep its orientation,
 so the tendons of each sit as in the [soft-arm example](soft-arm.md), and the left arm's motors
-are numbered from 9. These are the Params of the pair used below, read from the template:
+are the last nine (indices 9 to 17). These are the Params of the default pair, read from the template; the rest of
+the page uses it:
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -70,7 +71,8 @@ their tendon past {glue:text}`threshold:.0f`°, and a clip at ±{glue:text}`TORQ
 The simulation below leaves it out.
 
 The template takes its geometry as arguments, one value for both arms or a dict by arm. Here
-both arms are longer and their bases 30 cm apart:
+the segments are 30, 15 and 15 cm long (the default is 29, 14.5 and 14.5 cm) and the bases 30 cm
+apart (the default is 25 cm). This pair is only a check of the geometry arguments:
 
 ```{code-cell} python
 import numpy as np

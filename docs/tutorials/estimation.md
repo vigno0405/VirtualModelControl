@@ -223,9 +223,9 @@ filter takes both. Each measurement has to pass the *gate* before it is used: it
 how far it is from what the filter expected, measured in the measurement's own standard
 deviations, must stay below a limit. The default limit is $d^2 = 40$, about the 99.8 % bound of a
 chi-squared distribution with the 18 values of a reading of $q$ and $v$, so about two good
-readings in a thousand are turned away: in this run
-{glue:text}`rejected_clean` of the {glue:text}`frames` frames and readings, none of them at
-fault. A real outlier is far outside the limit. We move all three markers by 10 cm along each axis for two
+readings in a thousand are turned away. In this run the gate turned away
+{glue:text}`rejected_clean` of the {glue:text}`frames` readings, and every one of them was good.
+A real outlier is far outside the limit. We move all three markers by 10 cm along each axis for two
 frames, and run the filter with the gate and without it:
 
 ```{code-cell} python
@@ -285,7 +285,13 @@ print(f"{dropout[2]} frames missing, error {dropped:.2f} mm")
 ```{code-cell} python
 :tags: [remove-cell]
 assert dropout[2] > 30 and dropped < err["encoders"]
+glue("dropped", float(dropped), display=False)
 ```
+
+The error with the frames lost is {glue:text}`dropped:.2f` mm. With every frame it was
+{glue:text}`mocap_error:.2f` mm, and with the encoders alone {glue:text}`enc_error:.2f` mm: the
+encoders and the model carry the filter through the gap, and it takes the markers up again when
+they come back.
 
 ## A window of readings
 

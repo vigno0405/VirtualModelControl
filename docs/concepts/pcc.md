@@ -47,7 +47,8 @@ smooth.
 ## The whole arm
 
 The configuration stacks the segments, base to tip: $q = (\Delta_1, \dots, \Delta_n)$. The arc
-parameter $s \in [0, 1]$ of the whole arm is uniform in arc length, so segment $i$ spans
+parameter $s \in [0, 1]$ of the whole arm is uniform in rest length (it is the arc length while no segment stretches), so
+segment $i$ spans
 $[b_{i-1}, b_i]$ with $b_i = \sum_{j \le i} L_{0,j} / \sum_j L_{0,j}$. Each segment's frame
 starts where the previous one ends. `arm.point(s=...)` accepts a symbolic $s$ as well, so an
 attachment point can itself be optimized.

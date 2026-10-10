@@ -1,7 +1,10 @@
 # API
 
-Scripts need only `import virtualmodelcontrol as vmc`: the classes and functions of the
-tutorials are available from there. The modules, from the bottom layer up:
+Scripts start with `import virtualmodelcontrol as vmc`: the classes and functions of the
+tutorials, and the modules `vmc.sim`, `vmc.viz` and the others below, are available from there.
+The robot templates are the one exception: import them as
+`from virtualmodelcontrol.robots import helyx` (or `adapt`, `bimanual`, `turtle`). The modules, from
+the bottom layer up:
 
 ```{eval-rst}
 .. autosummary::

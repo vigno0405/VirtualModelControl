@@ -51,7 +51,9 @@ log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 200), T=10.0)
 ## The fit
 
 We start from a model that has the right structure and the wrong numbers, and name the Params
-to find. `fit_params` takes the robot, the names (or globs) of its Params and the runs. It asks
+to find. A Param is named after its component and its own name: the mass of the `Inertance` added as
+`m` is `m.inertance`, the stiffness of `spring` is `spring.stiffness` (`robot.params` lists them all; see
+[Parameters](parameters.md)). `fit_params` takes the robot, the names (or globs) of its Params and the runs. It asks
 which values make the robot's own dynamics, at the logged motion, agree with the torques that
 were sent:
 
@@ -59,7 +61,8 @@ were sent:
 from virtualmodelcontrol.identification import fit_params
 
 guess = slider(1.0, 10.0, 0.2)
-names = ["m.inertance", "spring.stiffness", "damper.damping"]
+names = ["m.inertance", "spring.stiffness",
+         "damper.damping"]  # component.Param
 fit = fit_params(guess, names, [log], smoothing=11)
 for name in names:
     value, std = float(fit.values[name]), float(fit.std[name])
@@ -79,8 +82,10 @@ The true values are 2 kg, 40 N/m and 1.5 N·s/m. The log holds no accelerations,
 gets them by smoothing the velocity and differentiating it, which is where its error comes from
 (`smoothing` is the number of samples of the smoothing). A run that has an `a` of its own, as a
 simulation can give, is used as it is. After the fit, {glue:text}`fit_rms:.2f` N is left over
-per sample, and the numbers after ± are the standard errors, which say how far the values may be
-off if that is noise.
+per sample. The numbers after ± are the standard errors: how far the values may be off if what is
+left over is noise. Here it is not noise, it is the smoothing, so the errors are much larger than
+the ± says (the damping is 1 % off, many times its standard error). Read the ± to compare how
+well the run determines one Param against another, not as a bound on the error.
 
 ## What it asks of the data
 

@@ -32,7 +32,7 @@ segment1 = arm.joint(slice(0, 3))  # the first segment's q, 3 entries [m]
 tip, middle, segment1
 ```
 
-On a continuum robot, `s` runs from 0 at the base to 1 at the tip, uniformly in arc length.
+On a continuum robot, `s` runs from 0 at the base to 1 at the tip, uniformly in rest length (the arc length while no segment stretches).
 Rigid robots and hands name their points instead, as in `finger.point("tip")` or
 `hand.point("index/tip")`. `offset=` moves the point within that frame.
 
@@ -191,6 +191,10 @@ signs. These are the components of the library:
 | `ForceSource(y, f)` | source | $f$, a live parameter, bounded in force and in power on request |
 | `GravityCompensation(robot)` | source | $-m_i g$ on each mass of the robot |
 | `SpeedRegulator(y, b, ω, T)` | source | $b\,(\omega r(t) - \dot y)$, the ramp $r$ rising from 0 to 1 in $T$ |
+
+The arguments are listed in the order the constructors take them, with the symbols of the
+formulas; the keyword names (`stiffness`, `damping`, `max_force`, ...) are in the
+[API reference](../api/index.md).
 
 An `Inertance` on a difference of two coordinates is an inerter: a mass between them, with a force
 $M\,(\ddot y_1 - \ddot y_2)$ that opposes their relative acceleration. A `LimitSpring` on a slice of

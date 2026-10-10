@@ -59,7 +59,8 @@ vmc.viz.animate(arm, log, "index-hero.mp4", springs=[(1.0, goal)],
 pip install virtualmodelcontrol
 ```
 
-[Installation](installation.md) covers virtual environments, conda, ROS 2 and updates.
+[Installation](installation.md) covers virtual environments, conda, ROS 2 and updates, and
+[where to type the code](installation.md#run-the-examples) of the pages.
 
 ## Where to start
 

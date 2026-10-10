@@ -276,9 +276,9 @@ pair = vmc.Mechanism("pair", model=vmc.models.JointSpace(2, unit="m"))
 a, b = pair.joint(0), pair.joint(1)
 for i, coord in enumerate((a, b)):
     pair.add(f"m{i}", vmc.Inertance(coord, 0.5))  # [kg]
-width = (b - a) - 0.10  # [m] from the object's surface; negative inside it
-pair.add("object", vmc.ContactSpring(width, 2e3))  # [N/m]
-pair.add("cushion", vmc.ContactDamper(width, 8.0))
+distance = (b - a) - 0.10  # [m] to the object's surface; negative inside it
+pair.add("object", vmc.ContactSpring(distance, 2e3))  # [N/m]
+pair.add("cushion", vmc.ContactDamper(distance, 8.0))
 
 squeeze = vmc.Mechanism("squeeze")
 squeeze.add("pull", vmc.LinearSpring(b - a, 50.0))  # [N/m]

@@ -243,8 +243,10 @@ A configuration ([Experiments in files](configurations.md)) saves each of its ru
 ```
 
 `name` is the file name (by default the start time of the run), `folder` is relative to the
-configuration file, and `record` lists what to add to the log. We add these lines, indented by two spaces as in the file, at the end of the `experiment`
-section of that tutorial's file and run it:
+configuration file, and `record` lists what to add to the log. We add these lines, indented by two
+spaces as in the file, at the end of the `experiment` section of that tutorial's file and run it.
+Download [reach.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/reach.yaml) and [run-settings.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/run-settings.yaml) into the
+folder where you run the code:
 
 ```{code-cell} python
 from pathlib import Path

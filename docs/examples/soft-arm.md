@@ -31,7 +31,7 @@ schematic.figure("145-145-145");
 
 The arm is mounted on its side: gravity acts along $-y$, out of the drawing, so the arm bends
 in a horizontal plane. The arc parameter $s$ runs from 0 at the base to 1 at the tip,
-uniformly in arc length, and `arm.point(s=...)` gives any point of the body.
+uniformly in rest length, and `arm.point(s=...)` gives any point of the body.
 
 The cross-sections below, seen along each segment's $z$ axis, show where the tendons sit. The
 number beside a tendon is the index of its motor in the motor vector. A positive motor angle
@@ -91,7 +91,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol import viz
+from virtualmodelcontrol.robots import helyx
 
+arm = helyx.add_dynamics(helyx.arm("145-145-145"))
 kin = vmc.Kinematics(arm)
 tip = arm.point(s=1.0)
 rest = kin.position(np.zeros(9), 1.0)  # the tip at rest [m]

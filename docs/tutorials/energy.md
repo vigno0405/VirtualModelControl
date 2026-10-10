@@ -44,7 +44,9 @@ figure. `ModelPlant` compiles the dynamics from the robot mechanism and keeps th
 The energies come in opposite orders: `(V, T)` for the controller, `(T, V)` for the robot.
 `z` holds the controller's virtual states (positions, then velocities), `p` the live Params of
 each and `u` the motor torques. The robot's `input` equals the controller's `port` as long as no
-output stage changes the torques and the transmission's efficiency is 1, the default. To log
+output stage changes the torques and the transmission's efficiency is 1, the default (the soft arm's
+tendons really deliver only a share of the motor torque, see [Contact](contact.md), but its model
+refers its stiffness to the commanded torque and keeps 1). To log
 the controller's terms during a run, ask `vmc.sim.run` for `record=["energy"]`
 ([Run logs](run-logs.md)).
 

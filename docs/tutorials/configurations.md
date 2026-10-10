@@ -35,8 +35,8 @@ as `tip - [0.1, 0.0, 0.40]` is in Python.
 
 ## Run it
 
-The file is `reach.yaml`, in the `docs/tutorials` folder of the repository: the pieces on this
-page, in the order of the sections above, make it. `vmc.config.load` reads the file and builds the robot from its template, the controllers and
+The file is [reach.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/reach.yaml): download it into the folder where you run the code
+(the pieces on this page, in the order of the sections above, make it). `vmc.config.load` reads the file and builds the robot from its template, the controllers and
 the plant. `run` runs the experiment from its start and returns the log. With `run` settings in
 the file, it also saves the log, as [Run logs](run-logs.md) shows:
 

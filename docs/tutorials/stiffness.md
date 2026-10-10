@@ -134,10 +134,12 @@ A spring with a stiffness of 300 N/m does not bring the tip to its goal: the arm
 holds it back.
 
 ```{code-cell} python
-:tags: [remove-cell]
-controller.set({"ctrl.reach.stiffness": 300.0 * np.eye(3), "ctrl.reach.goal": goal})
+controller.set({"ctrl.reach.stiffness": 300.0 * np.eye(3),
+                "ctrl.reach.goal": goal})
 settle(2.0)
 ```
+
+How far is the tip from the goal now?
 
 ```{code-cell} python
 kin = vmc.Kinematics(arm)

@@ -185,6 +185,9 @@ u = controller.step(0.0, meas)["motor_torque"]
 u[6:].round(4)  # the hand's 13 motor torques [N·m], sent to the hand
 ```
 
+They are a few mN·m each: the torques that hold up the weight of the fingers, the only thing this
+controller does.
+
 The figure draws this pose:
 
 ```{code-cell} python

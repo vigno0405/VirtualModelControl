@@ -247,8 +247,8 @@ The tank holds 0.05 J, little for a spring of 2 N/m that must move a meter. The 
 the budget changes the Params in steps the tank pays in full (the share is 1 throughout),
 and the mass has moved {glue:text}`moved:.2f` m by the end. The plan that does not asks for
 more, and the tank applies as little as {glue:text}`cut:.1e` of a change. Both keep the
-tank's level above zero: the tank is what makes it safe, and the term is what makes it
-efficient.
+tank's level above zero: the tank is what makes them safe. The term only lets the plan ask for
+what the tank can pay, instead of asking for more than it applies.
 
 ## Real-time iteration
 

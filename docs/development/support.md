@@ -5,9 +5,11 @@ What you can rely on from version 1.0.0 on.
 ## Versions of Python and of the packages
 
 The library runs on Python 3.10 to 3.14, with numpy 1.26 or any 2.x. Every push runs the tests
-on Ubuntu 22.04 and 24.04 with Python 3.10, 3.12 and 3.14. We have also run them from a fresh
-clone on 3.11 and 3.13, and with the oldest versions the library allows: numpy 1.26, SciPy
-1.11, CasADi 3.6 and matplotlib 3.8. PyTorch, which only the models exported as PyTorch code
+on Ubuntu 22.04 with Python 3.10 and on Ubuntu 24.04 with Python 3.12 and 3.14, with numpy 1.26
+and with 2.x (3.14 with 2.x only). One more job runs them on Python 3.10 with the oldest versions
+the library allows: numpy 1.26, SciPy 1.11, CasADi 3.6 and matplotlib 3.8. Before a release the
+tests also run on macOS and Windows, and we have run them from a fresh clone on 3.11 and 3.13.
+PyTorch, which only the models exported as PyTorch code
 need, is tried with its newest release.
 
 A Python version is dropped, in a minor release and with a line in the

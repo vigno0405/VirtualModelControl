@@ -29,7 +29,7 @@ from schematics import helyx as schematic
 schematic.figure("145-290-290");
 ```
 
-The arc parameter $s$ runs from 0 at the base to 1 at the tip, uniformly in arc length, and
+The arc parameter $s$ runs from 0 at the base to 1 at the tip, uniformly in rest length, and
 `arm.point(s=...)` gives any point of the body. The cross-sections below, seen along each
 segment's $z$ axis, show where the tendons sit. The number beside a tendon is the index of its
 motor in the motor vector. A positive motor angle pulls its tendon.
@@ -86,6 +86,9 @@ import virtualmodelcontrol as vmc
 from virtualmodelcontrol import viz
 from virtualmodelcontrol.identification import (
     Steps, fit_stiffness_damping, validate)
+from virtualmodelcontrol.robots import helyx
+
+arm = helyx.add_dynamics(helyx.arm("145-290-290"))
 
 base = 0.03  # [N·m], on every motor
 pulls = [([m], 0.04) for m in range(9)]  # [motors], [N·m] more

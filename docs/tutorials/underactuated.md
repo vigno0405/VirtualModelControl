@@ -376,7 +376,7 @@ glue("e_loose", int(loose_lost), display=False)
 glue("e_loose_steps", len(loose), display=False)
 ```
 
-With $Q = 10^{-3}$ the estimate is on the passive joint within 20 ms, stays within
+With $Q = 10^{-3}$ the estimate reaches the passive joint in 20 ms, then stays within
 {glue:text}`e_peak:.0f` mrad of it through the first swing, within 5 mrad from
 {glue:text}`e_settle:.1f` s on, and within {glue:text}`e_gap:.1f` mrad over the last second. The tip
 ends {glue:text}`e_tip:.1f` mm from the goal, which is where the controller on the true state

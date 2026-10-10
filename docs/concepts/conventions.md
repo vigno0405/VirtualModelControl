@@ -8,8 +8,10 @@ The rules that every part of the library follows, and the words it uses. Read it
   robot's hardware profile. A driver's raw units (encoder ticks, motor currents) never enter
   the library.
 - A positive motor angle pulls its tendon. Each template states the sign of its robot's
-  encoders against this convention (`helyx.ENCODER_SIGN`, `bimanual.ENCODER_SIGN`,
-  `turtle.MOTOR_SIGNS`); multiply raw readings and commands by it.
+  encoders against this convention (`helyx.ENCODER_SIGN`, one sign for each geometry,
+  `bimanual.ENCODER_SIGN`, one sign, and `turtle.MOTOR_SIGNS`, one sign per motor). The robot's
+  hardware profile applies it for you; if you convert by hand, multiply raw readings and commands
+  by it.
 - Controllers send their torques as computed, never divided by an efficiency. A robot's
   efficiency maps the commanded motor torques to the delivered ones. It is 1 by default,
   because the templates' stiffness and damping were identified from the commanded torques
@@ -19,7 +21,9 @@ The rules that every part of the library follows, and the words it uses. Read it
 
 - The configuration `q` lives on a space, and the velocity `v` in its tangent space. So `q` and
   `v` may differ in size (a floating body, for example).
-- Motor angles are `θ`, a generalized force is `τ`, actuator commands are `u`.
+- A generalized force is `τ`, actuator commands are `u`. Symbols are local to a page, and each page
+  says what it uses: `θ` is a motor angle in the robot's signals (`motor_position`), a joint angle in
+  the finger and hand pages (where the motors are `q`), and the bend of a segment in the PCC page.
 - A spring's deflection is `y = x − x_ref`, so it pulls `x` towards `x_ref`. Storage gives
   `f = −∂V/∂y`, a damper `f = −D ẏ`, and every force reaches the robot as `τ = Jᵀ f`.
 - Arrays in, arrays out: inputs accept anything array-like; outputs are numpy arrays (torch
@@ -27,7 +31,8 @@ The rules that every part of the library follows, and the words it uses. Read it
 
 ## Continuum robots
 
-- The arc parameter `s ∈ [0, 1]` runs from the base to the tip, uniformly in arc length.
+- The arc parameter `s ∈ [0, 1]` runs from the base to the tip, uniformly in rest length (the arc
+  length while no segment stretches).
 - A segment's configuration is `Δ = (Dx, Dy, Dl)` [m]. The base frame's `z` axis runs along
   the straight body. See [soft-arm kinematics](pcc.md).
 
@@ -63,8 +68,9 @@ site
   parameter `s`.
 
 plant
-  What the controller drives: a simulator such as `ModelPlant`, or the real robot. A planner's
-  plant is the robot that moves, when the controller is written for other coordinates.
+  What the controller drives: a simulator such as `ModelPlant`, or the real robot. In a plan,
+  `Problem(system, plant=robot)` plans the motion of a larger `robot` than the controller's own
+  (see [Optimize](../tutorials/optimize.md)).
 
 tank
   An energy budget for changing a running controller: a change is applied as far as the tank

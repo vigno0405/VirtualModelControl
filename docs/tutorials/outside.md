@@ -80,6 +80,9 @@ body = tip.source.split("def kinematics")[1].splitlines()
 print("def kinematics" + "\n".join(body[:14]))
 ```
 
+The Hessian `H` comes with the three coordinates stacked, shape `(27, 9)`: `H.reshape(3, 9, 9)` is
+what `kin.hessian` returns, as in the [kinematics tutorial](kinematics.md).
+
 Arguments follow CasADi's shapes: a number, a vector of shape `(n,)` or a matrix of shape
 `(n, m)`. Any leading dimensions are a batch: a thousand configurations at once is one call,
 and `tip(Q)` with `Q` of shape `(1000, 9)` returns arrays with 1000 as their first dimension.
