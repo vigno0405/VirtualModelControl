@@ -126,15 +126,17 @@ def test_a_matrix_param_comes_back_in_its_own_shape():
             rows[key].append(value)
         plant.advance(1 / 200)
     rows = {key: np.array(value) for key, value in rows.items()}
-    start = np.array([[10.0, 4.0], [0.0, 10.0]])  # a wrong stiffness, not symmetric
-    robot.components["spring"].stiffness.value = start
+    # a spring only feels the symmetric part, so the data fix only K[0, 1] + K[1, 0] = 10 and where
+    # the solver puts the difference depends on the rounding of the machine. The bounds pin its
+    # sign instead, entry [0, 1] above [1, 0], which a transposed layout would break
+    spring = robot.components["spring"].stiffness
+    spring.bounds = ([[0.0, 7.0], [0.0, 0.0]], [[100.0, 100.0], [3.0, 100.0]])
+    spring.value = np.array([[10.0, 8.0], [0.0, 10.0]])  # a wrong stiffness, not symmetric
     fit = fit_params(robot, ["spring.stiffness"], [rows])
     found = fit.values["spring.stiffness"]
     assert found.shape == (2, 2) and fit.std["spring.stiffness"].shape == (2, 2)
     np.testing.assert_allclose(0.5 * (found + found.T), [[30.0, 5.0], [5.0, 20.0]], rtol=1e-5)
-    # a spring only feels the symmetric part: the rest stays near where it started, with its sign
-    # (entry [0, 1] above [1, 0]) which a transposed layout would flip; how near is the solver's
-    assert 2.0 < found[0, 1] - found[1, 0] < 6.0  # it started at 4
+    assert found[0, 1] >= 7.0 - 1e-9 and found[1, 0] <= 3.0 + 1e-9
 
 
 def test_a_name_that_matches_nothing_is_an_error():
