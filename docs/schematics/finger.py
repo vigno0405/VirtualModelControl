@@ -17,7 +17,7 @@ JOINTS = ("MCP", "PIP", "DIP")
 
 def figure() -> Any:
     """Side view (y-z, z down as mounted) of the straight finger: phalanx lengths, joint ranges,
-    the tip and the centres of gravity, which motor turns which joint, the frame and gravity."""
+    the tip and the centers of gravity, which motor turns which joint, the frame and gravity."""
     finger = adapt.finger()
     p = finger.params
     C = np.asarray(p["coupling"].value)
@@ -52,7 +52,7 @@ def figure() -> Any:
     ax.text(0.0, 0.034, mcp, va="center")
     ax.text(0.0, 0.045, pip, va="center")
     ax.plot(0.002, 0.056, "+", color=RED, ms=14, mew=2.5)
-    ax.text(0.007, 0.056, "centres of gravity", va="center")
+    ax.text(0.007, 0.056, "centers of gravity", va="center")
     # the base frame, drawn beside the base: y along the finger, z down, x into the page
     origin = np.array([0.0, -0.022, -0.016])
     viz.draw_frame(ax, np.eye(3), origin, plane="yz", length=0.012)

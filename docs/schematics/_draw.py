@@ -36,7 +36,7 @@ def box(
     dashed: bool = False,
     size: float | None = None,
 ) -> tuple[float, float, float, float]:
-    """A rounded box centred at (x, y) with centred text; returns (left, right, bottom, top)."""
+    """A rounded box centered at (x, y) with centered text; returns (left, right, bottom, top)."""
     ax.add_patch(
         FancyBboxPatch(
             (x - w / 2, y - h / 2),

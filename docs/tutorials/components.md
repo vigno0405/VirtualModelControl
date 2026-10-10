@@ -22,7 +22,8 @@ A component acts on one coordinate $y$, and it is one of four kinds:
   the robot);
 - dissipation: a force with $f \cdot \dot y \le 0$ (dampers);
 - inertance: a mass or inertia $M$, with kinetic energy $\tfrac12 \dot y^\top M \dot y$;
-- source: a force whose power $f \cdot \dot y$ is metered (force sources, gravity compensation).
+- source: a force whose power $f \cdot \dot y$ is counted apart in the energy balance (force
+  sources, gravity compensation; see [Energy and passivity](energy.md)).
 
 Each force reaches the robot through its coordinate's Jacobian: $\dot y = J v$ and
 $\tau = J^\top f$. The motors then receive the torques $u$ with $B(q)\,u = \tau$, where $B$
@@ -34,10 +35,10 @@ signs. These are the components of the library:
 | `LinearSpring(y, K)` | storage | $-K y$, with $K$ a scalar, one value per axis, or a matrix |
 | `TanhSpring(y, k, F)` | storage | $-F \tanh(k y / F)$ per axis: never more than $F$ |
 | `GaussianSpring(y, A, σ)` | storage | $A\, e^{-\lVert y \rVert^2 / 2\sigma^2}\, y$: pushes away from $y = 0$ |
-| `SigmoidSpring(y, k_min, k_max, d₀, α)` | storage | $-k(d)\, y$, $k$ rising from $k_\min$ to $k_\max$ around $d = d_0$ |
+| `SigmoidSpring(y, k_min, k_max, d₀, α)` | storage | $-k(d)\, y$, $k$ rising from $k_\min$ to $k_\max$ around $d = d_0$, as a logistic curve that is the sharper the larger $\alpha$ [1/m] |
 | `PolynomialSpring(y, K, n, d₀)` | storage | $-K (d / d_0)^n\, y$ |
 | `LimitSpring(y, k, lower, upper)` | storage | zero inside $[\text{lower}, \text{upper}]$; outside, $k$ times the overshoot, inwards |
-| `PhaseSpring(y, K, m, φ₀)` | storage | for $y = (e, \varphi)$, a spring on $e$ with the stiffness $K\,(1 + m \cos(\varphi - \varphi_0))$, and the reaction on the phase $\varphi$; it can saturate and steer a gait |
+| `PhaseSpring(y, K, m, φ₀, ...)` | storage | for $y = (e, \varphi)$, a spring on $e$ with the stiffness $K\,(1 + m \cos(\varphi - \varphi_0))$, and the reaction on the phase $\varphi$; more arguments (`steer`, `side`, `limit`) steer a gait and bound the force ([Crawl with a flywheel](crawl.md)) |
 | `ContactSpring(d, k)` | storage | $k \max(0, -d)$ along $d$, only in contact ($d < 0$) |
 | `Gravity(robot)` | storage | $m_i g$ on each mass of the robot |
 | `LinearDamper(y, D)` | dissipation | $-D \dot y$ |
@@ -144,6 +145,7 @@ law = vmc.compile(vmc.VirtualMechanismSystem(bar, probe))
 
 d = np.linspace(-0.3, 0.3, 241)  # [m]
 q, v, z = np.tile(d, (6, 1)), np.zeros((6, 1)), np.zeros((0, 1))
+# law.tau(q, v, z, p, t) is the torque; map evaluates it at every column
 forces = law.tau.map(d.size)(q, v, z, law.live_values(), 0.0).full()
 
 fig, axes = plt.subplots(3, 2, figsize=(6.4, 7.6), sharex=True)

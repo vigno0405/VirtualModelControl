@@ -6,7 +6,7 @@ from typing import Any
 
 from ._draw import BLUE, GREY, LAVENDER, NAVY, TEAL, arrow, box, canvas, code
 
-STEPS = [  # title, what it holds or does, the library's name for it, colour
+STEPS = [  # title, what it holds or does, the library's name for it, color
     ("1. describe the robot", "kinematics, motors, masses", "robots.helyx.arm()", TEAL),
     (
         "2. place the virtual elements",

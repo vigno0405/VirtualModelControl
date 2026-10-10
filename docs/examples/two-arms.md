@@ -258,8 +258,8 @@ glue("grip_believed", float(without[late, 2].mean()), display=False)
 
 The object feels {glue:text}`grip_blind:.2f` N with the estimates alone and
 {glue:text}`grip_sensed:.2f` N with the sensor. Peak to peak, the force ripples by
-{glue:text}`grip_ripple_blind:.0e` N in the first run, no ripple at all, and by
-{glue:text}`grip_ripple_sensed:.3f` N in the second. With the sensor, the ripple is proportional to
+{glue:text}`grip_ripple_blind:.0e` N with the estimates alone, which is no ripple at all, and by
+{glue:text}`grip_ripple_sensed:.3f` N with the sensor. With the sensor, the ripple is proportional to
 `max_force_step` (0.01 N by default): half that step gives {glue:text}`grip_ripple_half:.3f` N. The right arm's estimate,
 {glue:text}`grip_believed:.2f` N, is right too, because the model has no error here. A wrong
 mass in the model would give a wrong force, as in
@@ -297,8 +297,8 @@ object and the spring between the tips. It receives the log's row at each frame.
 :tags: [remove-output]
 def draw(ax, row):
     a, b = tips(row["q"])
-    centre = (a + b) / 2
-    ax.add_patch(plt.Circle((centre[0], centre[2]), width / 2,
+    center = (a + b) / 2
+    ax.add_patch(plt.Circle((center[0], center[2]), width / 2,
                             color=viz.PALETTE[1], alpha=0.3))
     viz.draw_spring(ax, b, a)
 

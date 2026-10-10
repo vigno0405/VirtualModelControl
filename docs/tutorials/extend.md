@@ -18,10 +18,10 @@ import docs_setup
 |---|---|---|
 | a spring, damper or source | a `Component` subclass | `"component"` |
 | a quantity to act on | a `Custom` coordinate, or a `Coordinate` subclass | `"coordinate"` |
-| a kind of robot | a class with `space`, `params`, `sites` and `frame` | `"model"` |
+| a kind of robot | a class with `space`, `params`, `sites`, `q_unit` and `frame` | `"model"` |
 | the dynamics of a robot | `Equations`, a residual (and an energy) for a `FunctionModel` | not registered: a function cannot be written to a file |
 | a transmission | the `Actuation` protocol, below | `"actuation"` |
-| a simulator or hardware | `read`, `write` and `close` (and, simulated, `t`, `reset`, `advance`) | not registered: pass it to `run` |
+| a simulator or hardware | `t`, `read()` and `write(cmd)` (a simulated one also `advance(dt)`; `close()` is yours to call when a run ends) | not registered: pass it to `run` |
 
 A transmission implements `vmc.models.Actuation`: `params`, `motor_sizes`, `motor_angles`,
 `motor_rates`, `generalized_force` ($\tau = B(q)\,u$), `allocate` (the $u$ for a $\tau$),
@@ -30,7 +30,10 @@ A transmission implements `vmc.models.Actuation`: `params`, `motor_sizes`, `moto
 ## A new component
 
 A storage component defines its energy $V(y)$. Automatic differentiation gives the force
-$f = -\partial V / \partial y$. Its numbers are Params, created with `_param`.
+$f = -\partial V / \partial y$. Its numbers are Params, created with
+`self._param(name, value, unit=..., scope=...)`: once the component is in a mechanism they are
+named `<component>.<name>`. `ctx` is what `compile` hands to the method, and `ctx.param(p)` is
+the value of a Param inside the energy.
 
 ```{code-cell} python
 import casadi as ca
@@ -138,6 +141,14 @@ class Pendulum:
         R = ca.vertcat(ca.horzcat(c, -s, 0), ca.horzcat(s, c, 0),
                        ca.horzcat(0, 0, 1))
         return R, p["L"] * ca.vertcat(c, s, 0)
+
+    # a registered model writes itself, and reads itself back
+    def to_dict(self):
+        return {"type": "pendulum", "length": float(self.params["L"].value)}
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["length"])
 
 
 robot = vmc.Mechanism("pendulum", model=Pendulum(0.5))
@@ -260,8 +271,9 @@ glue("eq_swing", float(swung), display=False)
 ```
 
 The link swings {glue:text}`eq_swing:.2f` rad, and the two runs agree to better than a
-nanoradian. (With several joints they differ a little: the simulator's step linearizes the whole
-acceleration of the black box, but only the forces of the springs and dampers of the parts.)
+nanoradian. (With several joints they differ a little. The simulator's step is linearly implicit: for the
+black box it linearizes the whole acceleration, for a robot of parts only the forces of its
+springs and dampers.)
 `check_model` takes the robot as it takes any model, and checks the mass matrix (symmetric,
 positive) and, when there is an energy, that a simulation never gains any:
 

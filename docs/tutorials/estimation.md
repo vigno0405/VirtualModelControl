@@ -95,13 +95,16 @@ gyro, acc = (np.array(x) for x in
 
 `KalmanFilter` holds the state $(q, v)$ and its covariance. At every control step it
 `predict`s with the torques the motors were given, then `update`s with the measurements that
-came in. A `Measurement` is some of the coordinates $q$ and rates $v$ with their covariances,
-and a name. The encoders come ready: `kf.encoder` takes the motor angles and rates through
+came in. A `Measurement(q, v, Rq, Rv, name=...)` is some of the coordinates $q$ and rates $v$ with their
+covariances (variances: the square of a standard deviation), and a name. The encoders come ready: `kf.encoder` takes the motor angles and rates through
 the transmission. The markers go through `Inversion`, which finds the $q$ that puts the arm's
 points on them, and the markers' $v$ comes from `VelocityFilter`, a low-passed difference of
 consecutive $q$. The IMUs' $(D_x, D_y)$ and their rates come from `ImuFilter`, which is
 `observed` on those coordinates only. The markers and the IMUs run at a third of the control
-rate, as real ones do. A sensor that sees combinations of the coordinates, such as tendon
+rate, as real ones do. In `kf.encoder(theta, theta_dot, 1.5e-3**2, 1e-2**2)` the last two numbers
+are the variances of the $q$ and the $v$ that the readings give: 1.5 mm and 1 cm/s. `kf.reset(q0)`
+starts the filter at rest at the configuration `q0`, here the one that the first encoder reading
+gives (the `y` of that measurement is its values). A sensor that sees combinations of the coordinates, such as tendon
 lengths or the motors of a robot with fewer motors than joints, gives its `matrix` ($m \times n$)
 instead: it reads `matrix @ q` and `matrix @ v`, and `kf.encoder` does this by itself for such
 a robot (see [Robots with fewer motors than joints](underactuated.md)).
@@ -115,7 +118,7 @@ every = 3  # steps between two frames of the markers, or of the IMUs
 
 def estimate(sensors, markers=markers, gate=40.0, lost=()):
     """Run the filter over the recorded readings; the frames in ``lost``
-    never arrive."""
+    never arrive. ``gate`` is explained in "Outliers and dropouts"."""
     kf = KalmanFilter(system, dt, Q=Q, P0=1e-4, gate=gate)
     inversion = Inversion(arm, at)
     velocity = VelocityFilter(every * dt)
@@ -288,8 +291,7 @@ ax.legend();
 
 With the gate the worst error is {glue:text}`worst_gate:.2f` mm, without it
 {glue:text}`worst_free:.2f` mm. The gate turned {glue:text}`rejected_bad` frames away: the two
-that were wrong and {glue:text}`rejected_same` that it turns away on this run without the
-outlier too. After a rejected or missing frame, `estimate` resets the velocity filter, which
+that were wrong, and {glue:text}`rejected_same` good ones, as in the run without the outlier. After a rejected or missing frame, `estimate` resets the velocity filter, which
 has no previous frame to differ from, and the inversion, which starts from the estimate:
 neither keeps the jump.
 
@@ -372,7 +374,7 @@ frames means the covariances are too small, or a sensor is wrong.
 
 The markers' positions must be in the arm's base frame: `Inversion` takes `positions` as rows
 of $(x, y, z)$ in that frame, so a motion-capture system that reports them in the room needs
-one change of frame first, $R^\top (p - t)$ with the base's pose. From the neutral
+one change of frame first, $R^\top (p - b)$ with the base's rotation $R$ and position $b$. From the neutral
 configuration `Inversion` finds the soft arm up to 0.6 rad of bend in each section, and it
 keeps its last result as the start of the next fit; after a long gap, give it `q0`.
 

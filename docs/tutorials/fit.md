@@ -53,7 +53,9 @@ log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 200), T=10.0)
 We start from a model that has the right structure and the wrong numbers, and name the Params
 to find. A Param is named after its component and its own name: the mass of the `Inertance` added as
 `m` is `m.inertance`, the stiffness of `spring` is `spring.stiffness` (`robot.params` lists them all; see
-[Parameters](parameters.md)). `fit_params` takes the robot, the names (or globs) of its Params and the runs. It asks
+[Parameters](parameters.md)). `fit_params` takes the robot, the names (or globs) of its Params and the runs: each a log from
+`vmc.sim.run`, or a dict of arrays with one row per sample, `t`, `q`, `v` and `motor_torque`, and
+`a` too if you have the accelerations. It asks
 which values make the robot's own dynamics, at the logged motion, agree with the torques that
 were sent. It returns the fitted `values` and their standard errors `std`, each by name, and the
 root-mean-square `rms` of what is left over:
@@ -131,3 +133,9 @@ stiffness in the position, the damping in the velocity, so a run that only sits 
 none of them: every Param keeps the value it started from, with a standard error of `inf`. A Param of a nonlinear component,
 such as the saturating damper `TanhDamper`, is fitted the same way, by iterating from the values
 the robot has, and the fit keeps every Param within its bounds.
+
+To use a result, put its values into the robot: `guess.params[name].value = fit.values[name]`
+for each name. The robot then simulates, plans and is controlled with the fitted numbers.
+[The hanging arm](../examples/hanging-arm.md) fits the stiffness and damping of a real kind of arm
+from logged runs, and [Tuning](tuning.md) and [Optimizing a virtual mechanism](optimize.md) use
+such a model.

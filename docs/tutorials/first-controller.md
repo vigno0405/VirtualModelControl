@@ -64,13 +64,17 @@ elements into one CasADi function of the motor angles and rates.
 ## One control step
 
 At every step the controller takes the time, the measured motor angles and the rates, and returns
-the motor torques. Here the arm is at rest and straight, so only the spring pulls:
+the motor torques. Here the arm is at rest and straight, so the torques are those of the spring
+pulling it towards the goal and of the gravity compensation holding up its weight:
 
 ```{code-cell} python
 meas = vmc.Signals(0.0, motor_position=np.zeros(9),
                    motor_velocity=np.zeros(9))
 controller.step(0.0, meas)["motor_torque"].round(3)  # [N·m]
 ```
+
+`Signals` stamps the measurement with its time, and `step` takes the time of the step: in a loop
+they are the same instant.
 
 A positive torque pulls its tendon, and a negative one lets it out, so some of the nine torques
 are negative: the tendons on one side pull and those on the other side give way. On the real arm, this call runs at the control rate with
@@ -171,3 +175,9 @@ viz.animate(arm, log, "first-controller.mp4", springs=[(1.0, goal)],
 ```
 
 The same call writes a GIF or an animated WebP if the file name ends in `.gif` or `.webp`.
+
+## Where to go next
+
+[Coordinates](coordinates.md) and [Components](components.md) list what a controller can be made
+of, and [Parameters](parameters.md) shows which of its numbers can change while the arm runs. To
+write a run to a file and replay it, see [Run logs](run-logs.md).

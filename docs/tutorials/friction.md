@@ -200,8 +200,9 @@ command = np.concatenate([np.zeros(150), rise, rise[::-1], np.zeros(150)])
 truth = vmc.StaticFriction(0.3, 0.1, 0.002)
 robot = system_of(truth).robot
 robot.add("spring", vmc.LinearSpring(robot.joint(0), 40.0))
-none = vmc.VirtualMechanismSystem(robot, vmc.Mechanism("none"))
-log = vmc.sim.rollout(none, [0.0], len(command) * dt, dt, max_step=dt,
+# no controller:
+bare = vmc.VirtualMechanismSystem(robot, vmc.Mechanism("none"))
+log = vmc.sim.rollout(bare, [0.0], len(command) * dt, dt, max_step=dt,
                       u=command[:, None])
 
 guess = system_of(vmc.StaticFriction(0.2, 0.05, 0.002)).robot
@@ -256,9 +257,9 @@ an MPC ([Model predictive control](mpc.md)) see it. A compensation joins them th
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt
 
-kept = vmc.StaticFriction(0.3, 0.3, 0.02)
-stage = StaticFrictionCompensation.of(kept, fraction=0.7)
-system = system_of(kept)
+smooth = vmc.StaticFriction(0.3, 0.3, 0.02)  # wider: easier for a solver
+stage = StaticFrictionCompensation.of(smooth, fraction=0.7)
+system = system_of(smooth)
 
 problem = opt.Problem(system, output=[stage])
 problem.add(opt.Shooting([0.0], 3.0, 11, v0=[0.0], substeps=5))

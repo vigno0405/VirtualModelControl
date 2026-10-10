@@ -85,7 +85,7 @@ $-x$. For a fingertip grasp we take the end of that phalanx, as in the custom ha
 motor damping and the ball's stiffness are illustrative.
 
 ```{code-cell} python
-centre, radius = np.array([-0.02, 0.08, 0.035]), 0.03  # [m]
+center, radius = np.array([-0.02, 0.08, 0.035]), 0.03  # [m]
 k_ball = 5000.0  # [N/m], stiffness of the ball's surface
 digits = ("thumb", "index", "middle")
 thumb_end = {"thumb": (-0.025, 0.0, 0.0)}  # [m], end of the last phalanx
@@ -95,9 +95,9 @@ hand = adapt.add_dynamics(hand, damping=0.01)  # [N·m·s/rad]
 ctrl = vmc.Mechanism("ctrl")
 for d in digits:
     tip = hand.point(f"{d}/tip")
-    ball = vmc.SphereDistance(tip, center=centre, radius=radius)
+    ball = vmc.SphereDistance(tip, center=center, radius=radius)
     hand.add(f"ball_{d}", vmc.ContactSpring(ball, k_ball))
-    ctrl.add(f"grasp_{d}", vmc.LinearSpring(tip - centre, 40.0))  # [N/m]
+    ctrl.add(f"grasp_{d}", vmc.LinearSpring(tip - center, 40.0))  # [N/m]
     ctrl.add(f"damp_{d}", vmc.LinearDamper(tip, 0.2))  # [N·s/m]
 ctrl.add("limits", adapt.hand_joint_limit_spring(hand))
 ctrl.add("gravity", vmc.GravityCompensation(hand))
@@ -113,7 +113,7 @@ rows = log.arrays()
 fig, ax = plt.subplots()
 for d in digits:
     tips = np.array([kin.position(q, f"{d}/tip") for q in rows["q"]])
-    gap = np.linalg.norm(tips - centre, axis=1) - radius  # [m]
+    gap = np.linalg.norm(tips - center, axis=1) - radius  # [m]
     ax.plot(rows["t"], k_ball * np.maximum(-gap, 0.0), label=d)
 ax.set_xlabel("time [s]")
 ax.set_ylabel("contact force [N]")
@@ -139,15 +139,15 @@ stiffness times radius ({glue:text}`pull:.1f` N), a little less as the ball give
 ```{code-cell} python
 :tags: [remove-output]
 def draw(ax, row):
-    disc = plt.Circle(centre[1:], radius, color=viz.PALETTE[1], alpha=0.3)
+    disc = plt.Circle(center[1:], radius, color=viz.PALETTE[1], alpha=0.3)
     ax.add_patch(disc)
 
 viz.animate(hand, log, "hand-grasp.mp4", plane="yz", draw=draw,
-            springs=[(f"{d}/tip", centre) for d in digits])
+            springs=[(f"{d}/tip", center) for d in digits])
 ```
 
 ```{video} hand-grasp.mp4
-:caption: The hand seen from the side: springs (green) pull three fingertips to the centre of the ball (red), whose surface stops them.
+:caption: The hand seen from the side: springs (green) pull three fingertips to the center of the ball (red), whose surface stops them.
 ```
 
 ## The hand on a UR5
@@ -200,3 +200,7 @@ viz.label_axes(ax);
 ```
 
 The flange faces down, so the arm holds the hand upside down.
+
+The hand is mounted on the flange as a part of an `Assembly`:
+[Soft arms and assemblies](../tutorials/soft-and-assemblies.md) shows how parts are mounted on
+each other.

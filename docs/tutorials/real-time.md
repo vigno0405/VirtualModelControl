@@ -190,7 +190,9 @@ Nothing touches a real robot without its owner's go-ahead. Check, in order:
 4. **Low gains, then more.** A small stiffness, a damping that holds, a goal close to where the
    robot is. Change gains live with `controller.set`, never by editing the file mid-run.
 5. **Limits.** Joint-limit springs, an output stage with a `TorqueLimit` for the first runs, a
-   goal inside the workspace. No torque limit applies unless you ask for one.
+   goal inside the workspace. No torque limit applies unless you ask for one:
+   `vmc.VMCController(compiled, [vmc.control.output.TorqueLimit(0.5)])` clips every command to
+   ±0.5 N·m.
 6. **Stale and missing data.** Set `stale` to a few periods, and read `stale` and `guard_trips`
    at the end of every run.
 7. **A way out.** Your driver stops the motors when the loop stops writing (a watchdog) and on
@@ -210,7 +212,7 @@ For a simulation the arm also needs its own stiffness, damping and gravity, whic
 simulated time:
 
 ```{code-cell} python
-helyx.add_dynamics(arm)
+helyx.add_dynamics(arm)  # adds them to this arm, and returns it
 plant = vmc.sim.ModelPlant(arm)
 sim = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 330), T=3.0)
 sim.arrays()["motor_torque"].shape
@@ -355,6 +357,9 @@ old = go(plant, Slow(plant), T=0.2)
 old.info["stale"], bool(old.arrays()["motor_torque"].any())
 ```
 
+The first number counts the readings refused as stale, one per step here. The second is `False`:
+not one torque was sent.
+
 **A missing reading.** A reading that is missing or not a finite number trips the guard: zero
 torque, and the trip is counted. Here the velocities are NaN between 0.2 s and 0.3 s:
 
@@ -365,6 +370,9 @@ rows = blind.arrays()
 silent = (rows["t"] > 0.2) & (rows["t"] < 0.3)
 blind.info["guard_trips"], bool(rows["motor_torque"][silent.ravel()].any())
 ```
+
+The first number counts the trips of the guard, about one per step of the 0.1 s without
+velocities. The second is `False`: the torque was zero all through the silence.
 
 ```{code-cell} python
 :tags: [remove-cell]

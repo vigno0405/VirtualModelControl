@@ -29,10 +29,11 @@ A continuum arm is a `PCC` model, driven by a `TendonTransmission`:
 from virtualmodelcontrol.models import PCC, TendonTransmission
 
 third = 2 * np.pi / 3  # three tendons, evenly around the arm [rad]
-spacing = [[0, third, -third],  # the angles of each segment's tendons
-           [np.pi / 3, np.pi, -np.pi / 3]]  # the second one is turned
-soft = vmc.Mechanism("soft", model=PCC([0.2, 0.2], 0.03),
-                     actuation=TendonTransmission(spacing, 0.003))
+tendon_angles = [[0, third, -third],  # the angles of each segment's tendons
+                 [np.pi / 3, np.pi, -np.pi / 3]]  # the second one is turned
+soft = vmc.Mechanism(
+    "soft", model=PCC([0.2, 0.2], 0.03),  # lengths, section radius [m]
+    actuation=TendonTransmission(tendon_angles, 0.003))  # spool radius [m]
 soft.actuation.motor_sizes(soft.space)  # motor angles, motor rates
 ```
 
@@ -42,7 +43,8 @@ which is exact for any polynomial of degree $2n - 1$ in the arc length. Here the
 center of the mass of a rod bent through 1.2 rad in all converges with $n$ to rounding error:
 
 ```{code-cell} python
-q_bent = np.array([0.018, 0, 0, 0.018, 0, 0])  # 0.6 rad in each segment
+# a bend of 0.018 m over the section radius 0.03 m is 0.6 rad per segment
+q_bent = np.array([0.018, 0, 0, 0.018, 0, 0])
 kin_soft = vmc.Kinematics(soft)
 
 def moment(n):
@@ -83,7 +85,9 @@ One mass is {glue:text}`one_mass:.0f` % off, four masses {glue:text}`four_masses
 A robot known only by its joints, such as the turtle's cranks, is a `JointSpace` model: its
 controllers act on `robot.joint(i)`. A `LinearCoupling` lets one motor drive several joints.
 An `Assembly` mounts parts on a base or on another part's frame, as the hand on the UR5's
-flange:
+flange. Each part is mounted at a position and a rotation, in the base frame or, with a parent
+site, in the frame of that site of another part, so that it moves with it. The sites of a part are
+those of its own model, with its joints at 0 (as in `SerialChain`):
 
 ```{code-cell} python
 from virtualmodelcontrol.models import Assembly, LinearCoupling
@@ -95,7 +99,7 @@ gripper = LinearCoupling(SerialChain(
 two_link = SerialChain(
     ["revolute", "revolute"], axes=[[0, 0, 1]] * 2,
     points=[[0, 0, 0], [0.30, 0, 0]], sites={"tip": (2, [0.55, 0, 0])})
-both = Assembly({
+both = Assembly({  # name: (model, position [m], rotation [rad], parent)
     "arm": (two_link, (0, 0, 0), (0, 0, 0)),
     "gripper": (gripper, (0, 0, 0), (0, 0, 0), "arm/tip"),  # on the tip
 })
@@ -126,6 +130,6 @@ controller = vmc.VMCController(vmc.compile(system))
 n_angles, n_rates = soft.actuation.motor_sizes(soft.space)
 reading = vmc.Signals(0.0, motor_position=np.zeros(n_angles),
                       motor_velocity=np.zeros(n_rates))
-controller.reset(0.0, reading)
-torques = controller.step(0.0, reading)["motor_torque"]  # [N·m]
+controller.reset(0.0, reading)  # start from the first reading
+controller.step(0.0, reading)["motor_torque"]  # [N·m], one per tendon
 ```

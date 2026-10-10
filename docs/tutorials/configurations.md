@@ -19,7 +19,8 @@ import docs_setup
 A configuration file describes an experiment in a few sections. `robot` names a robot template
 and its arguments. `coordinates` names coordinates that the controllers share. `controller`
 lists the virtual elements: each names its registered `type`, the `coordinate` it acts on and
-its gains. This one is the controller of [your first controller](first-controller.md):
+its gains. This one is like the controller of [your first controller](first-controller.md), with
+another goal:
 
 ```{literalinclude} reach.yaml
 :language: yaml
@@ -36,8 +37,9 @@ as `tip - [0.1, 0.0, 0.40]` is in Python.
 ## Run it
 
 The file is [reach.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/reach.yaml): download it into the folder where you run the code.
-Its sections are `robot`, `coordinates`, `controller`, `swaps` and `experiment`, in this order,
-and the page shows `experiment` before `swaps`. `vmc.config.load` reads the file and builds the robot from its template, the controllers and
+In the file the sections come in this order: `robot`, `coordinates`, `controller`, `swaps` and
+`experiment`. This page shows `experiment` before `swaps`, so keep the file's order if you type
+it. `vmc.config.load` reads the file and builds the robot from its template, the controllers and
 the plant. `run` runs the experiment from its start and returns the log. With `run` settings in
 the file, it also saves the log, as [Run logs](run-logs.md) shows:
 
@@ -68,7 +70,9 @@ arm's pretension `{type: helyx.output_stage}`. This file has none:
 ```
 
 A schedule entry moves one live Param through its `points`: pairs of a time [s] from the start
-and a value. The Param is named as in `controller.set` ([Parameters](parameters.md)). Between
+and a value. The Param is named as in `controller.set` ([Parameters](parameters.md)): the mechanism, the
+element and the Param, so `ctrl.reach.goal` is the goal of the element `reach` of the
+`controller` section (a swap's mechanism is named by its key, as `gentle`). Between
 points the value moves in a straight line, or jumps with `interpolation: step`. Before the first
 point the Param keeps its own value, and after the last it holds the last one. Here the goal
 waits half a second, then walks to one side and to the other.

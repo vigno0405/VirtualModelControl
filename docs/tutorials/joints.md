@@ -6,8 +6,9 @@ kernelspec:
 
 # Joints and bodies
 
-In this tutorial we use the joints of a `SerialChain` that have more than one coordinate: we toss
-a free brick, spin a floating one, give a body its inertia, and slide a bead along a rail.
+In this tutorial we use the other joints of a `SerialChain`, the rigid-body model of
+[Build your own robot](build-a-robot.md): joints with several coordinates, and the rail. We toss a
+free brick, spin a floating one, give a body its inertia, and slide a bead along a rail.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -45,6 +46,7 @@ mass = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 1.5}  # [kg]
 brick = vmc.Mechanism("brick", model=SerialChain(
     ["free"], axes=[None], points=[[0, 0, 0]],
     sites={name: (1, c) for name, c in corners.items()}))
+# the Param that Gravity reads
 brick.add_param(vmc.Param("gravity", [0.0, 0.0, -9.81], unit="m/s^2"))
 for name, m in mass.items():
     brick.add(f"m_{name}", vmc.PointMass(brick.point(name), m))
@@ -183,7 +185,7 @@ The brick of four corners (lines) and the one body (dots) turn alike, to
 A rail carries a body along a curve. Its coordinate $s$ is the parameter of the natural cubic
 spline through the waypoints: 0 at the first waypoint and 1 at the last, with the same step
 of $s$ between neighbors, so give waypoints about equally far apart. The waypoints are
-`design` Params in the frame of the joint before the rail; the body starts where its site is
+`design` Params ([Parameters](parameters.md)) in the frame of the joint before the rail; the body starts where its site is
 at $q = 0$, so put the site at the first waypoint to draw the path as given. A bead on a
 circular wire swings as a pendulum. The wire runs well past the swing, because a spline
 ends flat:

@@ -129,7 +129,8 @@ loop that talks to the motors needs `fast`: the motor angles and rates, the virt
 live Params and the time, in one vector, to the motor torques and the rate of the virtual
 state. Here is the three-link arm of [the underactuated tutorial](underactuated.md), which has
 two motors for its three joints, held at a goal by a spring and a damper on its tip. We take one
-step of its law in numpy, against that tutorial's controller for such an arm, `ua.controller`:
+step of its law in numpy, against that tutorial's controller for such an arm, `ua.controller`
+with `"frozen"`, the one that needs only the motors' readings:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import underactuated as ua
@@ -147,7 +148,7 @@ law = compiled.export("numpy").fast  # no CasADi from here on
 theta, rate, t = np.array([0.3, 0.5]), np.array([0.1, -0.2]), 0.0
 # the state, the live Params and the time (no virtual state here)
 x = np.concatenate([theta, rate, compiled.live_values(), [t]])
-u = law(x)[: compiled.n_u]  # [N·m]
+u = law(x)[: compiled.n_u]  # [N·m]: the first n_u outputs, one per motor
 
 frozen = ua.controller(compiled, "frozen")
 reading = vmc.Signals(t, motor_position=theta, motor_velocity=rate)
@@ -177,10 +178,10 @@ import torch
 dynamics = vmc.compile_dynamics(arm)
 model = dynamics.export("torch")  # forward, residual, mass, ...
 p = torch.as_tensor(dynamics.live_values())
-q = torch.zeros(64, 9, dtype=torch.float64, requires_grad=True)  # a batch
-v = torch.zeros_like(q)
-u = torch.zeros_like(q)
-acceleration = model.forward(q, v, u, p, 0.0)  # shape (64, 9)
+q_batch = torch.zeros(64, 9, dtype=torch.float64, requires_grad=True)  # a batch
+v_batch = torch.zeros_like(q_batch)
+u_batch = torch.zeros_like(q_batch)
+acceleration = model.forward(q_batch, v_batch, u_batch, p, 0.0)  # (64, 9)
 acceleration.sum().backward()  # d(acceleration)/dq, from the same graph
 ```
 

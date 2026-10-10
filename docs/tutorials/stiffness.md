@@ -146,6 +146,7 @@ How far is the tip from the goal now?
 ```{code-cell} python
 kin = vmc.Kinematics(arm)
 miss = np.linalg.norm(goal - kin.position(plant.q, 1.0))  # [m]
+1e3 * miss  # [mm]
 ```
 
 The goal is only a place where the spring would be at rest. `PositionRegulation` moves it by
@@ -184,8 +185,9 @@ ax.set_ylabel("distance to the target [mm]");
 ```
 
 The tip starts {glue:text}`miss:.0f` mm from the target and ends {glue:text}`end:.2f` mm from it.
-To get there the goal moved {glue:text}`moved:.0f` mm away from the target. No model of the
-arm's stiffness or weight was used, only the position of the tip.
+To get there the goal moved {glue:text}`moved:.0f` mm away from the target, much more than the
+error: the arm's own stiffness holds the tip back, so the spring has to stretch far to push it the
+last millimeters. No model of the arm's stiffness or weight was used, only the position of the tip.
 
 ## Hold a pose without a sensor
 
@@ -297,3 +299,6 @@ glue("again", float(1e3 * again), display=False)
 The farthest of the three points starts {glue:text}`before:.0f` mm from its target, ends
 {glue:text}`once:.0f` mm from it after one step, and {glue:text}`again:.0f` mm from it when the
 step is applied every 0.1 s.
+
+[Track a contact force](force.md) uses the same laws on a stiffness or a goal to reach a force
+instead of a pose, and [Energy and passivity](energy.md) explains the tank that can limit them.

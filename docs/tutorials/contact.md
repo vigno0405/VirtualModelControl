@@ -50,7 +50,7 @@ finger.add("cushion", vmc.ContactDamper(to_table, 5.0));  # [N·s/m]
 
 A spring pulls the fingertip towards a goal below the surface. The tip stops on the table, where
 the spring's pull balances the table's push. The contact force is then about the spring's
-stiffness $K$ times the goal's depth, a little less because the table gives way: $K k / (K + k)$
+stiffness $K$ (100 N/m here) times the goal's depth, a little less because the table gives way: $K k / (K + k)$
 times the depth.
 
 ```{code-cell} python
@@ -68,7 +68,8 @@ controller = vmc.VMCController(vmc.compile(system))
 
 `adapt.joint_limit_spring` is a `LimitSpring` that keeps the finger's joints inside their range.
 We write the run loop by hand so that every second it moves the goal 5 mm deeper with
-`controller.set`. Each step records the time, the configuration, the goal's depth and the
+`controller.set` (`ctrl.press.goal` is the Param `goal` of the element `press` of the mechanism
+`ctrl`). Each step records the time, the configuration, the goal's depth and the
 table's force $k \max(0, -d)$.
 
 ```{code-cell} python
@@ -108,6 +109,8 @@ assert np.all(np.diff(ends) > 0.5 * K * 0.005)  # each deeper goal presses harde
 assert abs(log["force"][-1] - K * k / (K + k) * log["depth"][-1]) < 0.02
 from virtualmodelcontrol.robots import helyx
 glue("eta_arm", helyx.EFFICIENCY, display=False)
+glue("eta_mcp", 100 * adapt.MOTOR_EFFICIENCY[0], display=False)
+glue("eta_pip", 100 * adapt.MOTOR_EFFICIENCY[1], display=False)
 ```
 
 The first touch is an impact: the force peaks at {glue:text}`press_peak:.2f` N while the tip
@@ -115,8 +118,10 @@ stops, then settles. Each deeper goal raises the force by one step. The last one
 {glue:text}`press_end:.3f` N against {glue:text}`press_goal:.3f` N expected. To press more
 gently, lower $K$ or damp the tip more.
 
-This finger delivers the full torque of its motors. A real transmission can pass on less: the
-soft arm's tendons deliver a share $\eta$ = {glue:text}`eta_arm:.2f` of each motor torque. The
+This simulated finger delivers the full torque of its motors. A real transmission can pass on
+less: the real finger's motors deliver {glue:text}`eta_mcp:.0f` % and {glue:text}`eta_pip:.0f` %
+of their torque (`adapt.MOTOR_EFFICIENCY`), and the soft arm's tendons a share $\eta$ =
+{glue:text}`eta_arm:.2f`. The
 arm's model does not need $\eta$, because we identified its stiffness and damping from the
 commanded torques. Its forces on the surroundings do need it. The spring presses with $\eta K$
 times its stretch, so a chosen force needs $1/\eta$ times the stretch, corrected for the arm's
@@ -145,8 +150,10 @@ viz.animate(finger, log, "contact.mp4", plane="yz", invert=True,
 A contact spring keeps the tip out of the table, and friction holds it back along the table.
 `ContactFriction(distance, stiffness, friction)` is Coulomb friction, smoothed: a force against
 the tip's speed along the surface, of size $\mu F_n$, with $F_n$ the contact spring's own force.
-Give it the same `Param` for the stiffness as the spring has, so that they agree (`scope="stage"`
-means that it may change at any control step, see [Parameters](parameters.md)). Below a small
+Give it the same `Param` for the stiffness as the spring has, so that they agree. A `Param` that
+you make yourself is `fixed` unless you give it `scope="stage"`, which means that it may change at
+any control step ([Parameters](parameters.md)); a plain number given to a spring is `stage`
+already. Below a small
 speed, `speed`, 1 mm/s by default, the force falls linearly with it, so a tip at rest creeps
 instead of sticking. We press
 the tip 1.5 cm below the table and, after one second, move the goal along it at 5 mm/s:
@@ -439,3 +446,6 @@ at a gap of {glue:text}`soft_gap:.2f` cm between the tips and a force of
 - Friction: a contact spring pushes along the normal only, so a pressing tip can slide. Add a
   `ContactFriction` on the same surface, with the spring's stiffness `Param`; `speed` is the
   sliding speed below which the force falls linearly, so a point at rest creeps.
+
+To hold a chosen contact force without computing the depth of the goal, see
+[Track a contact force](force.md).

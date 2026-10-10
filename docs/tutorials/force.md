@@ -312,8 +312,8 @@ force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
 The loops above run a simulated plant. On the robot the same law runs inside the loop that talks
 to the motors, with nothing from `vmc.sim`: the controller steps with the reading, and the law
 changes the controller with the force that a load cell or an estimate gives. Here the finger's
-controller of the first section runs through a tank that starts empty (`level`) and holds at
-most 10 mJ (`capacity`), as one control period of your control loop would, with a made-up
+controller of "Press with a chosen force" runs through a [tank](energy.md) that starts empty
+(`level`) and holds at most 10 mJ (`capacity`), as one control period of your control loop would, with a made-up
 reading:
 
 ```{code-cell} python

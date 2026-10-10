@@ -46,9 +46,9 @@ $J_z$ need no hand derivation.
 ## Elements and their forces
 
 Each element gives a force $f$ on its coordinate. Springs store energy, $f = -\partial V/\partial y$
-with $V \ge 0$. A linear spring of stiffness $K$ on $y = x - x_\text{ref}$ pulls $x$ towards
+with $V$ bounded below. A linear spring of stiffness $K$ on $y = x - x_\text{ref}$ pulls $x$ towards
 $x_\text{ref}$ with $f = -K y$. Dampers dissipate, $f \cdot \dot y \le 0$, as $f = -D \dot y$.
-Inertances give the virtual states their mass. Sources add forces of their own, such as gravity
+Inertances give mass to a virtual state of the controller, or to a coordinate of the robot. Sources add forces of their own, such as gravity
 compensation, $f = -m g$ on each of the robot's masses $m$, with $g$ the gravity vector.
 
 ## From forces to motor torques

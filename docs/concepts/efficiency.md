@@ -54,15 +54,17 @@ $$
 $$
 
 with each coefficient one value for every motor or one per motor. A number passed as
-`efficiency=` is the linear coefficient $c_1$. `vmc.Efficiency(1.0)` is the default. The
-coefficients are Params, to change, tune or identify:
+`efficiency=` is the linear coefficient $c_1$. `vmc.Efficiency(1.0)` is the default, and
+`Efficiency(..., friction=...)` adds the static friction of the motors
+([Static friction](../tutorials/friction.md)). The coefficients are Params, to change, tune or
+identify:
 
 ```{code-cell} python
 import numpy as np
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.robots import helyx
 
-cubic = vmc.Efficiency(0.10, 0.0, 0.40)  # one polynomial for every motor
+cubic = vmc.Efficiency(0.10, 0.0, 0.40)  # made-up numbers, for all motors
 arm = helyx.arm(efficiency=cubic)
 arm.params["efficiency.c3"]
 ```
@@ -97,7 +99,7 @@ holds = plateaus(t, command, tolerance=1e-6)  # settled half of each hold
 u = np.array([command[h].mean() for h in holds])
 y = np.array([measured[h].mean() for h in holds])
 linear = fit_efficiency(u, y)
-cubic = fit_efficiency(u, y, degree=3)
+cubic_fit = fit_efficiency(u, y, degree=3)
 ```
 
 ```{code-cell} python
@@ -109,7 +111,7 @@ grid = np.linspace(0.0, 1.05, 100)
 fig, ax = plt.subplots()
 ax.plot(u, y, "o", color=viz.PALETTE[0], label="plateaus")
 ax.plot(grid, linear(grid), "--", color=viz.PALETTE[1], label="linear fit")
-ax.plot(grid, cubic(grid), color=viz.PALETTE[2], label="cubic fit")
+ax.plot(grid, cubic_fit(grid), color=viz.PALETTE[2], label="cubic fit")
 ax.set_xlabel(r"commanded torque [N$\cdot$m]")
 ax.set_ylabel(r"delivered torque [N$\cdot$m]")
 ax.legend();
@@ -126,8 +128,8 @@ def r2(fit):
 
 glue("eta_linear", float(linear.params["c1"].value[0]), display=False)
 glue("r2_linear", float(r2(linear)), display=False)
-glue("r2_cubic", float(r2(cubic)), display=False)
-glue("c3", float(cubic.params["c3"].value[0]), display=False)
+glue("r2_cubic", float(r2(cubic_fit)), display=False)
+glue("c3", float(cubic_fit.params["c3"].value[0]), display=False)
 ```
 
 The linear fit gives a constant efficiency of {glue:text}`eta_linear:.3f` ($R^2$ =

@@ -69,7 +69,9 @@ simulated finger can start to vibrate. `adapt.finger(efficiency=adapt.MOTOR_EFFI
 includes the efficiencies.
 
 The template takes its geometry and transmission as arguments. A longer finger with a larger
-pulley on the MCP joint, for example, has a new first coupling ratio:
+pulley on the MCP joint, for example, has a new first coupling ratio: the MCP joint turns by the
+pulley's radius over the motor pulley's per motor angle, $3 / 5 = 0.6$ in place of the default
+2.23 / 5 = 0.446:
 
 ```{code-cell} python
 import numpy as np
@@ -78,7 +80,8 @@ from virtualmodelcontrol.robots import adapt
 
 longer = adapt.finger(link_lengths=(0.045, 0.035, 0.02),  # [m]
                       pulley_radius=0.003)  # [m], on the MCP joint
-longer.params["coupling"].value.round(3)
+default = adapt.finger().params["coupling"].value.round(3)
+default, longer.params["coupling"].value.round(3)  # before and after
 ```
 
 A new pulley comes with a new ratio, which a sweep measures: set the MCP joint to known angles,

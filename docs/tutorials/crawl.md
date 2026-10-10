@@ -432,16 +432,24 @@ ax.set_xlabel(r"peak [rad]")
 ax.set_ylabel("distance after 0.8 s [cm]");
 ```
 
+Now we free the `peak` and ask for the body to be as near as it can to a point 1 m ahead at the
+end of the plan, which is as far as it can get. The planner starts from the peak at 0:
+
 ```{code-cell} python
-:tags: [remove-cell]
-assert 100 * np.ptp(reach) > 2.0  # centimetres, over the peaks
 peak.value = 0.0
 problem.add(opt.Cost(body.joint(0) - 1.0, 1.0, t_from=(n - 1) * dt,
                      name="forward"))
 problem.free("ctrl.spring0.peak")
 planned = problem.solve(warm_start=guess)
+planned.params["ctrl.spring0.peak"]
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert 100 * np.ptp(reach) > 2.0  # centimetres, over the peaks
 assert planned.converged
 found = float(planned.params["ctrl.spring0.peak"])
+assert abs(found) < 0.05  # it stays near its start
 glue("swing_cm", float(100 * np.ptp(reach)), display=False)
 glue("best_cm", float(100 * reach.max()), display=False)
 maxima = int(np.sum((reach[1:-1] > reach[:-2]) & (reach[1:-1] > reach[2:])))
@@ -454,9 +462,9 @@ assert reach.max() > planned.q[-1, 0] + 0.005
 
 The distance after the 0.8 s swings by {glue:text}`swing_cm:.0f` cm as the peak moves, with
 {glue:text}`maxima` maxima, since the feet catch and slip on the ground. A gradient method
-follows the slope under its feet: freeing the peak and starting from 0, the planner ends at
-{glue:text}`plan_peak:.2f` rad and {glue:text}`plan_far:.1f` cm, where the sweep has
-{glue:text}`best_cm:.1f` cm. This is why the gait above is searched by trial runs
+follows the slope under its feet: freeing the peak and starting from 0, the planner hardly leaves
+it. It ends at {glue:text}`plan_peak:.2f` rad and {glue:text}`plan_far:.1f` cm, where the sweep
+has {glue:text}`best_cm:.1f` cm. This is why the gait above is searched by trial runs
 (`DitherSeeking` moves its estimate slowly across many strides). The planner is for smooth
 problems: a plan of the crawler is good for what the simulator would do, and for the
 derivatives of that, not for finding the best gait of a rugged one.

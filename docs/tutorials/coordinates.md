@@ -4,7 +4,7 @@ kernelspec:
   name: python3
 ---
 
-# Coordinates and components
+# Coordinates
 
 In this tutorial we build coordinates on the soft arm: points, joints, differences, projections,
 virtual states of the controller, and a cart on a rail. [Components](components.md) says what
@@ -59,7 +59,8 @@ signed distances to a surface, for [contacts](contact.md).
 
 A sum works like a difference: `tip + [0.0, 0.0, 0.05]` is the point 5 cm above the tip. A plain
 list works as a goal too, as in `tip - [0.1, 0.0, 0.40]`. It becomes a live parameter named
-`ref` ([Parameters](parameters.md)). For anything else, `vmc.Custom` wraps a function
+`ref` of the component that uses it (`reach.ref` for a component `reach`,
+see [Parameters](parameters.md)). For anything else, `vmc.Custom` wraps a function
 written with CasADi operations ([Extend the library](extend.md)).
 
 ## Virtual states
@@ -89,6 +90,9 @@ A virtual state is only a number. To give it a geometry, take a point of any mod
 state's value: `vmc.FramePoint(model, site, q=state)`. The model here is a `SerialChain` with a
 [rail](joints.md#a-rail-along-a-path): a curve in front of the arm, with a cart that runs along it. A spring
 ties the arm's tip to the cart, so the tip is pulled along the curve, wherever the cart goes.
+In the model, `("rail", curve)` is a joint that slides along the spline through the waypoints
+`curve`, and the site `"cart"` is the point that rides on it ([Joints and bodies](joints.md)
+explains these models).
 The arm points up here (`"290-145-145"`, 0.58 m long), and the curve is an arc of radius 0.57 m
 about its base.
 

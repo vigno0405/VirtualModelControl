@@ -27,7 +27,7 @@ from virtualmodelcontrol.robots import adapt
 
 They are those of [Track a contact force](force.md): a plane 6 cm below the finger's base, a hard
 spring of $10^4$ N/m, and a spring of 100 N/m pulling the tip to a goal that the law moves until the
-force is 2 N. Below the law is told an estimate, never the table's force:
+force is 2 N. In the code below the law is told an estimate, never the table's force:
 
 ```{code-cell} python
 k = 1e4  # [N/m], a hard table
@@ -256,7 +256,8 @@ glue("worst_compliance", float(max(abs(np.array(v) * s / 1e3 - 1).max()
 ```
 
 Each line gives the object's true compliance, $1/k$, then the estimates from the two stiffer
-settings. With the exact model of the finger they agree to within {glue:text}`worst_compliance:.0e` %.
+settings. With the exact model of the finger they agree to rounding error (the largest difference is
+{glue:text}`worst_compliance:.0e` %).
 
 ```{code-cell} python
 lighter = adapt.add_dynamics(adapt.finger())
@@ -284,3 +285,11 @@ gives {glue:text}`wrong_model:.2f` mm/N.
   The estimate uses the torques the controller's law asks for, before any output stage, and
   leaves velocities out. A Param that acts only on a virtual state does not change the force at
   once, so `ForceTracking` finds no direction for it and leaves it where it is.
+- `MomentumObserver(system, dt, gain, robot=None)` takes the system, the time between calls
+  [s], the bandwidth `gain` [1/s] and, as `ContactForce` does, the model without the surroundings.
+  Call `observer(q, v, u, t)` once per step with the configuration, the velocity and the torques
+  just sent, then `observer.force(site, normal)` for the force at a site.
+- `object_compliance(position, force, baseline_position, baseline_force)` takes samples (rows of
+  three) of the tip's position [m] and force [N] at a stiff setting and, after them, the same at a
+  gentle one. It returns the compliance [m/N]: the distance between the medians of the positions
+  over the difference between the medians of the forces.

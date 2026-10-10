@@ -93,10 +93,13 @@ for r in (0.25, 0.5, 1.0, 2.0):
     arrival[r] = np.argmax(near < 0.05 * near[0])  # within 5 % of the start
 assert past[0.25] > past[0.5] > 1.0 and past[2.0] < 1e-3  # no overshoot
 assert arrival[2.0] > arrival[1.0] > 0  # twice D_c arrives later
+glue("past_c", float(past[1.0]), display=False)
 ```
 
 With $K$ = {glue:text}`K:.0f` N/m and a {glue:text}`m:.1f` g tip, $D_c$ = {glue:text}`D_c:.2f` N·s/m. Below
 it the tip overshoots the goal and rings. At twice $D_c$ it arrives later, without overshooting.
+The formula takes the mass along the motion at the start, and the finger's mass changes as it
+moves, so at $D_c$ itself the tip still goes {glue:text}`past_c:.1f` mm beyond the goal.
 
 ```{code-cell} python
 :tags: [remove-output]
@@ -118,7 +121,11 @@ candidates and are told their costs. The runs in between are yours, in simulatio
 robot in your own loop. `opt.tune(searcher, cost, rounds)` is the loop: `rounds` times it asks, runs
 `cost` on each candidate and tells the costs. The grid gives all its points in its first ask, so
 one round is enough; `Bayes` gives its first `initial` candidates together and then one per ask.
-The CMA-ES loop below is the same, written out:
+A searcher is made from the bounds of the Params: `Grid(lower, upper, points)`,
+`Bayes(lower, upper, initial=...)` and `Random(lower, upper, size=...)`. `CMAES(start, step, lower,
+upper, size=...)` also takes a starting point and the size of its first steps, and
+`ExtremumSeeking(start, amplitude, gain, ...)` the size of its test moves and a gain. The CMA-ES
+loop below is the same as `tune`, written out:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt

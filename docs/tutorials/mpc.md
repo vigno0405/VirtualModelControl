@@ -67,6 +67,11 @@ plan = problem.solve()
 print(plan.status, plan.iterations, plan.steps[K].round(1))
 ```
 
+`Shooting(q0, horizon, nodes, ...)` starts the plan at `q0`, over `horizon` seconds, with `nodes`
+nodes (one more than the intervals), and `Cost(coordinate, weight, name=...)` weighs the integral
+of the squared coordinate. The Ref `target` of the cost named `reach` is the input
+`"reach.target"` of each solve.
+
 `plan.steps[K]` holds the stiffness of each of the 10 intervals, `plan.steps[GOAL]` the
 reference. The other Params of the plan stay as they are. Since the plan is the closed loop of
 a simulation, we can check it by running one. We hold the planned Params in each interval, and
@@ -192,7 +197,8 @@ the measured state alone (`mpc.reset()` forgets the plan).
 
 On a robot with a real clock, a solve that takes several control periods must not hold the
 control loop. `start` plans in a thread from the measured state, and `poll` applies the plan once
-it is ready, as of the time that has passed since `start`, which is the real latency:
+it is ready, as of the time that has passed since `start`, which is the real latency. This is a
+sketch of the loop: `plant`, `running`, `q` and `v` are yours:
 
 ```python
 while running:

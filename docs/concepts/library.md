@@ -21,12 +21,15 @@ from schematics import library_map
 library_map.figure();
 ```
 
+From the bottom, the layers are `core` (Params and signals), `math`, `mechanisms`, `models`,
+`system`, `compiler` and `dynamics`, `control`, `sim`, `estimation` and `identification`, and
+`adaptation` and `optimization`. The edges are `robots`, `hardware`, `viz`, `config` and `testing`.
+
 A controller needs only the layers up to `control`: describe the robot with `models`, place
 virtual elements with `mechanisms`, pair them in a `VirtualMechanismSystem`, `compile` it and
 run it with `VMCController`. Simulation, figures and the robot templates are optional.
-The order is checked on every change, with a tool that reads which module imports which
-(`lint-imports`, with the contracts in `pyproject.toml`). The same check makes sure that nothing in
-the library imports a robot middleware such as ROS: signals come in and go out as arrays.
+The order is checked automatically on every change, and so is that nothing in the library imports
+a robot middleware such as ROS: signals come in and go out as arrays.
 
 ## Where things are
 

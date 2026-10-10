@@ -22,8 +22,9 @@ The rules that every part of the library follows, and the words it uses. Read it
 - The configuration `q` lives on a space, and the velocity `v` in its tangent space. So `q` and
   `v` may differ in size (a floating body, for example).
 - A generalized force is `τ`, actuator commands are `u`. Symbols are local to a page, and each page
-  says what it uses: `θ` is a motor angle in the robot's signals (`motor_position`), a joint angle in
-  the finger and hand pages (where the motors are `q`), and the bend of a segment in the PCC page.
+  says what it uses. The one to watch is `θ`: a motor angle in the robot's signals
+  (`motor_position`); a joint angle in the finger and hand pages, where the motors are `q`; the
+  bend of a segment in the PCC page.
 - A spring's deflection is `y = x − x_ref`, so it pulls `x` towards `x_ref`. Storage gives
   `f = −∂V/∂y`, a damper `f = −D ẏ`, and every force reaches the robot as `τ = Jᵀ f`.
 - Arrays in, arrays out: inputs accept anything array-like; outputs are numpy arrays (torch
@@ -62,6 +63,21 @@ component
 virtual state
   A degree of freedom of the controller itself, such as the turtle's flywheel; it needs an
   inertance.
+
+inertance
+  A mass or an inertia on a coordinate, and the component that gives it. A virtual state needs
+  one; a robot has its own.
+
+live Param
+  A Param that may change while the controller runs (scope `stage`), for example with
+  `controller.set`; the others are folded in when the controller is compiled
+  ([parameters](../tutorials/parameters.md)).
+
+law
+  A rule that changes a controller's live Params at every step, such as `ForceTracking`.
+
+guard
+  The check of a run that sends zero torque when a reading is missing, not a number, or too old.
 
 site
   A named point of a kinematic model, such as `"tip"`; continuum models also accept an arc

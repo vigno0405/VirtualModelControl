@@ -59,7 +59,8 @@ k = vmc.Param("k", 20.0, bounds=(1.0, 300.0), scope="stage")  # [N/m]
 A = vmc.Param("A", 50.0, bounds=(0.0, 500.0), scope="stage")  # [N/m]
 around = vmc.Mechanism("around")
 around.add("pull", vmc.TanhSpring(tip - goal, k, 2.0))
-around.add("push", vmc.GaussianSpring(arm.point(s=0.6) - ball, A, 0.06))
+around.add("push", vmc.GaussianSpring(arm.point(s=0.6) - ball, A,
+                                      0.06))  # strength A, width 0.06 m
 around.add("damp", vmc.LinearDamper(tip, 2.0))
 around.add("gravity", vmc.GravityCompensation(arm))
 detour = vmc.VirtualMechanismSystem(arm, around)
@@ -84,6 +85,8 @@ straight = plan_for()  # the sphere is not in the problem
 safe = plan_for([opt.Bound(clear, lower=0.02, name="clear")])
 ```
 
+The optimizer finds the Params by their place in the system, whatever the Python variables are
+called: `around.pull.stiffness` is the stiffness of the element `pull` of the mechanism `around`.
 Without the bound the optimizer has no reason to push: it keeps the field off and takes the
 cheapest spring. With the bound, it switches the field on. We run both plans on the simulated
 arm, as [before](optimize.md#checking-the-plan-in-simulation), and follow the arm's closest distance
@@ -229,3 +232,6 @@ s = {glue:text}`place`, with a gate of {glue:text}`gate:.2f` and a spring of
 The weight decides how much a field must earn to stay. Structure problems are rough, since
 elements switch on and off, and another weight, another start or other scales can end in
 another structure, so solve a few and compare.
+
+To plan again at every step from the measured state, see [Model predictive control](mpc.md), and
+for motions that repeat, [Plan periodic motions and virtual states](optimize-periodic.md).

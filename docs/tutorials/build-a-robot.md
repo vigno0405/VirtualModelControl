@@ -36,8 +36,9 @@ dh.sites
 ## The same arm by product of exponentials
 
 The library stores every chain as a product of exponentials: an axis and a point per joint, and
-named sites that move with the joint they follow. Writing the arm this way lets us name the
-elbow and the tip:
+named sites that move with the joint they follow. A site is the number of the last joint it follows
+(counting from 1) and its position when every joint is at 0. Writing the arm this way lets us
+name the elbow and the tip:
 
 ```{code-cell} python
 chain = SerialChain(
@@ -139,11 +140,12 @@ worst = check_model(free)
 {name: f"{error:.0e}" for name, error in worst.items()}
 ```
 
-The checks run at the neutral pose, where soft and rigid arms are often singular, and at a few
-random ones, for every site (`at=` picks some, and `s=` the points of a continuous body, whose
-positions must not jump). The energy check runs the simulator twice, the second time with a
+Each name is a check and each number its worst error over the poses; a check that goes over its
+limit raises instead, so all of these passed. The checks run at the neutral pose, where soft and
+rigid arms are often singular, and at a few random ones, for every site (`at=` picks some, and `s=` the points of a continuous body, whose
+positions must not jump). The `energy` check runs the simulator twice, the second time with a
 step four times smaller. The drift of its implicit steps must fall with the step, and a force
-that does work would not let it fall.
+that does work would not let it fall: the number is 0 when it falls.
 
 ## Take it to the robot
 
@@ -155,8 +157,8 @@ rates, since this arm has no transmission:
 ```{code-cell} python
 reading = vmc.Signals(0.0, motor_position=np.array([-1.2, 0.3]),  # [rad]
                       motor_velocity=np.zeros(2))  # [rad/s]
-controller.reset(0.0, reading)
-torques = controller.step(0.0, reading)["motor_torque"]  # [N·m]
+controller.reset(0.0, reading)  # start from the first reading
+controller.step(0.0, reading)["motor_torque"]  # [N·m], what the loop writes
 ```
 
 A robot with a transmission, such as a tendon-driven arm, reads and commands its motors instead:

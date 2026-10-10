@@ -55,16 +55,16 @@ one group at a time: `"params"`, `"elements"`, `"energy"` and `"robot"`. The sig
   [N·m].
 - `z`: the controller's virtual states, when it has any.
 - `param/<name>`: a live Param, in its own shape (`"params"`).
-- `element/<element>/y`, `ydot`, `force`: an element's coordinate, its rate and its force
-  (`"elements"`).
-- `element/<element>/torque`: the element's share of the motor torques [N·m], before the
+- `element/<mechanism>.<element>/y`, `ydot`, `force`: an element's coordinate, its rate and its
+  force, as in `element/ctrl.reach/force` (`"elements"`).
+- `element/<mechanism>.<element>/torque`: the element's share of the motor torques [N·m], before the
   output stages (`"elements"`).
 - `energy/stored`, `energy/kinetic`: the controller's stored and kinetic energy [J]
   (`"energy"`).
 - `power/port`, `power/dissipation`, `power/source`: the controller's powers [W]
   (`"energy"`).
-- `robot/<component>/y`, `ydot`, `force`, `torque`: the same of each spring, damper and contact
-  of the simulated robot itself, as it feels them (`"robot"`; a real robot reports none).
+- `robot/<component>/y`, `ydot`, `force`, `torque`: the same four for each spring, damper and
+  contact of the simulated robot itself, as it feels them (`"robot"`; a real robot reports none).
 
 ```{code-cell} python
 :tags: [remove-cell]

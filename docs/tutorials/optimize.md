@@ -8,7 +8,7 @@ kernelspec:
 
 In this tutorial we choose the stiffness of a virtual spring by optimization instead of by
 hand. We plan the motion of the soft arm together with the spring that drives it, using the
-arm's own dynamics, and then check the plan by running the swap on the simulated arm.
+arm's own dynamics, and then check the plan by running the [swap](swaps.md) on the simulated arm.
 
 ```{code-cell} python
 :tags: [remove-cell]

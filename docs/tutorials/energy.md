@@ -42,11 +42,13 @@ figure. `ModelPlant` compiles the dynamics from the robot mechanism and keeps th
 | `plant.dynamics.power` | `q, v, u, p, t` | `input, dissipation, source` |
 
 The energies come in opposite orders: `(V, T)` for the controller, `(T, V)` for the robot.
-`z` holds the controller's virtual states (positions, then velocities), `p` the live Params of
-each and `u` the motor torques. The robot's `input` equals the controller's `port` as long as no
-output stage changes the torques and the transmission's efficiency is 1, the default (the soft
-arm's tendons really deliver only a share of the motor torque, see [Transmission efficiency](../concepts/efficiency.md), but its
-model refers its stiffness to the commanded torque and keeps 1). To log the controller's terms
+`z` holds the controller's virtual states, its own degrees of freedom (positions, then
+velocities), `p` the live Params of each and `u` the motor torques. The robot's `input` equals the
+controller's `port` as long as no output stage (a correction of the commands for real hardware,
+see [Your first controller](first-controller.md#the-loop)) changes the torques and the
+transmission's efficiency is 1, the default. The soft arm's tendons really deliver only a share of
+the motor torque ([Transmission efficiency](../concepts/efficiency.md)), but its stiffness and
+damping were identified from the commanded torques, so its model keeps the efficiency 1. To log the controller's terms
 during a run, ask `vmc.sim.run` for `record=["energy"]` ([Run logs](run-logs.md)).
 
 ## Check the balance on a run
@@ -176,7 +178,8 @@ carries energy the other way, and the balance still closes.
 
 A log recorded with `record=["energy"]` holds the controller's side of the balance.
 `vmc.sim.energy_balance` turns it into the balance of the controller alone: its energy, the work
-it gave the robot through its port, what its dampers took and its sources gave, `injected`, what
+it gave the robot through its port, what its dampers took (`dissipated`, a positive amount: the
+`dissipation` power of the table above is negative) and its sources gave, `injected`, what
 is left over, and `margin`, the energy it can still give, which a passive controller keeps above
 zero:
 
@@ -317,3 +320,10 @@ matrix. Pass a proposed stiffness through it before it reaches `set` or a tank:
 K = np.array([[300.0, 450.0], [0.0, 100.0]])
 vmc.control.project_psd(K).round(1)
 ```
+
+## Where to go next
+
+[Tuning the damping of a spring](tuning.md) uses these energies to find the damping that a
+sampled loop can bear, and [Robots with fewer motors than joints](underactuated.md) keeps a
+controller passive when some joints have no motor. The equations behind the balance are in
+[Passivity](../concepts/passivity.md).

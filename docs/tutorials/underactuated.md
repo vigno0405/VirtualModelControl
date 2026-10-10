@@ -80,14 +80,17 @@ glue("asked_joint", float(asked[1]), display=False)
 ```
 
 The defect is {glue:text}`lost_joint:.2f` N·m at joint 2, the whole of the
-{glue:text}`asked_joint:.2f` N·m that the force asked of it. Only the force's component along
-the one direction that joint 2 cannot move the tip in is fully realized. These forces are
-the feasible set, here a line:
+{glue:text}`asked_joint:.2f` N·m that the force asked of it. Joint 2 moves the tip along one
+direction only, and a force at the tip is realized in full when it asks nothing of joint 2: when
+it is perpendicular to that direction, so that its torque at joint 2 is zero. These forces are the
+feasible set, here a line:
 
 ```{code-cell} python
 basis = ua.feasible(B, J)  # columns: forces the motors give in full
 print(basis.T, ua.defect(B, J, 3.0 * basis[:, 0]))
 ```
+
+The basis is that perpendicular direction, and the defect of a force along it is zero.
 
 A spring of the controller can pull the tip only along such a direction without error; any
 other pull is partly absorbed by the passive joint, which moves until its own spring balances

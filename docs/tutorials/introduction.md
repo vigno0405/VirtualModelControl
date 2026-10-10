@@ -61,8 +61,9 @@ four_steps.figure();
 1. Describe the robot: a ready-made template from `virtualmodelcontrol.robots`, or a model of
    our own.
 2. Place the virtual elements: components on the robot's coordinates, in a `vmc.Mechanism`.
-3. Compile: `vmc.compile` turns the two mechanisms into one CasADi function from motor angles
-   and rates to motor torques, with exact derivatives.
+3. Compile: `vmc.compile` turns the two mechanisms into one CasADi function (CasADi is the
+   library that builds and differentiates such functions) from motor angles and rates to motor
+   torques, with exact derivatives.
 4. Run on a plant: `vmc.VMCController` evaluates that function at every control step. The plant
    is a simulator built from the robot mechanism alone (`vmc.sim.ModelPlant`), or the real
    robot.

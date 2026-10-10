@@ -19,7 +19,7 @@ def _xz(x: float, z: float) -> list[float]:
 
 
 def _branch(ax: Any, x: float, top: float, bottom: float) -> None:
-    """A spring K and a damper C side by side between two bars, centred on x."""
+    """A spring K and a damper C side by side between two bars, centered on x."""
     for z in (top, bottom):
         ax.plot([x - 0.3, x + 0.3], [z, z], color="black", lw=2.0)
     viz.draw_spring(ax, _xz(x - 0.3, top), _xz(x - 0.3, bottom), width=0.12)

@@ -33,7 +33,8 @@ glue("pip", float(adapt.COUPLING[1, 1]), display=False)
 
 The finger has three phalanges, proximal, middle and distal, of {glue:text}`a:.1f`,
 {glue:text}`b:.1f` and {glue:text}`c:.1f` mm, joined by three revolute joints, MCP, PIP and
-DIP, all turning about $x$. Straight, it points along $y$. Bending it turns the tip towards $z$.
+DIP (the metacarpophalangeal, proximal interphalangeal and distal interphalangeal joints), all
+turning about $x$. Straight, it points along $y$. Bending it turns the tip towards $z$.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -100,8 +101,8 @@ glue("spread", ", ".join(coefficients[:3]) + " and " + coefficients[3], display=
 ```
 
 The hand has a thumb and four fingers, each a chain of revolute joints from the hand's base.
-The thumb has the joints CMC1, CMC2, MCP and IP, and each finger has the joints spread, MCP,
-PIP and DIP. The origins and axes of the joints are tables in `robots.adapt` (`HAND_JOINTS`, `HAND_FINGER_BASES`).
+The thumb has the joints CMC1, CMC2 (carpometacarpal), MCP and IP (interphalangeal), and each
+finger has the joints spread, MCP, PIP and DIP. The origins and axes of the joints are tables in `robots.adapt` (`HAND_JOINTS`, `HAND_FINGER_BASES`).
 {glue:text}`motors:.0f` motors drive its {glue:text}`joints:.0f` joints, $\theta = C\,q$:
 
 - each thumb joint has a motor of its own;

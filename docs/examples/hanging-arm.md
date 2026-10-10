@@ -233,7 +233,7 @@ viz.animate(arm, avoid, "hanging-arm-avoid.mp4",
 ```
 
 ```{video} hanging-arm-avoid.mp4
-:caption: The tip reaches for the target while two repulsive fields keep the arm clear of the obstacle (grey).
+:caption: The tip reaches for the target while two repulsive fields keep the arm clear of the obstacle (gray).
 ```
 
 ```{code-cell} python

@@ -24,8 +24,8 @@ energy_flow.figure();
 
 ## The controller's energy balance
 
-The controller stores $E_c = V + T$: $V$ in its springs, $T$ in the inertances of its virtual
-states. Three powers change it. The port, $P = \tau^\top v$, is the power its torques give the
+The controller stores $E_c = V + T$: $V$ in its springs, measured from its lowest value so that
+$E_c \ge 0$, and $T$ in the inertances of its virtual states. Three powers change it. The port, $P = \tau^\top v$, is the power its torques give the
 robot. The dissipation power is $P_D = \sum f \cdot \dot y \le 0$ over its dampers. The source power is
 $P_S = \sum f \cdot \dot y$ over its sources. With the [VMC equations](vmc.md),
 
