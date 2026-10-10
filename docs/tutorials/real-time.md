@@ -102,6 +102,7 @@ class Driver:
 
 ```python
 clock = vmc.sim.WallClock(dt=1 / 330, stale=0.05)  # [s]
+# `driver` is your own object, as in the Plant above
 log = vmc.sim.run(Plant(driver), controller, clock, T=10.0)
 ```
 
@@ -199,6 +200,8 @@ Nothing touches a real robot without its owner's go-ahead. Check, in order:
    should be small, before you raise the gains.
 
 ## Part 2: In simulation
+
+This part continues Part 1: it uses the `arm`, `system` and `controller` that Part 1 built.
 
 ### The same controller on a simulated arm
 

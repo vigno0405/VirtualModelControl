@@ -7,7 +7,8 @@ kernelspec:
 # Your first controller
 
 In this tutorial we build a controller for the soft arm and compute the torques it sends at one
-control step. Then we run it on a simulated arm, plot the run and animate it.
+control step. Then we run it on a simulated arm, plot the run and animate it. Install the library
+first, and see [Run the examples](../installation.md#run-the-examples) for where to type the code.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -17,11 +18,12 @@ import docs_setup
 ## The robot
 
 `helyx.arm` builds the soft arm of the [soft-arm example](../examples/soft-arm.md): its
-kinematics, its nine tendon motors and the masses of its segments. A simulator also needs the
+kinematics, its nine tendon motors (three tendons on each of its three segments) and the masses of its segments. A simulator also needs the
 arm's own stiffness and damping, and gravity. `helyx.add_dynamics` adds them.
 
 The string `"145-145-145"` names the geometry: the rest lengths of the three segments in
-millimeters. This arm is mounted on its side, with gravity along $-y$; `"145-290-290"` hangs
+millimeters. It is one of three: `"145-145-145"`, `"145-290-290"` and `"290-145-145"`. For other lengths
+give them in meters, as in `helyx.arm(lengths=[0.10, 0.20, 0.20])`. This arm is mounted on its side, with gravity along $-y$; `"145-290-290"` hangs
 from its base and `"290-145-145"` points up.
 
 ```{code-cell} python
@@ -54,13 +56,15 @@ system = vmc.VirtualMechanismSystem(arm, ctrl)  # robot and controller
 controller = vmc.VMCController(vmc.compile(system))
 ```
 
+`arm.point(s=1.0)` is the point at arc fraction `s` along the arm: 0 is its base and 1 is its tip.
+
 `VirtualMechanismSystem` pairs the two mechanisms, and `compile` turns the controller's
 elements into one CasADi function of the motor angles and rates.
 
 ## One control step
 
-At every step the controller takes the measured motor angles and rates and returns the motor
-torques. Here the arm is at rest and straight, so only the spring pulls:
+At every step the controller takes the time, the measured motor angles and the rates, and returns
+the motor torques. Here the arm is at rest and straight, so only the spring pulls:
 
 ```{code-cell} python
 meas = vmc.Signals(0.0, motor_position=np.zeros(9),
@@ -68,7 +72,8 @@ meas = vmc.Signals(0.0, motor_position=np.zeros(9),
 controller.step(0.0, meas)["motor_torque"].round(3)  # [N·m]
 ```
 
-A positive torque pulls its tendon. On the real arm, this call runs at the control rate with
+A positive torque pulls its tendon, and a negative one lets it out, so some of the nine torques
+are negative: the tendons on one side pull and those on the other side give way. On the real arm, this call runs at the control rate with
 the measured angles. The next sections let a simulator provide them.
 
 ## The loop

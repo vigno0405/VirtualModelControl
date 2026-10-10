@@ -13,6 +13,10 @@ python -c "import virtualmodelcontrol as vmc; print(vmc.__version__)"
 
 The second line prints the installed version.
 
+On a recent Ubuntu or Debian (Ubuntu 24.04, for example), pip refuses to install into the system
+Python and stops with `error: externally-managed-environment`. That is not a fault of the library:
+use the virtual environment of the next section.
+
 ## In a virtual environment
 
 A virtual environment keeps the library and its dependencies apart from the rest of your
@@ -57,8 +61,9 @@ as shown in the next section.
 ## With ROS 2 in the same shell
 
 The library never needs ROS. If ROS 2 is sourced in your shell, though, `PYTHONPATH` points at
-ROS's own Python packages. pip then takes them for installed: it ends with an error about their
-dependencies, such as `generate-parameter-library-py requires jinja2`. They also come first on
+ROS's own Python packages. pip then takes them for installed: it prints an error about their
+dependencies, such as `generate-parameter-library-py requires jinja2`, although the library itself
+is installed (`Successfully installed ...` follows). The error is confusing, and it is avoidable. They also come first on
 the import path, so they can shadow the versions in your environment. Unset `PYTHONPATH` for the
 commands that install or run the library:
 
@@ -101,7 +106,7 @@ From GitHub, the newest `main`:
 pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"
 ```
 
-Every commit on `main` has its own version number, such as `0.1.1.dev9+gb8695c46f`, so pip
+Every commit on `main` has its own version number, such as `1.2.2.dev3+g1a2b3c4d5`, so pip
 notices a newer commit and reinstalls. The output then ends with
 `Successfully installed virtualmodelcontrol-...`. If nothing changed on `main`, pip lists the
 dependencies as already satisfied and installs nothing.
@@ -132,3 +137,12 @@ list it under `pip:`. `pip show virtualmodelcontrol` tells you which version you
 ```bash
 pip uninstall virtualmodelcontrol
 ```
+
+## Run the examples
+
+The tutorials are notebooks: each page is a sequence of code cells that you run in order, in a
+Jupyter notebook, in IPython, or pasted into one script. In a notebook or IPython, a cell shows the
+value of its last line. In a script, wrap what you want to see in `print(...)`, and end a plot with
+`plt.show()` or `plt.savefig("figure.png")`. Videos (`vmc.viz.animate`) are written to the folder
+you run from, and any video player opens them. Run the code with the environment's Python (for
+the venv above, `~/venvs/vmc/bin/python`).

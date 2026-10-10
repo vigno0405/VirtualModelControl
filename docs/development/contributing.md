@@ -1,5 +1,7 @@
 # Contributing
 
+How to set up a working copy, run the checks, and send a change.
+
 ## Set up
 
 From a clone of the repository, on Linux or macOS:

@@ -1,5 +1,7 @@
 # Conventions and glossary
 
+The rules that every part of the library follows, and the words it uses. Read it once, and come back when a sign or a unit surprises you.
+
 ## Units and signs
 
 - SI everywhere: m, rad, s, N, N·m, kg. Degrees stay at the boundary with the hardware, in the
