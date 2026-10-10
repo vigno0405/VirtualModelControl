@@ -173,14 +173,17 @@ plain = KalmanFilter(system, dt, Q=Q, P0=1e-4)
 sigma = KalmanFilter(system, dt, Q=Q, P0=1e-4, unscented=True)
 cost = []
 for kf in (plain, sigma):
-    kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)
     kf.predict(u[0])  # the first call loads SciPy and warms up
-    start = time.perf_counter()
-    for k in range(20):
-        kf.predict(u[k])
-    cost.append(time.perf_counter() - start)
+    batches = []
+    for _ in range(5):  # the fastest of five: a busy machine does not count
+        kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)
+        start = time.perf_counter()
+        for k in range(20):
+            kf.predict(u[k])
+        batches.append(time.perf_counter() - start)
+    cost.append(min(batches))
 assert np.abs(plain.q - sigma.q).max() < 1e-4  # close, after the same steps
-assert cost[1] > 10 * cost[0]
+assert cost[1] > 3 * cost[0]  # far more work; a loose bound, it is a timing
 glue("unscented_cost", float(cost[1] / cost[0]), display=False)
 ```
 

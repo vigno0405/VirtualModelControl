@@ -91,6 +91,9 @@ Between releases, the newest code is on the `main` branch on GitHub. pip install
 pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"
 ```
 
+This documentation describes that version. What only `main` has, and no release yet, is listed
+under "Unreleased" in the [changelog](development/changelog.md).
+
 ## Update
 
 An installed copy does not update by itself. Run the line that matches how you installed it.
