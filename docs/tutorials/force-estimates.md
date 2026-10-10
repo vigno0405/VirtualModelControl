@@ -282,4 +282,3 @@ gives {glue:text}`wrong_model:.2f` mm/N.
   stiffness and weight, and the motors' efficiency is the system's. The estimate uses the
   controller's law, before the output stages, and leaves velocities out. A Param that acts only
   on a virtual state does not change the force at once, and the laws leave it.
-
