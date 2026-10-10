@@ -18,7 +18,7 @@ import docs_setup
 
 ## The arm
 
-The UR5 template is built from the arm's Denavit–Hartenberg table, with the flange as the site
+The UR5 template is built from the arm's Denavit-Hartenberg table, with the flange as the site
 `tool`. Its six joints are position-controlled on the real arm, so here we use its kinematics
 only.
 
@@ -100,8 +100,19 @@ ax.set_ylabel("prediction error [m]")
 ax.legend();
 ```
 
+```{code-cell} python
+:tags: [remove-cell]
+from myst_nb import glue
+
+slopes = [np.polyfit(np.log(steps), np.log(e), 1)[0] for e in (first, second)]
+assert abs(slopes[0] - 2) < 0.1 and abs(slopes[1] - 3) < 0.1
+glue("slope1", float(slopes[0]), display=False)
+glue("slope2", float(slopes[1]), display=False)
+```
+
 The first-order error falls with the square of the step and the second-order one with its
-cube, as they should.
+cube, as they should: the slopes of the lines are {glue:text}`slope1:.1f` and
+{glue:text}`slope2:.1f`.
 
 ## The stiffness a tool spring gives the joints
 
@@ -114,7 +125,7 @@ $-\sum_k f_k H_k$. A finite difference of $\tau$ confirms the sum:
 K = 500.0 * np.eye(3)  # [N/m]
 goal = kin.position(q, "tool") + [0.05, 0.0, -0.03]  # [m]
 
-def torque(q):
+def tool_torque(q):
     f = -K @ (kin.position(q, "tool") - goal)
     return kin.jacobian(q, "tool").T @ f
 
@@ -122,7 +133,8 @@ f = -K @ (kin.position(q, "tool") - goal)
 geometric = J.T @ K @ J
 stretched = -np.einsum("k,kij->ij", f, H)
 fd = -np.column_stack(
-    [(torque(q + h * e) - torque(q - h * e)) / (2 * h) for e in eye])
+    [(tool_torque(q + h * e) - tool_torque(q - h * e)) / (2 * h)
+     for e in eye])
 print("error with both terms:", np.abs(geometric + stretched - fd).max())
 print("error without the Hessian term:", np.abs(geometric - fd).max())
 ```
@@ -134,8 +146,11 @@ that takes a goal orientation to the tool's, in the goal's axes, and a spring on
 rotational spring of stiffness $K_r$ [N·m/rad], with energy $\tfrac12 \phi^\top K_r \phi$. The
 joints feel the torque $-(\partial\phi/\partial q)^\top K_r \phi$. The derivative of $\phi$ is
 not the angular Jacobian $J_\omega$: the two agree near the goal only. The library differentiates
-the error exactly, so the torque is the gradient of the energy at any error. Here the goal is
-0.8 rad from the tool:
+the error exactly, so the torque is the gradient of the energy at any error. A compiled law holds
+CasADi functions of `(q, v, z, p, t)`: the configuration, the velocity, the controller's virtual
+state (`none` here, it has none), its live values and the time. `law.tau` gives the torque on
+each joint and `law.energy` the stored and the kinetic energy. Here the goal is 0.8 rad from the
+tool:
 
 ```{code-cell} python
 Kr = np.diag([30.0, 20.0, 10.0])  # [N·m/rad], in the goal's axes
@@ -193,8 +208,8 @@ glue("naive_angle", float(angles[7]), display=False)
 ```
 
 At {glue:text}`naive_angle:.1f` rad the torque from $J_\omega$ is off by
-{glue:text}`naive_far:.0f` %. A damper on the same coordinate damps the rate of the error, which is
-the tool's angular velocity relative to the goal near it.
+{glue:text}`naive_far:.0f` %. A damper on the same coordinate acts on the rate of the error, which
+near the goal is the tool's angular velocity relative to the goal.
 
 ## A spring along the tool's axes
 
@@ -211,8 +226,8 @@ ctrl = vmc.Mechanism("ctrl")
 along = vmc.InFrame(arm.point("tool") - goal, arm.model, "tool")
 ctrl.add("hold", vmc.LinearSpring(along, Kt))
 law = vmc.compile(vmc.VirtualMechanismSystem(arm, ctrl))
-steps = [torque(law, q + h * e) - torque(law, q - h * e) for e in eye]
-fd = -np.column_stack(steps) / (2 * h)
+pushes = [torque(law, q + h * e) - torque(law, q - h * e) for e in eye]
+fd = -np.column_stack(pushes) / (2 * h)
 print("error:", np.abs(J.T @ R @ Kt @ R.T @ J - fd).max())
 ```
 

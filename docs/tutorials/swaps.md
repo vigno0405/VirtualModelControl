@@ -59,17 +59,19 @@ assert max(abs(x) for x in ends) < 1e-12, ends
 assert np.allclose(np.gradient(w, t)[1:-1], dw[1:-1], atol=1e-3)  # the derivatives are w's
 ```
 
-A planner uses the same `blend_weight`, so that it plans what the controller executes.
+The optimizer of [Optimize](optimize.md) uses the same `blend_weight`, so that it plans what the
+controller executes.
 
 ## A swap on the soft arm
 
-The configuration of [Experiments in files](configurations.md) has a stiff controller and a
-gentle one, whose spring never pulls with more than 0.5 N. We run the stiff one towards a goal
+The configuration file of [Experiments in files](configurations.md), `reach.yaml`, has a stiff
+controller and a gentle one, whose spring never pulls with more than 0.5 N. Download it as
+described there, into the folder where you run the code. We run the stiff one towards a goal
 and swap to the gentle one at 1 s, first at once and then blended over 1 s:
 
 ```{code-cell} python
-spec = vmc.config.files.read("reach.yaml")
-del spec["experiment"]["schedule"]
+spec = vmc.config.read("reach.yaml")
+del spec["experiment"]["schedule"]  # we swap in code here, not by the file
 experiment = vmc.config.load(spec)
 stiff, gentle = (experiment.controllers[k] for k in ("ctrl", "gentle"))
 stiff.set({"ctrl.reach.goal": [0.08, 0.0, 0.40]})
@@ -121,8 +123,9 @@ changed when you swap away and back.
 
 ## Schedules
 
-A `Schedule` holds the values of one live Param over time, as points: a time [s] from the start
-of the run and a value. Between points the value moves in a straight line (`linear`) or jumps at
+A `Schedule` holds the values of one live Param (one that can change at any step, see
+[Parameters](parameters.md#what-compile-keeps-live)) over time, as points: a time [s] from the
+start of the run and a value. Between points the value moves in a straight line (`linear`) or jumps at
 each point and holds (`step`). Before the first point the Param keeps its own value. After the
 last point it holds the last value:
 
@@ -147,7 +150,8 @@ ax.legend(loc="lower right", fontsize=18);
 `value` gives None before the first point, where the schedule leaves the Param alone. A
 schedule sets its Param on every controller that has it live, through `controller.set`. So a
 schedule of a Param that is not live fails when the controller is built, not in the middle of
-a run. `reset` starts a run again from the controller's own values.
+a run. The `reset` of the `ScheduledController` starts a run again from the controller's own
+values.
 
 Attached to a controller, a schedule moves its Param as the run goes. Here the stiffness of the
 spring falls from 300 to 100 N/m between 0.5 s and 1.5 s:

@@ -122,7 +122,8 @@ ax.legend(loc="upper right", fontsize=18);
 from myst_nb import glue
 
 low = [min(gap(q) for q in rows["q"][::5]) for rows in runs.values()]
-assert low[0] < 1.0 and low[1] > 1.9, low
+assert low[0] < 1.0 and 1.9 < low[1] < 2.0, low  # a little under the 2 cm
+assert straight.params["around.push.strength"].item() < 1.0  # field off
 glue("low_straight", float(low[0]), display=False)
 glue("low_safe", float(low[1]), display=False)
 glue("k_safe", safe.params["around.pull.stiffness"].item(), display=False)

@@ -53,14 +53,16 @@ settle(2.0)
 A push $\delta$ of the tip along $x$ is met by a force $K_{xx}\delta$ along $x$ and, if $K_{xz}$
 is not zero, by a force $K_{xz}\delta$ along $z$. `TaskStiffness` gives the matrix $K$ from
 the controller and the model of the arm: the stiffness of everything that holds the tip, the
-arm's own and the springs', with the changes of the geometry counted.
+arm's own and the springs', with the changes of the geometry counted. Like the laws below, it
+reads the controller's motors, so it does not run on a `StateController`
+([Robots with fewer motors than joints](underactuated.md)).
 
 ```{code-cell} python
 from virtualmodelcontrol.estimation import TaskStiffness
 
 stiffness = TaskStiffness(controller, site=1.0)  # the tip
 K = stiffness(controller)  # [N/m]
-K.round(0) + 0.0  # no -0.
+K.round(0).astype(int)
 ```
 
 ```{code-cell} python
@@ -124,8 +126,8 @@ then moves a little, which changes the matrix, so a few steps close the gap: aft
 diagonal is within {glue:text}`k_after:.1%` of the wanted one. The spring along $z$ ends at
 {glue:text}`spring_z:.0f` N/m. The stiffness the arm has by itself stays, so a stiffness below
 that is out of reach: the springs cannot be negative, and a step stops at zero. The step
-keeps every stiffness matrix symmetric and positive semidefinite. `fraction` moves only a part of the
-way at each step, and a [tank](energy.md) takes the controller's energy into account when
+keeps every stiffness matrix symmetric and positive semidefinite. `fraction` moves only a part
+of the way at each step, and a [tank](energy.md) takes the controller's energy into account when
 passed in place of the controller.
 
 ## Put the tip where we want it
@@ -147,14 +149,15 @@ miss = np.linalg.norm(goal - kin.position(plant.q, 1.0))  # [m]
 ```
 
 The goal is only a place where the spring would be at rest. `PositionRegulation` moves it by
-integral action: at every step it adds a share of the position error to the goal, until the tip
-is at its target.
+integral action: at every step it adds a share of the position error to the goal (`gain`, here
+2 %), until the tip is at its target. The dictionary names the goal and the point that its
+spring pulls, here the tip at $s = 1$.
 
 ```{code-cell} python
 from virtualmodelcontrol.adaptation import PositionRegulation
 
 regulate = PositionRegulation(controller, {"ctrl.reach.goal": 1.0},
-                              gain=0.02)
+                              gain=0.02)  # the goal, and its point
 errors = []
 for _ in range(int(4.0 * helyx.CONTROL_RATE)):
     plant.write(controller.step(plant.t, plant.read()))
@@ -200,8 +203,8 @@ from virtualmodelcontrol.adaptation import HoldingGoals
 ctrl3 = vmc.Mechanism("ctrl")
 sites = {}  # the live goal of each spring, and the point it pulls
 for i, s in enumerate((0.5, 0.75, 1.0), 1):
-    goal = vmc.Ref(f"g{i}", 3)
-    ctrl3.add(f"s{i}", vmc.LinearSpring(arm.point(s=s) - goal, 200.0))
+    anchor = vmc.Ref(f"g{i}", 3)
+    ctrl3.add(f"s{i}", vmc.LinearSpring(arm.point(s=s) - anchor, 200.0))
     sites[f"ctrl.s{i}.g{i}"] = s
 ctrl3.add("damp", vmc.LinearDamper(tip, 5.0))
 ctrl3.add("gravity", vmc.GravityCompensation(arm))
@@ -255,7 +258,7 @@ ax.legend(fontsize=18);
 ```
 
 With the goals at the points the arm's own stiffness pulls the tip {glue:text}`sag:.0f` mm away.
-With `HoldingGoals` it stays where it is, to less than a micrometre. `targets` takes other
+With `HoldingGoals` it stays where it is, to less than a micrometer. `targets` takes other
 positions, a dictionary from each goal's name to where its point should be. The offset is
 computed at the pose the arm has now, so the arm only gets near them; applying the step again as
 the arm moves brings it closer.
@@ -268,19 +271,19 @@ def worst(q):
     return max(np.linalg.norm(aim[n] - kin.position(q, s))
                for n, s in sites.items())
 
-def reach(again):
+def reach_aim(repeat):
     controller, plant = ready()
     law = HoldingGoals(controller, sites)
     law.step(controller, aim)
     dt = 1 / helyx.CONTROL_RATE
     for k in range(int(3.0 / dt)):
         plant.write(controller.step(plant.t, plant.read()))
-        if again and k % int(0.1 / dt) == 0:
+        if repeat and k % int(0.1 / dt) == 0:
             law.step(controller, aim)
         plant.advance(dt)
     return worst(plant.q)
 
-before, once, again = worst(bent), reach(False), reach(True)
+before, once, again = worst(bent), reach_aim(False), reach_aim(True)
 ```
 
 ```{code-cell} python

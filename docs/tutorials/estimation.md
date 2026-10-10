@@ -66,8 +66,9 @@ u = rows["motor_torque"]  # what the motors were told at each step
 
 The sensors read the true motion with noise, and the library has them: `Encoders`, `Markers`,
 `Imus` and `LoadCell` take the true state and give a noisy reading, in the form the
-estimators take. The encoders read the motors, whose angles are off by a few tenths of a radian because the
-tendons are slack: about a millimeter of $q$. The three markers sit at the ends of the sections,
+estimators take. The encoders read the motors, whose angles are off by a few tenths of a radian
+because the tendons are slack: a fraction of a millimeter of $q$, measured below. The three
+markers sit at the ends of the sections,
 and an IMU on the base and on each section end reads its angular velocity and the direction of
 gravity in its own axes, with a bias on the gyros.
 
@@ -120,7 +121,7 @@ def estimate(sensors, markers=markers, gate=40.0, lost=()):
     velocity = VelocityFilter(every * dt)
     imu = ImuFilter(arm)
     imu.calibrate(gyro[:90], acc[:90])  # the arm is still at first
-    kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)
+    kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)  # encoders start
     out, missing = [np.concatenate([kf.q, kf.v])], 0
     for k in range(1, n):
         kf.predict(u[k - 1])
@@ -147,16 +148,38 @@ def estimate(sensors, markers=markers, gate=40.0, lost=()):
 ```
 
 The filter's model is the simulated arm itself, so `Q` can be small. On a real arm, `Q` is where
-the model's errors go. The covariances of the measurements are the noise we gave the sensors,
-with the slack counted in for the encoders: 1.5 mm.
+the model's errors go. `P0` is the covariance of the starting state. The covariances of the
+measurements are the noise we gave the sensors, with the slack counted in for the encoders:
+1.5 mm.
 
 `predict` linearizes the arm's dynamics at the estimate. That is exact for a linear robot and
 close for an arm whose state is known to a few millimeters. For a state that is much less certain,
-build the filter with `KalmanFilter(system, dt, unscented=True)`. Its `predict` sends sigma points
-of the estimate, $\sqrt 3$ (about 1.7) standard deviations out, through `substeps` steps of the arm's
-own integrator, and takes the mean and the covariance of where they land, so both follow the
-arm's nonlinearity. It costs about $4n$ times as much for $n$ coordinates, and the sensors are
-fused as before, since they are linear in $q$ and $v$.
+build the filter with `KalmanFilter(system, dt, unscented=True)`. Its `predict` sends sigma
+points of the estimate, $\sqrt 3$ (about 1.7) standard deviations out, through `substeps` steps
+of the arm's own integrator, and takes the mean and the covariance of where they land, so both
+follow the arm's nonlinearity. It sends $4n + 1$ points for $n$ coordinates, and a step took
+{glue:text}`unscented_cost:.0f` times as long as the linearized one here. The sensors are fused as
+before, since they are linear in $q$ and $v$.
+
+```{code-cell} python
+:tags: [remove-cell]
+import time
+from myst_nb import glue
+
+plain = KalmanFilter(system, dt, Q=Q, P0=1e-4)
+sigma = KalmanFilter(system, dt, Q=Q, P0=1e-4, unscented=True)
+cost = []
+for kf in (plain, sigma):
+    kf.reset(kf.encoder(theta[0], None, 1.5e-3**2).y)
+    kf.predict(u[0])  # the first call loads SciPy and warms up
+    start = time.perf_counter()
+    for k in range(20):
+        kf.predict(u[k])
+    cost.append(time.perf_counter() - start)
+assert np.abs(plain.q - sigma.q).max() < 1e-4  # close, after the same steps
+assert cost[1] > 10 * cost[0]
+glue("unscented_cost", float(cost[1] / cost[0]), display=False)
+```
 
 ## One estimate, three sensors
 
@@ -196,7 +219,8 @@ glue("mocap_error", float(err["encoders + markers"]), display=False)
 glue("ratio", float(err["encoders"] / err["encoders + markers"]), display=False)
 glue("vratio", float(err_v["encoders"] / err_v["encoders + markers"]), display=False)
 glue("rejected_clean", runs["all three"][1], display=False)
-glue("frames", 2 * int((n - 1) // every), display=False)
+readings = (n - 1) + sum(k % every in (0, 1) for k in range(1, n))
+glue("frames", readings, display=False)
 ```
 
 ```{code-cell} python
@@ -212,8 +236,8 @@ ax.legend();
 
 The encoders alone are off by {glue:text}`enc_error:.2f` mm: they read the slack. The markers
 anchor the estimate to the arm: with them the error is {glue:text}`mocap_error:.2f` mm,
-{glue:text}`ratio:.1f` times smaller, and the velocity improves too, {glue:text}`vratio:.1f` times. The IMUs help less. They
-see how the sections bend and not how long they are, and the markers see all of it. On an arm
+{glue:text}`ratio:.1f` times smaller, and the velocity improves too, {glue:text}`vratio:.1f`
+times. The IMUs help less. They see how the sections bend and not how long they are, and the markers see all of it. On an arm
 with no markers they still cut the error of the encoders.
 
 ## Outliers and dropouts
@@ -222,10 +246,9 @@ Markers jump when a camera swaps two of them, and frames get lost when one is hi
 filter takes both. Each measurement has to pass the *gate* before it is used: its innovation,
 how far it is from what the filter expected, measured in the measurement's own standard
 deviations, must stay below a limit. The default limit is $d^2 = 40$, about the 99.8 % bound of a
-chi-squared distribution with the 18 values of a reading of $q$ and $v$, so about two good
-readings in a thousand are turned away. In this run the gate turned away
-{glue:text}`rejected_clean` of the {glue:text}`frames` readings, and every one of them was good.
-A real outlier is far outside the limit. We move all three markers by 10 cm along each axis for two
+chi-squared distribution with the 18 values of a reading of $q$ and $v$, so at most about two
+good readings in a thousand are turned away. In this run, with nothing wrong, the gate turned
+away {glue:text}`rejected_clean` of the {glue:text}`frames` readings. A real outlier is far outside the limit. We move all three markers by 10 cm along each axis for two
 frames, and run the filter with the gate and without it:
 
 ```{code-cell} python
@@ -236,7 +259,7 @@ gated = estimate(both, markers=bad)
 ungated = estimate(both, markers=bad, gate=None)
 window = (t > 2.1) & (t < 2.7)
 fits = {"gate": gated, "no gate": ungated}
-worst = {name: 1e3 * np.abs((est - truth)[window, :9]).max()
+worst = {name: round(float(1e3 * abs((est - truth)[window, :9]).max()), 2)
          for name, (est, _, _) in fits.items()}
 worst, gated[1], ungated[1]  # the worst error [mm], and the frames rejected
 ```
@@ -310,20 +333,20 @@ first = 330  # the first second only: the window costs more than a filter
 mhe = MovingHorizon(system, dt, window=3, Q=Q, P=1e-4)
 inversion = Inversion(arm, at)
 mhe.reset(mhe.encoder(theta[0], None, 1.5e-3**2).y)
-window = []
+states = []
 for k in range(1, first):
     seen = [mhe.encoder(theta[k], theta_dot[k], 1.5e-3**2, 1e-2**2)]
     if k % every == 0:
         qm = inversion(markers[k])
         seen.append(Measurement(qm, None, 0.5e-3**2, name="mocap"))
-    window.append(mhe.step(u[k - 1], seen))
-window = np.array(window)
+    states.append(mhe.step(u[k - 1], seen))
+states = np.array(states)
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
 late = t[1:first] > 0.5
-e_window = 1e3 * np.sqrt(np.mean((window[:, :9] - q[1:first])[late] ** 2))
+e_window = 1e3 * np.sqrt(np.mean((states[:, :9] - q[1:first])[late] ** 2))
 filtered = runs["encoders + markers"][0][1:first, :9] - q[1:first]
 e_filter = 1e3 * np.sqrt(np.mean(filtered[late] ** 2))
 assert e_window < 0.5 * err["encoders"] and e_window < 1.5 * e_filter

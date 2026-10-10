@@ -129,7 +129,8 @@ table. A `MomentumObserver` has no such assumption. It works from the robot's mo
 $M(q)\dot q$ and what the model says would change it, so it needs no acceleration. What
 the model does not explain it takes for a force from outside. Its estimate follows the true force
 like a low-pass filter of bandwidth `gain` [1/s]: the higher, the faster, and the more noise it
-lets through. Like `ContactForce`, it takes the model of the finger without the table:
+lets through. Like `ContactForce`, it takes the model of the finger without the table. Its
+arguments are the system, the step between calls [s], the `gain`, and that model:
 
 ```{code-cell} python
 from virtualmodelcontrol.estimation import ContactForce, MomentumObserver
@@ -149,15 +150,15 @@ controller = vmc.VMCController(
 model = adapt.add_dynamics(adapt.finger())
 at_rest = ContactForce(controller, "tip", [0, 0, 1], robot=model)
 moving = MomentumObserver(controller.compiled.system, 1 / 500, 300.0,
-                          robot=model)
+                          robot=model)  # system, step [s], gain [1/s]
 
 plant = vmc.sim.ModelPlant(world, q0=[0.8, 0.8], max_step=1e-4)
 t, true, rest, flow = [], [], [], []
 for _ in range(500):  # 500 Hz
     u = controller.step(plant.t, plant.read())["motor_torque"]
     plant.write(vmc.Signals(plant.t, motor_torque=u))
-    moving(plant.q, plant.v, u, plant.t)
-    pushes = plant.elements()
+    moving(plant.q, plant.v, u, plant.t)  # q, v and the torques just sent
+    pushes = plant.elements()  # what each plant component pushes with
     t.append(plant.t)
     true.append(pushes["table"]["force"][0] + pushes["cushion"]["force"][0])
     rest.append(at_rest(controller)[2])
@@ -255,7 +256,7 @@ glue("worst_compliance", float(max(abs(np.array(v) * s / 1e3 - 1).max()
 ```
 
 Each line gives the object's true compliance, $1/k$, then the estimates from the two stiffer
-settings. With the exact model of the finger they agree to {glue:text}`worst_compliance:.1f` %.
+settings. With the exact model of the finger they agree to within {glue:text}`worst_compliance:.0e` %.
 
 ```{code-cell} python
 lighter = adapt.add_dynamics(adapt.finger())
@@ -278,7 +279,8 @@ gives {glue:text}`wrong_model:.2f` mm/N.
 
 - `ContactForce(controller, site, normal=None, robot=None)` estimates the force from the
   controller's command and the model of the robot. Call it with the controller. `robot` is the
-  model that holds the arm at rest, without the surroundings: it gives only the arm's own
-  stiffness and weight, and the motors' efficiency is the system's. The estimate uses the
-  controller's law, before the output stages, and leaves velocities out. A Param that acts only
-  on a virtual state does not change the force at once, and the laws leave it.
+  model of the arm alone, without the surroundings: it gives the arm's own stiffness and weight,
+  which the command balances first. The transmission, with its efficiency, is the system's.
+  The estimate uses the torques the controller's law asks for, before any output stage, and
+  leaves velocities out. A Param that acts only on a virtual state does not change the force at
+  once, so `ForceTracking` finds no direction for it and leaves it where it is.

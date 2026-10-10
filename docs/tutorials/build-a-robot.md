@@ -18,7 +18,7 @@ import docs_setup
 
 ## A rigid arm from its DH table
 
-`SerialChain.from_dh` takes a standard Denavit–Hartenberg table and returns the chain, with
+`SerialChain.from_dh` takes a standard Denavit-Hartenberg table and returns the chain, with
 the last frame as the site `tool`. Here two links of 0.30 m and 0.25 m turn about $z$, so the
 arm moves in the $x$-$y$ plane:
 
@@ -55,8 +55,10 @@ np.abs(a - b).max()  # [m], the two descriptions agree
 ## Masses, gravity, simulation
 
 A robot is a mechanism around its model. Its physical components are point masses at sites,
-gravity, and here a little viscous friction in the joints. The simulator needs all of them; the
-controller needs only the point masses, for `GravityCompensation`. The static friction of the
+gravity, and here a little viscous friction in the joints. `Gravity` and `GravityCompensation`
+read the robot's `gravity` Param, the vector $g$ in the base frame, so we add it first. The
+simulator needs all of these components; the controller needs only the point masses and the
+`gravity` Param, for `GravityCompensation`. The static friction of the
 motors, which holds a joint until the command passes a breakaway torque, is a part of the
 transmission: see [static friction of the motors](friction.md).
 
@@ -94,7 +96,7 @@ viz.animate(arm, log, "build-a-robot.mp4", plane="xy",
 ## A template
 
 A template is a function that returns the robot with its geometry as arguments, so the same code
-builds every variant. Each number also becomes a `Param` that can be changed or optimized later.
+builds every variant. Each number also becomes a `Param` that can be changed or optimized.
 
 ```{code-cell} python
 def two_link(lengths=(0.30, 0.25), masses=(1.0, 0.8),

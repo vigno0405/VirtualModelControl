@@ -24,23 +24,23 @@ pcc.figure();
 
 Segment $i$ has the coordinates $\Delta_i = (D_x, D_y, D_l)$ [m]: $D_x$ and $D_y$ bend it
 towards $(D_x, D_y)$, and $D_l$ lengthens it. With rest length $L_0$, section radius $d$ and
-local arc fraction $s \in [0, 1]$,
+local arc fraction $s \in [0, 1]$, the size of the bend is $\rho$ and its angle at $s$ is $\theta$:
 
 $$
 \begin{gathered}
-D = \sqrt{D_x^2 + D_y^2 + \varepsilon}, \\
-\theta(s) = s\,D/d .
+\rho = \sqrt{D_x^2 + D_y^2 + \varepsilon}, \\
+\theta(s) = s\,\rho/d .
 \end{gathered}
 $$
 
-The frame at $s$ is turned by $\theta$ about the axis $(-D_y, D_x, 0)/D$, and its origin is
+The frame at $s$ is turned by $\theta$ about the axis $(-D_y, D_x, 0)/\rho$, and its origin is
 
 $$
-t(s) = \frac{d\,(L_0 + D_l)}{D^2}
-\begin{bmatrix} D_x (1 - \cos\theta) \\ D_y (1 - \cos\theta) \\ D \sin\theta \end{bmatrix},
+t(s) = \frac{d\,(L_0 + D_l)}{\rho^2}
+\begin{bmatrix} D_x (1 - \cos\theta) \\ D_y (1 - \cos\theta) \\ \rho \sin\theta \end{bmatrix},
 $$
 
-the point at arc length $s\,(L_0 + D_l)$ on an arc of radius $d\,(L_0 + D_l)/D$. The tangent
+the point at arc length $s\,(L_0 + D_l)$ on an arc of radius $d\,(L_0 + D_l)/\rho$. The tangent
 is the frame's $z$ axis. The small $\varepsilon$ ($10^{-12}$ m²) keeps the straight pose
 smooth.
 
@@ -55,14 +55,14 @@ attachment point can itself be optimized.
 
 ## Tendons
 
-A tendon at angle $\delta$ around the section and distance $d$ from the backbone changes
-length by
+A tendon at angle $\delta$ around the section changes length by
 
 $$
 \Delta L = D_l - D_x \cos\delta - D_y \sin\delta ,
 $$
 
-and its motor, with spool radius $r$, turns by $\theta_m = -\Delta L / r$: a positive motor
+(the distance $d$ of the tendon from the backbone is already inside $D_x$ and $D_y$), and its motor,
+with spool radius $r$, turns by $\theta_m = -\Delta L / r$: a positive motor
 angle pulls the tendon. With three tendons per segment this map is invertible, so the measured
 motor angles give $\Delta$ exactly. The motor torques that realize a generalized force $\tau$
 solve $B u = \tau$ with $B = (\partial\theta_m/\partial\Delta)^\top$. The transmission's
@@ -71,7 +71,7 @@ ones.
 
 ## The templates
 
-`robots.helyx` builds Helyx arms from these equations. Three geometries are ready: the soft
+`robots.helyx` builds Helyx arms from these equations. Three geometries are ready, named by their segment lengths in mm: the soft
 arm of the [soft-arm example](../examples/soft-arm.md) (on its side), the
 [hanging soft arm](../examples/hanging-arm.md) and the arms of the
 [two-arm example](../examples/two-arms.md). Their segment lengths, their mounting and the sign
@@ -82,12 +82,14 @@ of their encoders against the convention above are:
 from IPython.display import Markdown
 from virtualmodelcontrol.robots import helyx
 
-rows = ["| Geometry | Segments, base to tip | Gravity in the base frame | Encoder sign |",
-        "|---|---|---|---|"]
+used = {"145-145-145": "soft arm", "145-290-290": "hanging arm", "290-145-145": "two arms"}
+rows = ["| Geometry | Used in | Segments, base to tip | Gravity in the base frame | Encoder sign |",
+        "|---|---|---|---|---|"]
 for name, spec in helyx.GEOMETRIES.items():
     lengths = ", ".join(f"{1000 * L:.0f}" for L in spec["L0"]) + " mm"
     gravity = "[" + ", ".join(f"{g:g}" for g in spec["gravity"]) + "] m/s²"
-    rows.append(f"| `{name}` | {lengths} | {gravity} | {helyx.ENCODER_SIGN[name]:+.0f} |")
+    rows.append(f"| `{name}` | {used[name]} | {lengths} | {gravity} "
+                f"| {helyx.ENCODER_SIGN[name]:+.0f} |")
 Markdown("\n".join(rows))
 ```
 
@@ -102,5 +104,5 @@ short = helyx.arm(
     lengths=(0.2, 0.2),  # [m], two segments
     tendon_angles=np.radians([[0, 120, -120], [60, 180, -60]]),
 )
-short.actuation.motor_sizes(short.space)  # motor angles and rates
+short.actuation.motor_sizes(short.space)  # 6 motor angles and 6 rates
 ```

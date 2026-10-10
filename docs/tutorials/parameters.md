@@ -27,7 +27,7 @@ from virtualmodelcontrol import viz
 from virtualmodelcontrol.robots import helyx
 
 arm = helyx.add_dynamics(helyx.arm("145-145-145"))
-length = arm.params["seg1.L0"]
+length = arm.params["seg1.L0"]  # arm.params maps names to Params
 length, length.bounds
 ```
 
@@ -87,8 +87,9 @@ vmc.compile(system, runtime=["ctrl.*.s"]).live
 ## Change a value while running
 
 `controller.set` changes live values, all at once, and returns the jump of the controller's
-energy, at the last measured state. It changes the controller's own copy: the `Param` objects
-keep their values, and a new controller starts from those.
+energy, at the last measured state, so we give the controller one step first. It changes the
+controller's own copy: the `Param` objects keep their values, and a new controller starts from
+those.
 
 ```{code-cell} python
 controller = vmc.VMCController(law)
@@ -97,6 +98,11 @@ controller.step(plant.t, plant.read())  # the arm at rest, straight
 stored = controller.energy()  # [J]
 jump = controller.set({"ctrl.reach.stiffness": 1200.0})
 stored, jump
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(jump - stored) < 1e-6 * stored  # doubling K doubles the stored energy
 ```
 
 Doubling the stiffness doubles the energy of the stretched spring, so the jump equals what it
@@ -114,15 +120,15 @@ name of its own, given by `vmc.Ref("goal", ...)` as above: `ctrl.reach.goal`.
 ## Move the goal
 
 The goal swings from side to side while the arm runs. The loop is the one `vmc.sim.run`
-runs (read, step, write, advance; its guard is left out) with one `set` before each step. The
-log also records the goal, to draw it later.
+runs (read, step, write, advance; the guard of [Your first controller](first-controller.md#the-loop)
+is left out) with one `set` before each step. The log also records the goal, to draw it below.
 
 ```{code-cell} python
 controller = vmc.VMCController(law)  # a new controller: 600 N/m again
 plant = vmc.sim.ModelPlant(arm)
 log = vmc.sim.RunLog()
 dt = 1 / 330  # [s]
-controller.reset(plant.t, plant.read())
+controller.reset(plant.t, plant.read())  # start from a measured state
 for _ in range(round(4.0 / dt)):
     target = [0.12 * np.sin(np.pi * plant.t), 0.0, 0.40]  # [m]
     controller.set({"ctrl.reach.goal": target})

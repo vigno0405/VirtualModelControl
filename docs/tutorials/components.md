@@ -111,6 +111,10 @@ from myst_nb import glue
 
 one_way = swings["upwards only"]
 assert one_way.min() < -0.09 and swings["both ways"].min() > -0.08
+both = swings["both ways"]
+turns = np.nonzero(np.diff(both)[:-1] * np.diff(both)[1:] < 0)[0] + 1
+peaks = np.abs(both[turns])
+assert np.ptp(peaks[1:] / peaks[:-1]) < 0.01  # the same share on each half swing
 glue("lowest", float(one_way.min()), display=False)
 ```
 
@@ -152,6 +156,21 @@ for ax in axes[-1]:
     ax.set_xlabel("$y$ [m]")
 for ax in axes[:, 0]:
     ax.set_ylabel("$f$ [N]")
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(np.abs(forces[1]).max() - 0.6) < 1e-3  # the tanh spring saturates
+assert np.abs(forces[2][np.abs(d) > 0.25]).max() < 1e-3  # the Gaussian is local
+for k in (3, 4):  # the stiffness of the sigmoid and polynomial springs rises
+    assert np.all(np.diff(np.abs(forces[k][d > 0] / d[d > 0])) >= 0)
+assert np.abs(forces[5][np.abs(d) < 0.1]).max() == 0.0  # no force in the range
+cube = vmc.Mechanism("cube", model=vmc.models.JointSpace(3, unit="m"))
+bound = vmc.Mechanism("bound")
+bound.add("tanh", vmc.TanhSpring(cube.joint(slice(0, 3)), 10.0, 0.6))
+box = vmc.compile(vmc.VirtualMechanismSystem(cube, bound))
+corner = box.tau([1.0, 1.0, 0.0], np.zeros(3), np.zeros(0), box.live_values(), 0.0)
+assert np.allclose(corner.full().ravel(), [-0.6, -0.6, 0.0], atol=1e-3)  # per axis
 ```
 
 The tanh spring saturates at its maximum force. The Gaussian spring pushes away only near

@@ -18,7 +18,7 @@ import docs_setup
 
 The ADAPT finger has three phalanges and two motors: motor 0 turns the first joint (MCP)
 through a pulley, and motor 1 turns the other two (PIP and DIP) together through a cable. Its
-configuration is the two motor angles $\theta_0, \theta_1$.
+configuration is the two motor angles $q_0, q_1$.
 
 ```{code-cell} python
 :tags: [remove-input]

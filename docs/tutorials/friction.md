@@ -59,13 +59,15 @@ assert not vmc.StaticFriction()(u).any()  # no friction by default
 ```
 
 The motor delivers nothing in the dead band, and then the command less $F_c$. The default is
-$F = F_c = 0$, which is no friction at all. The three numbers are `design` Params, to tune or to
-identify.
+$F = F_c = 0$, which is no friction at all. The three numbers are Params of scope `design`
+([Parameters](parameters.md)), to tune or to identify.
 
 ## In a robot
 
 Friction belongs to the motor, so it goes with the robot's transmission: its `Efficiency` takes
-a `friction`. Here is a joint with an inertia and a damper, and a virtual spring of
+a `friction`. An `Efficiency(c)` makes the robot receive $c\,u$ for the torque $u$ commanded
+([Efficiency](../concepts/efficiency.md)), and `Efficiency(1.0)`, the default, loses nothing.
+Here is a joint with an inertia and a damper, and a virtual spring of
 1 N·m/rad that pulls it to 1 rad:
 
 ```{code-cell} python
@@ -121,9 +123,11 @@ friction does not move the joint at all.
 ## Compensation
 
 The compensation adds the friction to the command, in the direction of the command:
-$u + F_c u / \sqrt{u^2 + w^2}$, smooth in $u$. `StaticFrictionCompensation.of(friction)` takes
-$F_c$ and the width from a `StaticFriction`, and an optional `fraction` of it. It is an output
-stage, applied after the controller's law like the other ones, and nothing turns it on but us:
+$u + F_c u / \sqrt{u^2 + w^2}$, smooth in $u$, with $w$ the width.
+`StaticFrictionCompensation.of(friction)` takes $F_c$ and the width from a `StaticFriction`, and
+an optional `fraction` of it. It is an output stage: a correction that `VMCController(output=...)`
+applies to the command after the controller's law ([the loop](first-controller.md#the-loop)).
+Nothing turns it on but us:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import StaticFrictionCompensation
@@ -180,7 +184,9 @@ on no more than that.
 ## Identification
 
 The three numbers are Params of the robot, so `fit_params` finds them from a run, with the
-stiffness and damping. The command has to rise slowly from rest, a ramp, or the breakaway torque
+stiffness and damping, as [Fit Params to a run](fit.md) shows. Their names say where they sit:
+`efficiency.friction.breakaway` is the breakaway of the `friction` of the robot's `efficiency`
+(`robot.params` lists all of them). The command has to rise slowly from rest, a ramp, or the breakaway torque
 does not show: after a step the motor has broken away at the first sample. We simulate a robot
 with friction under a ramp of torque, up and down, and fit from a rough guess:
 
@@ -242,9 +248,10 @@ assert abs(efficiency.params["c1"].value - [0.8, 0.6]).max() < 0.01
 
 ## Planning with it
 
-The friction is in the robot's dynamics, so a plan, an optimization and an MPC see it. A
-compensation joins them through `Problem(output=...)`, which applies the stage to the
-controller's command as `VMCController(output=...)` does in a simulation:
+The friction is in the robot's dynamics, so a plan ([Optimize](optimize.md)), an optimization and
+an MPC ([Model predictive control](mpc.md)) see it. A compensation joins them through
+`Problem(output=...)`, which applies the stage to the controller's command as
+`VMCController(output=...)` does in a simulation:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt
@@ -264,18 +271,20 @@ gap = abs(plan.q[:-1] - sim["q"][::5]).max()
 ```{code-cell} python
 :tags: [remove-cell]
 assert plan.converged and gap < 1e-8
+assert np.isclose(3.0 / (len(plan.q) - 1), 5 * 0.06)  # a point every fifth step
 glue("gap", float(gap), display=False)
 ```
 
-The plan follows the simulation within {glue:text}`gap:.0e` rad, as without friction: it is the
-same closed loop, with the motor's friction and the compensation in it. `MPC(problem)` takes the
+The plan follows the simulation within {glue:text}`gap:.0e` rad: it is the same closed loop,
+with the motor's friction and the compensation in it. The plan has a point every 0.3 s, which is
+every fifth step of the simulation. `MPC(problem)` takes the
 same problem, so it plans with friction too.
 
 ## Good to know
 
 - **Off by default.** `Efficiency(friction=None)` and `StaticFriction()` with no torques are the
   robots as they were, and no template turns the compensation on. The finger's and the hand's
-  lab values, `adapt.finger_friction()` and `adapt.hand_friction()`, are there to ask for.
+  values, `adapt.finger_friction()` and `adapt.hand_friction()`, are there to ask for.
 - **The width** is the smoothing of the corner at the breakaway torque, in N·m. A smaller one
   is closer to a real motor and harder for a solver: a plan from rest may need a warm start.
 - **No memory.** The map depends on the torque we apply and not on how the motor got there, so

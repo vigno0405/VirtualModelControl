@@ -149,6 +149,7 @@ ax.legend(loc="upper right", fontsize=18);
 best = ks[np.argmin(costs)]
 assert abs(np.log(best / k_found)) < 0.3, (best, k_found)
 assert plan.cost <= costs.min() * (1 + 1e-3)
+assert costs[0] > 2 * costs.min() and costs[-1] > costs.min()  # soft, stiff
 glue("best", float(best), display=False)
 glue("flat", float(100 * (costs[ks > 40].max() / plan.cost - 1)),
      display=False)
@@ -231,7 +232,7 @@ lowest cost among those that converged. The program is built once and every poin
 another solve, warm-started from the best plan so far:
 
 ```{code-cell} python
-plan.apply(system)  # start from the optimized stiffness
+plan.apply(system)  # the system's stiffness is now the optimized one
 search = build(free=["new.pull.stiffness"],
                parameters=["new.pull.reference"])
 found = opt.search_references(
@@ -252,13 +253,20 @@ offset = 1e3 * (found.references["new.pull.reference"] - target)
 assert np.count_nonzero(np.round(offset)) == 1 and abs(offset[2]) > 1, offset
 glue("offset", float(np.abs(offset).max()), display=False)
 glue("gain", float(100 * (1 - found.result.cost / anchor)), display=False)
+sideways = [c["cost"] for c in found.candidates
+            if c["cost"] is not None
+            and np.abs(np.array(c["references"][key]) - target)[:2].max() > 1e-6]
+assert len(sideways) >= 2 and min(sideways) > 5 * anchor
+glue("sideways", float(min(sideways) / anchor), display=False)
 glue("k_search", found.result.params["new.pull.stiffness"].item(), display=False)
 ```
 
 Radius and step are in meters: a radius of 6 cm and a step of 6 cm give the target and its six
-neighbors. The best reference lies {glue:text}`offset:.0f` mm from the target along z, and it
-lowers the cost by {glue:text}`gain:.1f` %, with a stiffness of {glue:text}`k_search:.0f` N/m.
-Moving it sideways costs many times more. `found.result` is the plan, `found.references` the
+neighbors. The status says how each solve ended: an acceptable level counts as converged, and a
+point that did not converge has no cost. The best reference lies {glue:text}`offset:.0f` mm from
+the target along z, and it lowers the cost by {glue:text}`gain:.1f` %, with a stiffness of
+{glue:text}`k_search:.0f` N/m: for this task the target is already a good reference. Moving it
+sideways costs at least {glue:text}`sideways:.0f` times more. `found.result` is the plan, `found.references` the
 point that gave it, and `found.candidates` every point tried.
 
 ## Where the arm rests

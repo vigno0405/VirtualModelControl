@@ -49,12 +49,12 @@ Each element gives a force $f$ on its coordinate. Springs store energy, $f = -\p
 with $V \ge 0$. A linear spring of stiffness $K$ on $y = x - x_\text{ref}$ pulls $x$ towards
 $x_\text{ref}$ with $f = -K y$. Dampers dissipate, $f \cdot \dot y \le 0$, as $f = -D \dot y$.
 Inertances give the virtual states their mass. Sources add forces of their own, such as gravity
-compensation, $f = -m g$ on each of the robot's masses.
+compensation, $f = -m g$ on each of the robot's masses $m$, with $g$ the gravity vector.
 
 ## From forces to motor torques
 
-The torque that a force $f$ on $y$ exerts on the robot follows from virtual work:
-$f \cdot \delta y = \tau^\top \delta q$ for every small motion, so
+The torque that a force $f$ on $y$ exerts on the robot follows from power:
+$f \cdot \dot y = \tau^\top v$ for every velocity $v$, so
 
 $$
 \tau = \sum_k J_{q,k}^\top f_k ,
@@ -70,8 +70,8 @@ with $B$ the robot's actuation map. For a tendon arm $B = (\partial\theta/\parti
 with $\theta$ the motor angles. With one motor per joint $B$ is the identity. The controller
 never divides $u$ by an [efficiency](efficiency.md). A robot with fewer motors than joints has
 no $u$ that solves it for every $\tau$: the motors give the least-squares
-$u = B^+\tau$, and what they cannot give is the part that
-[the underactuated tutorial](../tutorials/underactuated.md) calls the defect.
+$u = B^+\tau$, and the part of $\tau$ outside the range of $B$, which they cannot give, is the
+torque defect of [the underactuated tutorial](../tutorials/underactuated.md).
 
 ## Virtual states
 

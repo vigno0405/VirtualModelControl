@@ -46,8 +46,8 @@ K, GOAL = "ctrl.spring.stiffness", "ctrl.spring.goal"
 
 ## One plan, by multiple shooting
 
-`Shooting` plans the motion of the closed loop like `Collocation`, with the same terms, but
-in another way. The horizon is cut into intervals, and in each of them the closed loop is
+`Shooting` plans the motion of the closed loop like `Collocation`, with the same terms
+([Optimizing a virtual mechanism](optimize.md)), but in another way. The horizon is cut into intervals, and in each of them the closed loop is
 simulated, as `vmc.sim.rollout` does: the controller computes its command, the robot's own
 integrator advances it, and so on for `substeps` control steps. Constraints join the end of each
 interval to the start of the next. The unknowns are q and v at the nodes, and, for the Params
@@ -56,7 +56,7 @@ named in `steps`, one value in each interval:
 ```{code-cell} python
 INTERVALS, SUBSTEPS = 10, 5  # 0.1 s each, a control step of 20 ms
 
-problem = opt.Problem(system, solver="ipopt-exact")  # exact Hessians
+problem = opt.Problem(system, solver="ipopt-exact")  # see "Solvers"
 problem.add(opt.Shooting([0.0], 1.0, INTERVALS + 1, steps=[K, GOAL],
                          substeps=SUBSTEPS))
 problem.add(opt.Effort(0.01))
@@ -153,13 +153,22 @@ warm = run(mpc, 3.0)
 
 The controller moves first, and `step` changes its Params for the next control step. A plan
 that came late is applied as of the time it took (`latency`, in seconds, measured by default);
-here it is 0, as the simulation has no clock of its own.
+here it is 0, as the simulation has no clock of its own. The target is an input of each solve
+(`problem.parameter("reach.target")` above), so a new one moves the goal while the controller
+runs: `mpc.step(controller, q, v, references={"reach.target": [1.5]})`.
 
 ```{code-cell} python
 :tags: [remove-cell]
 cold = run(opt.MPC(problem), 3.0, cold=True)
 assert abs(warm[-1, 1] - 1.0) < 1e-2 and abs(cold[-1, 1] - 1.0) < 1e-2
 assert warm[:, 2].sum() < cold[:, 2].sum()
+aimed = opt.MPC(problem)  # one plan with another target
+start_plant = vmc.sim.ModelPlant(robot, max_step=0.02)
+start_controller = vmc.VMCController(vmc.compile(system))
+start_controller.reset(0.0, start_plant.read())
+aimed.step(start_controller, start_plant.q, start_plant.v,
+           references={"reach.target": [1.5]})
+assert aimed.result.q[-1, 0] > 1.2  # it heads for the new target
 glue("final", 1e3 * float(abs(warm[-1, 1] - 1.0)), display=False)
 glue("warm", int(warm[:, 2].sum()), display=False)
 glue("cold", int(cold[:, 2].sum()), display=False)
@@ -293,17 +302,18 @@ for name in opt.PRESETS:
     start = time.perf_counter()
     result = p.solve()
     rows[name] = (result.iterations, result.cost,
-                  1e3 * (time.perf_counter() - start))
-for name, (iterations, cost, ms) in rows.items():
+                  1e3 * (time.perf_counter() - start), result.status)
+for name, (iterations, cost, ms, _) in rows.items():
     print(f"{name:<12}{iterations:>4} iterations {ms:>6.1f} ms  "
           f"cost {cost:.4f}")
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-costs = [c for name, (_, c, _) in rows.items() if name != "rti"]
+costs = [c for name, (_, c, _, _) in rows.items() if name != "rti"]
 assert max(costs) - min(costs) < 0.01 * min(costs), costs
 assert rows["ipopt"][0] > 2 * rows["ipopt-exact"][0]  # the quasi-Newton Hessian needs more
+assert "Acceptable" in rows["ipopt"][3]  # it ends at an acceptable level
 glue("it_ipopt", int(rows["ipopt"][0]), display=False)
 glue("it_exact", int(rows["ipopt-exact"][0]), display=False)
 ```
@@ -313,13 +323,13 @@ The default `"ipopt"` takes {glue:text}`it_ipopt` iterations against {glue:text}
 step from a cold start, so its plan is not the optimum.
 
 Which QP solver the SQP presets use is the `qpsol` option, and not every one of CasADi's
-suits a shooting. Tried on this problem with CasADi 3.7: `qrqp` (the default), `qpoases`
+suits a shooting. Tried on this problem with CasADi 3.7 and 3.8: `qrqp` (the default), `qpoases`
 and `daqp` find the same plan; `proxqp` stops at the iteration limit; `hpipm` needs the QP in
 stage order, and the program orders its variables by kind (all the $q$, then all the $v$);
-`ipqp` needs a positive definite Hessian, which a shooting QP does not have, and returns
-NaN; `highs` reports an optimum with a primal infeasibility above its own tolerance, and a
-looser tolerance does not help; `osqp` needs a newer OSQP library than the one in that
-CasADi build. Your build may differ: pass the name in `qpsol` and read `plan.converged`.
+`ipqp` needs a positive definite Hessian, which a shooting QP does not have, and fails;
+`highs` reports an optimum with a primal infeasibility above its own tolerance, and a looser
+tolerance does not help; `osqp` needs a newer OSQP library than the one in that CasADi build.
+Your build may differ: pass the name in `qpsol` and read `plan.converged`.
 
 The library's `"fatrop"` treats the program as one general problem, without the stages it was
 made for, so it does not scale with the horizon as FATROP can: for a long horizon take

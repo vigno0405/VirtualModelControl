@@ -55,7 +55,8 @@ to find. A Param is named after its component and its own name: the mass of the 
 `m` is `m.inertance`, the stiffness of `spring` is `spring.stiffness` (`robot.params` lists them all; see
 [Parameters](parameters.md)). `fit_params` takes the robot, the names (or globs) of its Params and the runs. It asks
 which values make the robot's own dynamics, at the logged motion, agree with the torques that
-were sent:
+were sent. It returns the fitted `values` and their standard errors `std`, each by name, and the
+root-mean-square `rms` of what is left over:
 
 ```{code-cell} python
 from virtualmodelcontrol.identification import fit_params
@@ -66,7 +67,7 @@ names = ["m.inertance", "spring.stiffness",
 fit = fit_params(guess, names, [log], smoothing=11)
 for name in names:
     value, std = float(fit.values[name]), float(fit.std[name])
-    print(f"{name:18s} {value:8.4f} ± {std:.4f}")
+    print(f"{name:18s} {value:8.4f} ± {std:.1e}")
 ```
 
 ```{code-cell} python
@@ -76,22 +77,57 @@ from myst_nb import glue
 for name, true in zip(names, (2.0, 40.0, 1.5)):
     assert abs(float(fit.values[name]) - true) < 0.05 * true
 glue("fit_rms", fit.rms, display=False)
+off = abs(float(fit.values["damper.damping"]) - 1.5)  # [N·s/m]
+assert off > 10 * float(fit.std["damper.damping"])  # far outside its ±
+glue("damp_off", 100 * off / 1.5, display=False)
+glue("damp_sigma", off / float(fit.std["damper.damping"]), display=False)
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+def drive(robot, target):
+    law = vmc.Mechanism("ctrl")
+    law.add("pull", vmc.LinearSpring(robot.joint(0) - target, 60.0))
+    law.add("damp", vmc.LinearDamper(robot.joint(0), 3.0))
+    system = vmc.VirtualMechanismSystem(robot, law)
+    return vmc.sim.run(vmc.sim.ModelPlant(robot, max_step=1e-3),
+                       vmc.VMCController(vmc.compile(system)),
+                       vmc.sim.SimClock(1 / 200), T=10.0)
+
+
+def saturating(damping):
+    robot = vmc.Mechanism("slider", model=vmc.models.JointSpace(1, unit="m"))
+    robot.add("m", vmc.Inertance(robot.joint(0), 2.0))
+    robot.add("spring", vmc.LinearSpring(robot.joint(0), 40.0))
+    robot.add("damper", vmc.TanhDamper(robot.joint(0), damping, 0.8))
+    return robot
+
+
+# a run that sits still leaves every Param at its guess
+at_zero = vmc.Custom(lambda t: 0.0 * t, [vmc.Time()], dim=1, unit="m")
+quiet = fit_params(slider(1.0, 10.0, 0.2), names, [drive(slider(2.0, 40.0, 1.5), at_zero)])
+assert [float(quiet.values[n]) for n in names] == [1.0, 10.0, 0.2]
+assert all(float(quiet.std[n]) == np.inf for n in names)
+# a saturating damper is fitted the same way
+tanh_fit = fit_params(saturating(0.2), ["damper.damping"],
+                      [drive(saturating(1.5), goal)], smoothing=11)
+assert abs(float(tanh_fit.values["damper.damping"]) - 1.5) < 0.1
 ```
 
 The true values are 2 kg, 40 N/m and 1.5 N·s/m. The log holds no accelerations, so the fit
 gets them by smoothing the velocity and differentiating it, which is where its error comes from
 (`smoothing` is the number of samples of the smoothing). A run that has an `a` of its own, as a
-simulation can give, is used as it is. After the fit, {glue:text}`fit_rms:.2f` N is left over
+simulation can give, is used as it is. After the fit, {glue:text}`fit_rms:.4f` N is left over
 per sample. The numbers after ± are the standard errors: how far the values may be off if what is
 left over is noise. Here it is not noise, it is the smoothing, so the errors are much larger than
-the ± says (the damping is 1 % off, many times its standard error). Read the ± to compare how
-well the run determines one Param against another, not as a bound on the error.
+the ± says (the damping is {glue:text}`damp_off:.1f` % off, {glue:text}`damp_sigma:.0f` times its
+standard error). Read the ± to compare how well the run determines one Param against another,
+not as a bound on the error.
 
 ## What it asks of the data
 
 A Param shows only in motion that depends on it. The mass shows in the accelerations, the
 stiffness in the position, the damping in the velocity, so a run that only sits still fits
-none of them. The standard errors tell: a Param that the run barely excites has a large one.
-A Param of a nonlinear component, such as the saturating damper `TanhDamper`, is fitted the
-same way, by iterating from the values the robot has, and the fit keeps every Param within its
-bounds.
+none of them: every Param keeps the value it started from, with a standard error of `inf`. A Param of a nonlinear component,
+such as the saturating damper `TanhDamper`, is fitted the same way, by iterating from the values
+the robot has, and the fit keeps every Param within its bounds.

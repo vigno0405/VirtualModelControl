@@ -21,7 +21,7 @@ import docs_setup
 | a kind of robot | a class with `space`, `params`, `sites` and `frame` | `"model"` |
 | the dynamics of a robot | `Equations`, a residual (and an energy) for a `FunctionModel` | not registered: a function cannot be written to a file |
 | a transmission | the `Actuation` protocol, below | `"actuation"` |
-| a simulator or hardware | `read`, `write` and `close` (and, simulated, `t`, `reset`, `advance`) | |
+| a simulator or hardware | `read`, `write` and `close` (and, simulated, `t`, `reset`, `advance`) | not registered: pass it to `run` |
 
 A transmission implements `vmc.models.Actuation`: `params`, `motor_sizes`, `motor_angles`,
 `motor_rates`, `generalized_force` ($\tau = B(q)\,u$), `allocate` (the $u$ for a $\tau$),
@@ -70,6 +70,28 @@ meas = vmc.Signals(0.0, motor_position=np.zeros(9),
 controller.step(0.0, meas)["motor_torque"].round(4)  # [N·m]
 ```
 
+Registered, it is also a name in a configuration file ([Experiments in files](configurations.md)):
+`type: quartic_spring`, with the other arguments of its constructor as keys. This is the same
+controller, as the dictionary that the file would hold:
+
+```{code-cell} python
+experiment = vmc.config.load({
+    "robot": {"template": "helyx.arm", "geometry": "145-145-145"},
+    "coordinates": {"tip": {"point": {"s": 1.0}}},
+    "controller": {"elements": {"soft": {
+        "type": "quartic_spring",
+        "coordinate": {"difference": ["tip", [0.1, 0.0, 0.40]]},
+        "stiffness": 2.0e4}}},
+})
+experiment.controller.step(0.0, meas)["motor_torque"].round(4)  # [N·m]
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+by_name = experiment.controller.step(0.0, meas)["motor_torque"]
+assert np.array_equal(by_name, controller.step(0.0, meas)["motor_torque"])
+```
+
 A dissipation component defines `force(ctx, y, yd)` with $f \cdot \dot y \le 0$. A source
 defines `force`, and its power is metered.
 
@@ -92,10 +114,11 @@ from `children()`.
 
 ## A new kind of model
 
-A model gives a configuration space, its Params, its named sites and a function
-`frame(q, at, p)`. This returns the rotation and position of a site, written with CasADi
-operations. Everything else (coordinates, components, compile, simulation) then works
-unchanged. A pendulum swinging about $z$:
+A model gives a configuration space, its Params, its named sites, the unit of its
+configuration `q_unit` and a function `frame(q, at, p)`. This returns the rotation and position
+of a site, written with CasADi operations, with `p` the model's Params by name. Everything else
+(coordinates, components, compile, simulation) then works unchanged. A pendulum swinging about
+$z$:
 
 ```{code-cell} python
 @vmc.register("model", "pendulum")
@@ -123,16 +146,17 @@ vmc.Kinematics(robot).jacobian([0.0], "bob")  # [m/rad]
 
 A function does as well, when the model needs no class of its own. `FunctionModel` takes the
 function, the configuration space (here one joint), the Params and the sites. The function may
-return lists of CasADi values:
+return lists of CasADi values. A function cannot be written to a file, so a `FunctionModel` has
+no `to_dict`, and a robot built on one cannot be saved:
 
 ```{code-cell} python
-def swing(q, at, p):
+def bob_frame(q, at, p):
     c, s = ca.cos(q[0]), ca.sin(q[0])
     return [[c, -s, 0], [s, c, 0], [0, 0, 1]], [p["L"] * c, p["L"] * s, 0]
 
 
-L = vmc.Param("L", 0.5, unit="m", scope="design")
-bob = vmc.models.FunctionModel(swing, 1, [L], sites=("bob",))
+length = vmc.Param("L", 0.5, unit="m", scope="design")
+bob = vmc.models.FunctionModel(bob_frame, 1, [length], sites=("bob",))
 vmc.Kinematics(bob).position([0.3], "bob")  # [m]
 ```
 
@@ -192,7 +216,8 @@ def black_box(energy=stored):
 ```
 
 The same link built from parts, a point mass and gravity, is the reference. The two simulate
-alike, with the same controller, a spring to a goal:
+alike, with the same controller, a spring to a goal. `vmc.sim.rollout(system, q0, T, dt)` runs
+the closed loop from `q0` for `T` seconds, with the controller acting every `dt`:
 
 ```{code-cell} python
 import matplotlib.pyplot as plt
@@ -217,8 +242,8 @@ def swing(robot, T=3.0):
 
 runs = {"parts": swing(parts), "equations": swing(black_box())}
 fig, ax = plt.subplots()
-for name, log in runs.items():
-    ax.plot(log["t"], log["q"][:, 0], label=name)
+for name, run in runs.items():
+    ax.plot(run["t"], run["q"][:, 0], label=name)
 ax.set_xlabel("time [s]")
 ax.set_ylabel("joint angle [rad]")
 ax.legend();
@@ -235,8 +260,8 @@ glue("eq_swing", float(swung), display=False)
 ```
 
 The link swings {glue:text}`eq_swing:.2f` rad, and the two runs agree to better than a
-nanoradian. (With several joints they differ a little: the simulator linearizes the black box
-as a whole at each step, where it linearizes only the springs and dampers of the parts.)
+nanoradian. (With several joints they differ a little: the simulator's step linearizes the whole
+acceleration of the black box, but only the forces of the springs and dampers of the parts.)
 `check_model` takes the robot as it takes any model, and checks the mass matrix (symmetric,
 positive) and, when there is an energy, that a simulation never gains any:
 
@@ -337,4 +362,6 @@ the plugins the first time a name is looked up and not found. So configuration f
 the plugins' names ([Experiments in files](configurations.md)). Register a robot template as
 `"robot"`, a simulation's dynamics as `"dynamics"`, an output stage as `"output"`, a controller
 template as `"controller"` and a component as `"component"`. Register a coordinate kind as
-`"coordinate"`: a function `(args, scope, path)` that builds the coordinate.
+`"coordinate"`: a function `(args, scope, path)` that builds the coordinate. Register a model as
+`"model"` and a transmission as `"actuation"`, each with `to_dict` and `from_dict`, so that
+`vmc.models.from_dict` can rebuild it from a saved description.

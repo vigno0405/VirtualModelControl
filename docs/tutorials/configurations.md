@@ -126,6 +126,7 @@ first_gap = 100 * float(np.abs(tip[walking, 0] - goal[walking, 0]).max())  # [cm
 glue("gap", first_gap, display=False)
 glue("z_end", 100 * float(tip[-1, 2] - middle[2]), display=False)
 assert abs(tip[-1, 0]) < 1e-3, "the tip is not back in the middle along x: rewrite"
+assert (tip[walking, 2] > goal[walking, 2]).all() and tip[-1, 2] > middle[2]  # above
 
 # The same experiment written in Python gives the same run, bit for bit.
 arm = helyx.add_dynamics(helyx.arm("145-145-145"))

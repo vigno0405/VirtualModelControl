@@ -6,8 +6,9 @@ kernelspec:
 
 # How the library is organized
 
-The library is a stack of layers. Each layer uses only the layers below it. The ready-made
-robots and the figures sit at the edges. They may use every layer, and no layer uses them.
+This page is a map: what each part of the library does, and which names to look for. The library
+is a stack of layers. Each layer uses only the layers below it. The ready-made robots and the
+figures sit at the edges. They may use every layer, and no layer uses them.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -23,8 +24,9 @@ library_map.figure();
 A controller needs only the layers up to `control`: describe the robot with `models`, place
 virtual elements with `mechanisms`, pair them in a `VirtualMechanismSystem`, `compile` it and
 run it with `VMCController`. Simulation, figures and the robot templates are optional.
-`lint-imports` enforces the order: it checks the contracts written in `pyproject.toml` on every
-change, including that nothing in the library imports ROS.
+The order is checked on every change, with a tool that reads which module imports which
+(`lint-imports`, with the contracts in `pyproject.toml`). The same check makes sure that nothing in
+the library imports a robot middleware such as ROS: signals come in and go out as arrays.
 
 ## Where things are
 
@@ -46,7 +48,7 @@ change, including that nothing in the library imports ROS.
 | describe an experiment in a file | `vmc.config`: `load`, `Experiment` |
 | draw and animate | `vmc.viz` |
 | run a model without CasADi | `backend="numpy"` or `"torch"`, `Dynamics.export`, `Compiled.export` |
-| parameters, units, scopes | `vmc.Param`, `vmc.ParamSet` |
+| parameters, units, scopes | `vmc.Param`, `vmc.ParamSet` ([Parameters](../tutorials/parameters.md)) |
 
 ## One symbolic source
 
@@ -61,9 +63,11 @@ $$
 \end{aligned}
 $$
 
-with $M$ the mass matrix, $h$ the velocity and gravity terms, $B$ the actuation map, $f_k$ the
-forces of the robot's own components and $J_k$ the Jacobian of each one's coordinate with
-respect to the velocity. A model whose dynamics are not made of such components (a black box)
+with $M$ the mass matrix, $h$ the velocity terms of the kinetic energy (Coriolis and centrifugal),
+$B$ the actuation map, $f_k$ the forces of the robot's own components (springs, dampers, gravity)
+and $J_k$ the Jacobian of each one's coordinate with respect to the velocity. A model whose dynamics are not made of such components (a black box)
 gives the residual itself, as a function. The numpy and PyTorch versions of a model are not
 written again: they are generated from the same graph ([Use a model outside
 CasADi](../tutorials/outside.md)).
+
+To use these parts, start with [your first controller](../tutorials/first-controller.md).

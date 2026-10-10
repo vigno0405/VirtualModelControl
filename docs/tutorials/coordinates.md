@@ -89,6 +89,8 @@ A virtual state is only a number. To give it a geometry, take a point of any mod
 state's value: `vmc.FramePoint(model, site, q=state)`. The model here is a `SerialChain` with a
 [rail](joints.md#a-rail-along-a-path): a curve in front of the arm, with a cart that runs along it. A spring
 ties the arm's tip to the cart, so the tip is pulled along the curve, wherever the cart goes.
+The arm points up here (`"290-145-145"`, 0.58 m long), and the curve is an arc of radius 0.57 m
+about its base.
 
 The coordinate `q` is where the cart is on the rail, and anything can give it: a virtual state
 (as above, a free cart that the tip drags along); a `vmc.Ref` (a cart held where the reference

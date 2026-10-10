@@ -82,9 +82,19 @@ from myst_nb import glue
 
 glue("m", float(1000 * m), display=False)
 glue("D_c", float(D_c), display=False)
+glue("K", K, display=False)
+past, arrival = {}, {}  # [mm] beyond the goal along the motion, [steps]
+for r in (0.25, 0.5, 1.0, 2.0):
+    run = simulate(r * D_c, T=0.5)
+    tips = np.array([kin.position(q, "tip") for q in run.arrays()["q"]])
+    past[r] = 1000 * ((tips - goal) @ u).max()
+    near = distance(run)
+    arrival[r] = np.argmax(near < 0.05 * near[0])  # within 5 % of the start
+assert past[0.25] > past[0.5] > 1.0 and past[2.0] < 1e-3  # no overshoot
+assert arrival[2.0] > arrival[1.0] > 0  # twice D_c arrives later
 ```
 
-With $K$ = 100 N/m and a {glue:text}`m:.1f` g tip, $D_c$ = {glue:text}`D_c:.2f` N·s/m. Below
+With $K$ = {glue:text}`K:.0f` N/m and a {glue:text}`m:.1f` g tip, $D_c$ = {glue:text}`D_c:.2f` N·s/m. Below
 it the tip overshoots the goal and rings. At twice $D_c$ it arrives later, without overshooting.
 
 ```{code-cell} python
@@ -103,8 +113,11 @@ viz.animate(finger, log, "tuning.mp4", plane="yz", invert=True,
 The damping above came from a formula. A search finds it from runs instead. We write a cost, the
 distance of the tip to its goal summed over a run, and a searcher picks the dampings to try.
 `Grid`, `Random`, `CMAES`, `ExtremumSeeking` and `Bayes` of `vmc.optimization` all ask for
-candidates and are told their costs. The runs in between are yours, in simulation as here or on a robot in your
-own loop:
+candidates and are told their costs. The runs in between are yours, in simulation as here or on a
+robot in your own loop. `opt.tune(searcher, cost, rounds)` is the loop: `rounds` times it asks, runs
+`cost` on each candidate and tells the costs. The grid gives all its points in its first ask, so
+one round is enough; `Bayes` gives its first `initial` candidates together and then one per ask.
+The CMA-ES loop below is the same, written out:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt
@@ -144,6 +157,9 @@ glue("runs", len(search.history), display=False)
 glue("grid_runs", len(grid.history), display=False)
 glue("bayes_runs", len(bayes.history), display=False)
 glue("bayes", float(bayes.best[0] / D_c), display=False)
+critical = cost([D_c]) / grid.best_cost - 1  # what the formula's damping costs
+assert 0 <= critical < 0.01
+glue("critical", 100 * float(critical), display=False)
 worst = max(search.best_cost, bayes.best_cost) / grid.best_cost - 1
 assert abs(grid.best[0] - search.best[0]) < 0.3 * D_c, (grid.best, search.best)
 assert worst < 0.01, (grid.best_cost, search.best_cost, bayes.best_cost)
@@ -153,13 +169,14 @@ glue("flat", 100 * float(worst), display=False)
 The grid, with {glue:text}`grid_runs` runs, puts the best damping at {glue:text}`grid:.2f` $D_c$, CMA-ES, with
 {glue:text}`runs` runs, at {glue:text}`cma:.2f` $D_c$, and `Bayes`, with {glue:text}`bayes_runs` runs, at
 {glue:text}`bayes:.2f` $D_c$. The cost is flat near its minimum: the three best costs are within
-{glue:text}`flat:.1f` % of each other, so the dampings differ more than the costs do. `Bayes`
+{glue:text}`flat:.1f` % of each other, so the dampings differ more than the costs do. The
+damping $D_c$ of the formula costs only {glue:text}`critical:.1f` % more than the best. `Bayes`
 fits a Gaussian process to the costs it has seen and asks for the damping where it expects the
 most improvement, so it suits runs that are few and slow.
 When the whole motion can be planned, [Optimizing a virtual mechanism](optimize.md) finds Params
-with gradients. A search is for when a run is all you have. `opt.bounds_of(params, names)` gives
-the bounds and the current values of named Params as vectors to start from, and
-`params.set_vector(x, names)` sets a candidate back.
+with gradients. A search is for when a run is all you have. `opt.bounds_of(system.params, names)`
+gives the lower bounds, the upper bounds and the current values of named Params as vectors to
+start from, and `system.params.set_vector(x, names)` sets a candidate back.
 
 ## The loop limits the damping
 
@@ -211,6 +228,16 @@ print(f"m/dt = {m / dt:.1f} N·s/m; first unstable damper: {first}")
 :tags: [remove-cell]
 glue("limit", float(m / dt), display=False)
 glue("limit2", float(2 * m / dt), display=False)
+q_end = simulate(D_c).arrays()["q"][-1]  # where the tip ends
+J_end = kin.jacobian(q_end, "tip")
+M_end = np.array(plant.dynamics.mass(q_end, plant.p))
+masses = 1 / np.linalg.eigvalsh(J_end @ np.linalg.solve(M_end, J_end.T))[-2:]
+m_end = masses.min()  # the lightest direction of the tip
+assert abs(first["sampled"] - 2 * m_end / dt) < 1.0
+assert abs(first["one step late"] - m_end / dt) < 0.5
+glue("m_end", float(1000 * m_end), display=False)
+glue("limit2_end", float(2 * m_end / dt), display=False)
+glue("limit_end", float(m_end / dt), display=False)
 glue("late", first["one step late"], display=False)
 glue("sampled", first["sampled"], display=False)
 ```
@@ -219,13 +246,19 @@ The sampled loop turns unstable at {glue:text}`sampled:.1f` N·s/m against
 $2m/\Delta t$ = {glue:text}`limit2:.1f`, and the delayed loop at {glue:text}`late:.1f` N·s/m
 against $m/\Delta t$ = {glue:text}`limit:.1f`. Keep the damper well below the limit of your
 loop. A faster loop, or less delay, allows more damping. A real loop usually has more delay
-than one step, so its limit is lower. The runs go unstable a little above the formulas: the
-sweep moves in steps of 0.5 N·s/m, and a damper just past its limit takes time to blow up.
+than one step, so its limit is lower.
+
+The runs go unstable above the formulas because the formulas use the mass along the motion at
+the start. The damper pulls on every direction of the tip, and the lightest one, at the pose
+where the tip ends, weighs {glue:text}`m_end:.1f` g. With that mass the limits are
+{glue:text}`limit2_end:.1f` and {glue:text}`limit_end:.1f` N·s/m, which the runs match to
+within the 0.5 N·s/m of the sweep.
 
 ## Reading the energies
 
-The compiled controller reports its stored energy and the power of its dampers at any state.
-Along a run, the spring's energy should fall as the damper dissipates it:
+The compiled controller reports its stored energy and the power of its dampers at any state (the
+[energy tutorial](energy.md) lists what `energy` and `power` return). Along a run, the spring's
+energy should fall as the damper dissipates it:
 
 ```{code-cell} python
 log = simulate(D_c)
@@ -234,10 +267,10 @@ ctrl = vmc.Mechanism("ctrl")
 ctrl.add("reach", vmc.LinearSpring(finger.point("tip") - goal, K))
 ctrl.add("damp", vmc.LinearDamper(finger.point("tip"), D_c))
 compiled = vmc.compile(vmc.VirtualMechanismSystem(finger, ctrl))
-p, z = compiled.live_values(), np.zeros(0)
-V = [float(compiled.energy(q, v, z, p, t)[0])
+p, z = compiled.live_values(), np.zeros(0)  # no virtual state
+V = [float(compiled.energy(q, v, z, p, t)[0])  # the stored energy
      for q, v, t in zip(rows["q"], rows["v"], rows["t"].ravel())]
-P = [float(compiled.power(q, v, z, p, t)[1])
+P = [float(compiled.power(q, v, z, p, t)[1])  # the dampers' power
      for q, v, t in zip(rows["q"], rows["v"], rows["t"].ravel())]
 dissipated = -np.cumsum(P) * dt
 

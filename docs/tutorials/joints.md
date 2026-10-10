@@ -123,17 +123,17 @@ corners by their total mass and the inertia about their center, and give both th
 
 ```{code-cell} python
 names = list(corners)
-m = np.array([mass[n] for n in names])
+weights = np.array([mass[n] for n in names])  # [kg]
 r = np.array([corners[n] for n in names])
-centre = m @ r / m.sum()  # [m]
+center = weights @ r / weights.sum()  # [m]
 inertia = sum(mk * (x @ x * np.eye(3) - np.outer(x, x))
-              for mk, x in zip(m, r - centre))  # [kg·m²], about the center
+              for mk, x in zip(weights, r - center))  # [kg·m²]
 
 def rigid_brick():
     """A floating brick that turns about its center of mass."""
     sites = {n: (1, c) for n, c in corners.items()}
-    sites["center"] = (1, centre)
-    chain = SerialChain(["floating"], axes=[None], points=[centre],
+    sites["center"] = (1, center)
+    chain = SerialChain(["floating"], axes=[None], points=[center],
                         sites=sites)
     return vmc.Mechanism("brick", model=chain)
 
@@ -141,7 +141,7 @@ corner_masses, rigid = rigid_brick(), rigid_brick()
 for n in names:
     point = corner_masses.point(n)
     corner_masses.add(f"m_{n}", vmc.PointMass(point, mass[n]))
-rigid.add("mass", vmc.PointMass(rigid.point("center"), m.sum()))
+rigid.add("mass", vmc.PointMass(rigid.point("center"), weights.sum()))
 rigid.add("spin", vmc.RotationalInertia(
     vmc.FrameRotation(rigid.model, "center"), inertia))
 
@@ -190,7 +190,7 @@ ends flat:
 
 ```{code-cell} python
 radius = 0.5  # [m]
-phi = np.radians(np.linspace(-100, 100, 17))
+phi = np.linspace(-1.75, 1.75, 17)  # the angle along the wire [rad]
 wire = np.column_stack([radius * np.sin(phi), 0 * phi,
                         radius * (1 - np.cos(phi))])
 bead = vmc.Mechanism("bead", model=SerialChain(
@@ -233,10 +233,10 @@ glue("rail_error", float(1e3 * error), display=False)
 ```{code-cell} python
 :tags: [remove-input]
 fig, ax = plt.subplots()
-ax.plot(times, np.degrees(exact.y[0]), label="pendulum")
-ax.plot(times[::3], np.degrees(angle)[::3], "o", label="bead on the rail")
+ax.plot(times, exact.y[0], label="pendulum")
+ax.plot(times[::3], np.array(angle)[::3], "o", label="bead on the rail")
 ax.set_xlabel("time [s]")
-ax.set_ylabel("angle from the bottom [deg]")
+ax.set_ylabel("angle from the bottom [rad]")
 ax.legend();
 ```
 

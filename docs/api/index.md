@@ -27,4 +27,6 @@ the bottom layer up:
    ~virtualmodelcontrol.hardware
    ~virtualmodelcontrol.viz
    ~virtualmodelcontrol.robots
+   ~virtualmodelcontrol.config
+   ~virtualmodelcontrol.testing
 ```

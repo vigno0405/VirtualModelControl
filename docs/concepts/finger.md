@@ -8,7 +8,7 @@ kernelspec:
 
 The ADAPT finger and hand are rigid chains of phalanges driven through tendons and cables, with
 fewer motors than joints. This page gives the equations of `robots.adapt`: how motor angles set
-joint angles, and how joint angles place the fingertip.
+joint angles, and how joint angles place the fingertip, and then how the hand's motors drive its joints.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -45,11 +45,11 @@ schematic.figure();
 
 Two motors drive the three joints. The first pulls a cable on a pulley of the MCP joint. The
 second drives the PIP joint through a cable, and the DIP joint follows the PIP joint. With
-motor angles $q_1, q_2$,
+motor angles $q_0, q_1$,
 
 $$
-\theta_\text{MCP} = \frac{r_p}{r_m}\,q_1, \qquad
-\theta_\text{PIP} = \theta_\text{DIP} = \frac{r_m}{c_p}\,q_2,
+\theta_\text{MCP} = \frac{r_p}{r_m}\,q_0, \qquad
+\theta_\text{PIP} = \theta_\text{DIP} = \frac{r_m}{c_p}\,q_1,
 $$
 
 with $r_m$ the motor pulley's radius, $r_p$ that of the MCP pulley and $c_p$ the cable constant
@@ -101,8 +101,7 @@ glue("spread", ", ".join(coefficients[:3]) + " and " + coefficients[3], display=
 
 The hand has a thumb and four fingers, each a chain of revolute joints from the hand's base.
 The thumb has the joints CMC1, CMC2, MCP and IP, and each finger has the joints spread, MCP,
-PIP and DIP. The origins and axes of the joints come from the hand's design files, as tables
-of the module.
+PIP and DIP. The origins and axes of the joints are tables in `robots.adapt` (`HAND_JOINTS`, `HAND_FINGER_BASES`).
 {glue:text}`motors:.0f` motors drive its {glue:text}`joints:.0f` joints, $\theta = C\,q$:
 
 - each thumb joint has a motor of its own;

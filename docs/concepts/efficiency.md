@@ -68,7 +68,8 @@ arm.params["efficiency.c3"]
 ```
 
 A robot with an efficiency other than 1 receives the delivered torques, so its stiffness,
-damping and masses must be the physical ones, referred to the delivered torque. In a
+damping and masses must be the physical ones, referred to the delivered torque: the values
+identified from the commanded torques, times $\eta$, as above. In a
 simulator, `vmc.sim.ModelPlant(robot, runtime=["*efficiency*"])` keeps the coefficients live.
 
 ## Identify it from static measurements

@@ -52,7 +52,7 @@ goal = vmc.Ref("goal", 3, value=[0.0, 0.05, 0.06])  # starts on the table
 ctrl = vmc.Mechanism("ctrl")
 ctrl.add("press", vmc.LinearSpring(tip - goal, 100.0))  # [N/m]
 ctrl.add("damp", vmc.LinearDamper(tip, 1.0))
-ctrl.add("limits", adapt.joint_limit_spring(finger))
+ctrl.add("limits", adapt.joint_limit_spring(finger))  # joints in range
 ctrl.add("gravity", vmc.GravityCompensation(finger))
 system = vmc.VirtualMechanismSystem(finger, ctrl)
 compiled = vmc.compile(system)
@@ -78,7 +78,7 @@ def press(controller, adapted="ctrl.press.goal", act=None, steps=3000):
     for step in range(steps):  # 500 Hz
         plant.write(controller.step(plant.t, plant.read()))
         below = kin.position(plant.q, "tip")[2] - 0.06  # [m]
-        table = np.array([0.0, 0.0, k * max(0.0, below)])
+        table = np.array([0.0, 0.0, k * max(0.0, below)])  # a load cell
         if step > 100:  # let the finger settle on the table first
             act(controller, table, wanted)
         live = controller.live_params()
@@ -118,6 +118,13 @@ glue("settled", float(settled), display=False)
 glue("late_mean", float(late.mean()), display=False)
 glue("late_ptp", float(np.ptp(late)), display=False)
 glue("depth_end", float(1e3 * free["depth"][-1]), display=False)
+fine = vmc.VMCController(compiled)
+fine_law = ForceTracking(fine, "tip", "ctrl.press.goal", normal=[0, 0, 1],
+                         max_force_step=0.002)
+slow = press(fine, act=fine_law.step)
+slow_outside = np.nonzero(abs(slow["force"] - wanted[2]) > 0.1)[0]
+assert np.ptp(slow["force"][-500:]) < 0.5 * np.ptp(late)  # a smaller ripple
+assert slow["t"][slow_outside[-1] + 1] > settled  # and a slower approach
 ```
 
 The spike at the start is the finger landing on the table. From {glue:text}`settled:.1f` s on,
@@ -125,9 +132,9 @@ the force stays within 0.1 N of the wanted one. At the end it is {glue:text}`lat
 on average, and it ripples by {glue:text}`late_ptp:.3f` N from peak to peak: every step changes
 the force by about `max_force_step`, so near the target it steps over it and back. The goal ends
 {glue:text}`depth_end:.1f` mm below the table, a depth we never had to compute. A smaller
-`max_force_step` gives a smaller ripple and a slower approach. The law's `max_step` also caps how
-far a Param moves in one step, in the Param's own unit (meters for a goal). It has nothing to do
-with the `max_step` of `ModelPlant`, the integration step.
+`max_force_step`, 0.002 N for instance, gives a smaller ripple and a slower approach. The law's
+`max_step` also caps how far a Param moves in one step, in the Param's own unit (meters for a
+goal). It has nothing to do with the `max_step` of `ModelPlant`, the integration step.
 
 ## Through a tank
 
@@ -137,11 +144,11 @@ law. An empty tank fills from what the controller's dampers take, which happens 
 moves. Once it rests, nothing refills it:
 
 ```{code-cell} python
-def tank(level):  # [J]
+def with_tank(level):  # [J]
     return vmc.control.Tank(vmc.VMCController(compiled), level=level)
 
-stalled = press(tank(0.0))
-funded = press(tank(0.05))
+stalled = press(with_tank(0.0))
+funded = press(with_tank(0.05))
 ```
 
 ```{code-cell} python
@@ -266,6 +273,7 @@ bottom.set_xlabel("time [s]");
 ```{code-cell} python
 :tags: [remove-cell]
 assert abs(scaled["force"][-500:].mean() - wanted[2]) < 0.03
+assert abs(scaled["stiffness"][-500:].mean() - series) < 2.0  # as the gradient law
 glue("ratio_force", float(scaled["force"][-500:].mean()), display=False)
 glue("ratio_k", float(scaled["stiffness"][-500:].mean()), display=False)
 glue("stiffened_force", float(stiffened["force"][-500:].mean()), display=False)
@@ -274,8 +282,8 @@ glue("stiffened_k", float(stiffened["stiffness"][-500:].mean()), display=False)
 
 The ratio law ends at {glue:text}`ratio_force:.2f` N with a stiffness of
 {glue:text}`ratio_k:.0f` N/m, as the gradient law did. The stiffening has no target. It settles
-where the force it produces and the stiffness it asks for agree: {glue:text}`stiffened_force:.2f` N
-at {glue:text}`stiffened_k:.0f` N/m. A stiffness that depends on the deflection, in place of the
+where the force it produces and the stiffness it asks for agree, which need not be the wanted
+force: {glue:text}`stiffened_force:.2f` N at {glue:text}`stiffened_k:.0f` N/m. A stiffness that depends on the deflection, in place of the
 force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
 
 ## What the calls need
@@ -304,24 +312,25 @@ force, is a nonlinear spring: `vmc.SigmoidSpring` and `vmc.PolynomialSpring`.
 The loops above run a simulated plant. On the robot the same law runs inside the loop that talks
 to the motors, with nothing from `vmc.sim`: the controller steps with the reading, and the law
 changes the controller with the force that a load cell or an estimate gives. Here the finger's
-controller of the first section runs through a tank that starts empty, as one control period of
-your control loop would, with a made-up reading:
+controller of the first section runs through a tank that starts empty (`level`) and holds at
+most 10 mJ (`capacity`), as one control period of your control loop would, with a made-up
+reading:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import Tank
 
-tank = Tank(vmc.VMCController(compiled), level=0.0, capacity=0.01)  # [J]
-law = ForceTracking(tank, "tip", "ctrl.press.goal", normal=[0, 0, 1])
+budget = Tank(vmc.VMCController(compiled), level=0.0, capacity=0.01)  # [J]
+law = ForceTracking(budget, "tip", "ctrl.press.goal", normal=[0, 0, 1])
 wanted = np.array([0.0, 0.0, 2.0])  # [N]
 
 def control_step(t, reading, force):
     """What your loop does each period: the torques, then the law."""
-    command = tank.step(t, reading)
-    law.step(tank, force, wanted)
+    command = budget.step(t, reading)
+    law.step(budget, force, wanted)
     return command["motor_torque"]
 
 reading = vmc.Signals(0.0, motor_position=[0.8, 0.8],
                       motor_velocity=[0.0, 0.0])
-tank.reset(0.0, reading)
+budget.reset(0.0, reading)
 control_step(0.0, reading, force=np.array([0.0, 0.0, 0.5]))  # [N·m]
 ```

@@ -45,6 +45,8 @@ gap = max(np.abs(np.asarray(a) - np.array(b).reshape(np.shape(a))).max()
           for a, b in zip(tip(q), reference(q), strict=True))
 lines = tip.source.count("\n")
 assert gap < 1e-14 and lines > 1000 and "casadi" not in tip.source.lower().split("def ")[1]
+assert np.allclose(H.reshape(3, 9, 9), kin.hessian(q, 1.0), rtol=0, atol=1e-12)
+assert all(np.shape(a)[0] == 1000 for a in tip(np.tile(q, (1000, 1))))  # a batch
 glue("bound", 1e-14, display=False)
 glue("lines", lines, display=False)
 ```
@@ -125,9 +127,9 @@ assert np.allclose(eval(run.stdout), position, rtol=0, atol=1e-15)
 A compiled controller exports the same way, with `compiled.export("numpy")`. On a robot the
 loop that talks to the motors needs `fast`: the motor angles and rates, the virtual state, the
 live Params and the time, in one vector, to the motor torques and the rate of the virtual
-state. Here is the three-link arm of [the underactuated tutorial](underactuated.md) held at
-a goal by a spring and a damper on its tip, one step of its law in numpy, against the library's
-own controller:
+state. Here is the three-link arm of [the underactuated tutorial](underactuated.md), which has
+two motors for its three joints, held at a goal by a spring and a damper on its tip. We take one
+step of its law in numpy, against that tutorial's controller for such an arm, `ua.controller`:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import underactuated as ua

@@ -44,11 +44,10 @@ figure. `ModelPlant` compiles the dynamics from the robot mechanism and keeps th
 The energies come in opposite orders: `(V, T)` for the controller, `(T, V)` for the robot.
 `z` holds the controller's virtual states (positions, then velocities), `p` the live Params of
 each and `u` the motor torques. The robot's `input` equals the controller's `port` as long as no
-output stage changes the torques and the transmission's efficiency is 1, the default (the soft arm's
-tendons really deliver only a share of the motor torque, see [Contact](contact.md), but its model
-refers its stiffness to the commanded torque and keeps 1). To log
-the controller's terms during a run, ask `vmc.sim.run` for `record=["energy"]`
-([Run logs](run-logs.md)).
+output stage changes the torques and the transmission's efficiency is 1, the default (the soft
+arm's tendons really deliver only a share of the motor torque, see [Transmission efficiency](../concepts/efficiency.md), but its
+model refers its stiffness to the commanded torque and keeps 1). To log the controller's terms
+during a run, ask `vmc.sim.run` for `record=["energy"]` ([Run logs](run-logs.md)).
 
 ## Check the balance on a run
 
@@ -156,6 +155,8 @@ glue("res", 1000 * float(np.abs(residual).max()), display=False)
 glue("pct", 100 * float(np.abs(residual).max() / -dampers[-1]), display=False)
 assert port.min() > -1e-9, "the arm pushes back: rewrite the text"
 glue("work", float(integral(port)[-1]), display=False)
+assert -dampers[-1] > 0.5 * (E_c[0] - E_c[-1])  # most of it goes into the dampers
+assert -dampers[-1] > T_r.max()
 assert abs(integral(src_c)[-1]) < 1e-6, "gravity compensation does work: rewrite"
 ```
 
@@ -175,8 +176,9 @@ carries energy the other way, and the balance still closes.
 
 A log recorded with `record=["energy"]` holds the controller's side of the balance.
 `vmc.sim.energy_balance` turns it into the balance of the controller alone: its energy, the work
-it gave the robot through its port, what its dampers took and its sources gave, and `injected`,
-what is left over:
+it gave the robot through its port, what its dampers took and its sources gave, `injected`, what
+is left over, and `margin`, the energy it can still give, which a passive controller keeps above
+zero:
 
 ```{code-cell} python
 b = vmc.sim.energy_balance(log)
@@ -190,12 +192,14 @@ glue("given", float(b["given"][-1]), display=False)
 glue("taken", float(b["dissipated"][-1]), display=False)
 glue("inj", 1000 * float(np.abs(b["injected"]).max()), display=False)
 assert b["margin"].min() > 0
+glue("margin_min", float(b["margin"].min()), display=False)
 ```
 
 The controller gave the robot {glue:text}`given:.2f` J while its dampers took
 {glue:text}`taken:.2f` J, and `injected` stays within {glue:text}`inj:.1f` mJ: only the error of
-the steps. A change of a live Param shows up in it. Here a schedule raises the stiffness to
-1500 N/m at 0.1 s, in the middle of the motion:
+the steps. The `margin` never falls below {glue:text}`margin_min:.2f` J. A change of a live Param
+shows up in `injected`. Here a schedule raises the stiffness to 1500 N/m at 0.1 s, in the middle
+of the motion:
 
 ```{code-cell} python
 from virtualmodelcontrol.control import Schedule, ScheduledController
@@ -244,7 +248,8 @@ the robot plus the energy of the controller can then only fall.
 
 Gravity compensation is a source, but a tame one. Its forces cancel the weight of the robot's
 masses, so the arm moves as if it had no weight. The energy it supplies is only the energy that
-the robot stores in gravity. This arm moves in a horizontal plane, so here it supplies nothing.
+the robot stores in gravity. This arm is mounted with gravity along $-y$ and moves in the $x$-$z$ plane, so here it supplies
+nothing.
 The controller gave {glue:text}`work:.2f` J through its port, out of the
 {glue:text}`stored:.2f` J its spring stored at the start.
 
@@ -265,18 +270,18 @@ plant = vmc.sim.ModelPlant(arm)
 vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 330), T=0.05)
 
 tank = vmc.control.Tank(controller, level=0.02)  # [J]
-stiffer = {"ctrl.reach.stiffness": 1200.0}
-asked = controller.jump(stiffer)  # the whole step [J]
-paid = tank.set(stiffer)
+change = {"ctrl.reach.stiffness": 1200.0}
+asked = controller.jump(change)  # the whole step [J]
+paid = tank.set(change)
 fraction = tank.fraction
 print(f"asked {asked:.3f} J, paid {paid:.3f} J: {fraction:.2f} of the step")
-released = -tank.set({"ctrl.reach.stiffness": 100.0})
-print(f"released {released:.3f} J, the tank holds {tank.level:.3f} J")
+freed = -tank.set({"ctrl.reach.stiffness": 100.0})
+print(f"released {freed:.3f} J, the tank holds {tank.level:.3f} J")
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-assert fraction < 1.0 and abs(paid - 0.02) < 1e-9 and released > 0.0
+assert fraction < 1.0 and abs(paid - 0.02) < 1e-9 and freed > 0.0
 ```
 
 `controller.jump(values)` is the jump `controller.set(values)` would give, without applying it.

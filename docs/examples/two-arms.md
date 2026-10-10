@@ -16,8 +16,9 @@ import docs_setup
 
 ## The robot
 
-`bimanual.arms` builds two Helyx arms, the soft arm of the [soft-arm example](soft-arm.md),
-standing side by side on one frame and pointing up. As one robot, its configuration stacks the
+`bimanual.arms` builds two Helyx arms, like the soft arm of the [soft-arm example](soft-arm.md)
+but with a longer first segment (29, 14.5 and 14.5 cm), standing side by side on one frame and
+pointing up. As one robot, its configuration stacks the
 right arm's $\Delta$ and then the left arm's, and its motors follow the same order.
 
 ```{code-cell} python
@@ -257,9 +258,9 @@ glue("grip_believed", float(without[late, 2].mean()), display=False)
 
 The object feels {glue:text}`grip_blind:.2f` N with the estimates alone and
 {glue:text}`grip_sensed:.2f` N with the sensor. Peak to peak, the force ripples by
-{glue:text}`grip_ripple_blind:.3f` N in the first run and by {glue:text}`grip_ripple_sensed:.3f` N
-in the second. With the sensor, the ripple follows `max_force_step` (0.01 N by default): half
-that step gives {glue:text}`grip_ripple_half:.3f` N. The right arm's estimate,
+{glue:text}`grip_ripple_blind:.0e` N in the first run, no ripple at all, and by
+{glue:text}`grip_ripple_sensed:.3f` N in the second. With the sensor, the ripple is proportional to
+`max_force_step` (0.01 N by default): half that step gives {glue:text}`grip_ripple_half:.3f` N. The right arm's estimate,
 {glue:text}`grip_believed:.2f` N, is right too, because the model has no error here. A wrong
 mass in the model would give a wrong force, as in
 [Estimate a contact force](../tutorials/force-estimates.md).

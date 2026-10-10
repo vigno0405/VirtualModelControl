@@ -39,12 +39,12 @@ from virtualmodelcontrol.robots import adapt
 k = 1e4  # [N/m], a hard table
 finger = adapt.add_dynamics(adapt.finger())
 tip = finger.point("tip")
-gap = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.06])
-finger.add("table", vmc.ContactSpring(gap, k))
-finger.add("cushion", vmc.ContactDamper(gap, 5.0))  # [N·s/m]
+to_table = vmc.PlaneDistance(tip, normal=[0, 0, -1], origin=[0, 0, 0.06])
+finger.add("table", vmc.ContactSpring(to_table, k))
+finger.add("cushion", vmc.ContactDamper(to_table, 5.0));  # [N·s/m]
 ```
 
-## Press with a chosen force
+## Press the table with a goal
 
 A spring pulls the fingertip towards a goal below the surface. The tip stops on the table, where
 the spring's pull balances the table's push. The contact force is then about the spring's
@@ -101,6 +101,9 @@ from myst_nb import glue
 glue("press_end", float(log["force"][-1]), display=False)
 glue("press_goal", float(K * k / (K + k) * log["depth"][-1]), display=False)
 glue("press_peak", float(log["force"][:500].max()), display=False)
+ends = log["force"][499::500]  # the force at the end of each second
+assert np.all(np.diff(ends) > 0.5 * K * 0.005)  # each deeper goal presses harder
+assert abs(log["force"][-1] - K * k / (K + k) * log["depth"][-1]) < 0.02
 from virtualmodelcontrol.robots import helyx
 glue("eta_arm", helyx.EFFICIENCY, display=False)
 ```
@@ -140,8 +143,10 @@ viz.animate(finger, log, "contact.mp4", plane="yz", invert=True,
 A contact spring keeps the tip out of the table, and friction holds it back along the table.
 `ContactFriction(distance, stiffness, friction)` is Coulomb friction, smoothed: a force against
 the tip's speed along the surface, of size $\mu F_n$, with $F_n$ the contact spring's own force.
-Give it the same `Param` for the stiffness as the spring has, so that they agree. Below a small
-speed the force falls linearly with it, so a tip at rest creeps instead of sticking. We press
+Give it the same `Param` for the stiffness as the spring has, so that they agree (`scope="stage"`
+means that it may change at any control step, see [Parameters](parameters.md)). Below a small
+speed, `speed`, 1 mm/s by default, the force falls linearly with it, so a tip at rest creeps
+instead of sticking. We press
 the tip 1.5 cm below the table and, after one second, move the goal along it at 5 mm/s:
 
 ```{code-cell} python
@@ -154,36 +159,36 @@ rough.add("table", vmc.ContactSpring(floor, stiffness))
 rough.add("cushion", vmc.ContactDamper(floor, 5.0))
 rough.add("rub", vmc.ContactFriction(floor, stiffness, mu))
 
-def goal(t):  # 1.5 cm below the table, moving along it after 1 s
+def moving_goal(t):  # 1.5 cm below the table, moving along it after 1 s
     return ca.vertcat(0.0, 0.05 - 0.005 * ca.fmax(t - 1.0, 0.0), 0.075)
 
 drag = vmc.Mechanism("drag")
-drag.add("pull", vmc.LinearSpring(
-    rough_tip - vmc.Custom(goal, [vmc.Time()], dim=3, unit="m"), 100.0))
+aim = vmc.Custom(moving_goal, [vmc.Time()], dim=3, unit="m")
+drag.add("pull", vmc.LinearSpring(rough_tip - aim, 100.0))
 drag.add("damp", vmc.LinearDamper(rough_tip, 1.0))
 drag.add("limits", adapt.joint_limit_spring(rough))
 drag.add("gravity", vmc.GravityCompensation(rough))
 system = vmc.VirtualMechanismSystem(rough, drag)
 controller = vmc.VMCController(vmc.compile(system))
 plant = vmc.sim.ModelPlant(rough, q0=[0.8, 0.8], max_step=1e-4)
-log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500), T=4.0,
-                  record=["elements", "robot"])
-rows = log.arrays()
+run_log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500),
+                      T=4.0, record=["elements", "robot"])
+rows = run_log.arrays()
 ```
 
 `record="robot"` makes the run log what the simulated robot itself feels, component by component,
 as `robot/<name>/force`: here the table's push and the friction. The controller's own elements
-are logged by `record="elements"`.
+are logged by `record="elements"`, as `element/<mechanism>.<component>/force`.
 
 ```{code-cell} python
 t = np.ravel(rows["t"])
 normal = rows["robot/table/force"][:, 0]  # [N], the table's push
 rub = rows["robot/rub/force"][:, 1]  # [N], opposes the motion
-pull = rows["element/drag.pull/force"][:, 1]  # [N], the controller's spring
+along = rows["element/drag.pull/force"][:, 1]  # [N], the goal's spring
 
 settled = t > 0.3  # leaves out the first bounces on the table
 fig, ax = plt.subplots()
-ax.plot(t[settled], -pull[settled], lw=6, alpha=0.5,
+ax.plot(t[settled], -along[settled], lw=6, alpha=0.5,
         label="the goal's pull")
 ax.plot(t[settled], rub[settled], label="friction")
 ax.plot(t[settled], mu * normal[settled], "--", label=r"$\mu F_n$")
@@ -285,9 +290,9 @@ squeeze.add("pull", vmc.LinearSpring(b - a, 50.0))  # [N/m]
 system = vmc.VirtualMechanismSystem(pair, squeeze)
 controller = vmc.VMCController(vmc.compile(system))
 plant = vmc.sim.ModelPlant(pair, q0=[0.0, 0.3], max_step=1e-4)
-log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500), T=1.5,
-                  record="robot")
-rows = log.arrays()
+run_log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500),
+                      T=1.5, record="robot")
+rows = run_log.arrays()
 gap = rows["q"][:, 1] - rows["q"][:, 0]  # [m]
 on_object = rows["robot/object/force"][:, 0]  # [N]
 ```
@@ -312,9 +317,8 @@ glue("squeeze_gap", float(100 * gap[-1]), display=False)
 ```
 
 The masses stop {glue:text}`squeeze_sink:.1f` mm into the object, where its force,
-{glue:text}`squeeze_force:.2f` N, equals the virtual spring's pull: 50 N/m times the distance between the masses,
-{glue:text}`squeeze_gap:.2f` cm.
-An object with a mass of its own, or with several coordinates, is a part with its own joints
+{glue:text}`squeeze_force:.2f` N, equals the virtual spring's pull: 50 N/m times the distance
+between the masses, {glue:text}`squeeze_gap:.2f` cm. An object with a mass of its own, or with several coordinates, is a part with its own joints
 in the robot, as in [Joints and bodies](joints.md); the contact is the same.
 
 ### Friction between two points
@@ -396,21 +400,21 @@ pull.add("spring", vmc.LinearSpring(tip_b - tip_a, 50.0))  # [N/m]
 controller = vmc.VMCController(
     vmc.compile(vmc.VirtualMechanismSystem(hold, pull)))
 plant = vmc.sim.ModelPlant(hold, q0=[0.0, 0.05, 0.15, 0.2], max_step=1e-3)
-log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500), T=4.0,
-                  record="robot")
-rows = log.arrays()
+run_log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1 / 500),
+                      T=4.0, record="robot")
+rows = run_log.arrays()
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
 series = 1 / (1 / 500.0 + 2 / 2e3)  # [N/m]
-gap = series * 0.10 / (series + 50.0)
+between = series * 0.10 / (series + 50.0)
 q = rows["q"][-1]
-assert abs((q[3] - q[0]) - gap) < 1e-3 * gap
-assert abs(rows["robot/body/force"][-1][0] - 50.0 * gap) < 1e-3 * 50.0 * gap
+assert abs((q[3] - q[0]) - between) < 1e-3 * between
+assert abs(rows["robot/body/force"][-1][0] - 50.0 * between) < 1e-3 * 50.0 * between
 glue("soft_series", float(series), display=False)
-glue("soft_gap", float(100 * gap), display=False)
-glue("soft_force", float(50.0 * gap), display=False)
+glue("soft_gap", float(100 * between), display=False)
+glue("soft_force", float(50.0 * between), display=False)
 glue("soft_squeeze", float(1e3 * (0.10 - (q[2] - q[1]))), display=False)
 ```
 
@@ -429,7 +433,7 @@ at a gap of {glue:text}`soft_gap:.2f` cm between the tips and a force of
   a few milliseconds, hence `max_step=1e-4` above.
 - Damping: the damping ratio is $D / (2\sqrt{k m})$; without a contact damper the tip bounces.
 - Smoothing: `ContactSpring(d, k, smoothing=w)` and `ContactDamper(d, D, smoothing=w)` round the
-  corner at the surface over a width $w$ [m], which optimization needs.
+  corner at the surface over a distance $w$ [m], which optimization needs.
 - Friction: a contact spring pushes along the normal only, so a pressing tip can slide. Add a
   `ContactFriction` on the same surface, with the spring's stiffness `Param`; `speed` is the
   sliding speed below which the force falls linearly, so a point at rest creeps.

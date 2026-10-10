@@ -132,7 +132,7 @@ sends to motor 2. The shares add up to the law's torque within {glue:text}`add_u
 
 A step on which the guard stops the controller (a measurement is missing or not a number) logs
 the zero torque it sent, and NaN for what the controller did not compute. A signal that
-exists for part of a run only, such as the elements of a controller that takes over later,
+exists for part of a run only, such as the elements of a controller that takes over midway,
 is NaN elsewhere. So every signal keeps one row per step. A loop of your own adds its steps
 the same way, with `log.step(t=..., q=...)`.
 
@@ -225,6 +225,7 @@ glue("gap_max", gap["max"], display=False)
 glue("gap_rms", gap["rms"], display=False)
 glue("travel", float(np.ptp(rows["motor_position"], axis=0).max()), display=False)
 assert check["q"]["max"] < 1e-9 and gap["max"] > 1e3 * check["q"]["max"]
+assert np.abs(model).max() < np.abs(angle).max()  # the model turns less
 ```
 
 On the true model the largest difference is {glue:text}`true_gap:.0e`. On the wrong one the

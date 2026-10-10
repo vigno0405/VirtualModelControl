@@ -45,7 +45,7 @@ controller = vmc.VMCController(vmc.compile(system))
 ### Wrap your driver in a plant
 
 The library does not talk to motors. A plant is a small object between the library and your
-driver (a ROS node's last messages, a serial driver, anything). It has three members: `t`, the
+driver (a thread that keeps the last readings, a serial port, anything). It has three members: `t`, the
 time now [s]; `read()`, which returns `motor_position` [rad] and `motor_velocity` [rad/s] with
 the time of the reading; and `write(cmd)`, which sends `cmd["motor_torque"]` [N·m]. The profile
 does the unit conversions:
@@ -345,7 +345,7 @@ glue("nominal", 1000 * dt, display=False)
 The late steps last {glue:text}`late:.0f` ms against {glue:text}`nominal:.1f` ms, and no step is
 shorter than the period.
 
-**An old reading.** Over a network or a bus, a reading can arrive late. With `stale=0.05` the
+**An old reading.** Over a network or a serial line, a reading can arrive late. With `stale=0.05` the
 loop refuses a reading more than 50 ms older than the plant's clock and sends zero torque. Here
 every reading is 80 ms old:
 

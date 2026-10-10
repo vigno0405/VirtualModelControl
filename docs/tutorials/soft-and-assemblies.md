@@ -28,7 +28,9 @@ A continuum arm is a `PCC` model, driven by a `TendonTransmission`:
 ```{code-cell} python
 from virtualmodelcontrol.models import PCC, TendonTransmission
 
-spacing = np.radians([[0, 120, -120], [60, 180, -60]])  # per segment
+third = 2 * np.pi / 3  # three tendons, evenly around the arm [rad]
+spacing = [[0, third, -third],  # the angles of each segment's tendons
+           [np.pi / 3, np.pi, -np.pi / 3]]  # the second one is turned
 soft = vmc.Mechanism("soft", model=PCC([0.2, 0.2], 0.03),
                      actuation=TendonTransmission(spacing, 0.003))
 soft.actuation.motor_sizes(soft.space)  # motor angles, motor rates

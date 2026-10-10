@@ -80,11 +80,11 @@ glue("asked_joint", float(asked[1]), display=False)
 
 The defect is {glue:text}`lost_joint:.2f` N·m at joint 2, the whole of the
 {glue:text}`asked_joint:.2f` N·m that the force asked of it. Only the force's component along
-the one direction that joint 2 cannot move the tip in is fully realized. These wrenches are
+the one direction that joint 2 cannot move the tip in is fully realized. These forces are
 the feasible set, here a line:
 
 ```{code-cell} python
-basis = ua.feasible(B, J)  # columns: wrenches the motors give in full
+basis = ua.feasible(B, J)  # columns: forces the motors give in full
 print(basis.T, ua.defect(B, J, 3.0 * basis[:, 0]))
 ```
 
@@ -95,10 +95,12 @@ what is left.
 ## A reach, rendered two ways
 
 The controller is a spring from the tip to a goal, a damper, and the compensation of the
-arm's weight. Two flags of `ua.controller` choose how its torques are rendered:
+arm's weight. `ua.controller(compiled, base, correction=None, *, gravity=False, tank=1.0)`
+builds it, and `base` chooses how its torques are rendered:
 
 - `"naive"` sends the motors $u = B^+ J^\top F$, the least-squares torques at the measured
-  state. It needs the whole state $(q, v)$, passive joint included.
+  state. It needs the whole state $(q, v)$, passive joint included, so it is a
+  `StateController`: it reads $q$ and $v$ of the measurement, not the motors'.
 - `"frozen"` evaluates the same law with the passive joint held at its rest angle, whatever it
   does. It needs the motors only, and its torque is the exact gradient of a potential. With
   `gravity=True` it holds the passive joint where its spring balances the arm's own weight
@@ -202,6 +204,16 @@ ax.legend(fontsize=18);
 :tags: [remove-cell]
 peak = {name: float(energy(rows).max() - energy(rows)[0]) for name, rows in corrected.items()}
 assert peak[None] > 1.0 and peak["passive"] < 0.05 and 0.9 < peak["tank"] < 1.1
+
+
+def gain(dt):  # [J] the passive correction lets through in the first second
+    controller = ua.controller(compiled, "naive", "passive")
+    plant = vmc.sim.ModelPlant(arm, q0=[0.3, 0.3, 0.3], max_step=1e-4)
+    rows = vmc.sim.run(plant, controller, vmc.sim.SimClock(dt), T=1.0)
+    return float(energy(rows.arrays()).max() - energy(rows.arrays())[0])
+
+
+assert gain(2.5e-4) < 0.5 * gain(5e-4)  # it falls with the control period
 glue("peak_none", peak[None], display=False)
 glue("peak_passive", peak["passive"], display=False)
 glue("peak_tank", peak["tank"], display=False)
@@ -219,8 +231,11 @@ torque, which is a gradient.
 `DirectionalForce` makes the arm push with a chosen force along one direction by adapting one
 number of the stiffness. It keeps $K' = K + s\,n n^\top$, which is symmetric for every $s$, and
 moves $s$ to the value that makes the force the motors realize along $n$ equal the wanted one,
-without ever losing $K' \succ 0$. The spring's stiffness must be a live $3 \times 3$ matrix.
-Here the arm is held at a pose and asked for 3 N along $x$:
+without ever losing $K' \succ 0$. The spring's stiffness must be a live $3 \times 3$ matrix: the
+spring acts on the tip in 3D, $z$ included, although the arm moves in a plane. Here the arm is
+held at a pose and asked for 3 N along $x$. `rate` is the share of the way to the right $s$
+that it covers per second, and `step(controller, q, v, dt)` takes the state the law is
+evaluated at and the time step, 10 ms here:
 
 ```{code-cell} python
 compiled = reach(arm, stiffness=150.0 * np.eye(3))
@@ -233,12 +248,12 @@ hold = vmc.Signals(0.0, motor_position=motors @ q,
                    motor_velocity=motors @ v, q=q, v=v)
 controller.reset(0.0, hold)
 controller.step(0.0, hold)
-reading = []
+pushed = []
 for _ in range(500):
     tracker.step(controller, q, v, 1e-2)
-    reading.append(tracker.reading)
+    pushed.append(tracker.reading)
 fig, ax = plt.subplots()
-ax.plot(1e-2 * np.arange(500), reading)
+ax.plot(1e-2 * np.arange(500), pushed)
 ax.axhline(3.0, color=viz.PALETTE[1], ls="--")
 ax.set_xlabel("time [s]")
 ax.set_ylabel("force along $x$ [N]");
@@ -247,8 +262,8 @@ ax.set_ylabel("force along $x$ [N]");
 ```{code-cell} python
 :tags: [remove-cell]
 K = np.reshape(controller.live_params()["ctrl.reach.stiffness"], (3, 3))
-assert abs(reading[-1] - 3.0) < 0.05 and np.linalg.eigvalsh(K).min() > 0
-glue("force_final", float(reading[-1]), display=False)
+assert abs(pushed[-1] - 3.0) < 0.05 and np.linalg.eigvalsh(K).min() > 0
+glue("force_final", float(pushed[-1]), display=False)
 glue("force_s", float(tracker.s), display=False)
 glue("force_eig", float(np.linalg.eigvalsh(K).min()), display=False)
 ```
@@ -338,12 +353,12 @@ with a spring of 30 N/m to the goal, from near the goal and with the passive joi
 estimates = {"Q = 1e-6": estimated_run(30.0, 1e-6),
              "Q = 1e-3": estimated_run(30.0, 1e-3)}
 
-def tip_error(rows):  # [m]
+def tip_gap(rows):  # [m]
     tips = np.array([kin.position(q, "tip")[:2] for q in rows[::20, 1:4]])
     return np.linalg.norm(tips - [0.45, 0.15], axis=1)
 
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
-for ax, (name, (rows, lost)) in zip(axes, estimates.items()):
+for ax, (name, (rows, _)) in zip(axes, estimates.items()):
     ax.plot(rows[:, 0], rows[:, 2], label="passive joint")
     ax.plot(rows[:, 0], rows[:, 5], "--", label="estimate")
     ax.set_title(name)
@@ -361,13 +376,14 @@ gap = np.abs(tuned[:, 2] - tuned[:, 5])
 after = tuned[:, 0] > 0.02  # the first 20 ms remove the 0.2 rad of the start
 settled = float(tuned[np.flatnonzero(gap >= 5e-3)[-1] + 1, 0])
 true_state = estimated_run(30.0, 1e-3, estimate=False)[0]
-assert abs(tip_error(tuned)[-1] - tip_error(true_state)[-1]) < 2e-3  # as with the true state
+assert abs(tip_gap(tuned)[-1] - tip_gap(true_state)[-1]) < 2e-3  # as with the true state
 assert settled < 2.0 and gap[after].max() < 0.2
+assert gap[tuned[:, 0] >= 0.02][0] < 0.05  # the 0.2 rad of the start is gone
 assert len(tuned) == 6000 and np.isfinite(tuned).all() and tuned_lost == 0
-assert tip_error(tuned)[-1] < 0.015 and gap[-2000:].max() < 5e-3
+assert tip_gap(tuned)[-1] < 0.015 and gap[-2000:].max() < 5e-3
 assert loose_lost > 0.9 * len(loose) > 1000  # all the readings after the first ones
-assert stiff_lost > 100 and tip_error(stiff)[-1] > 0.3
-glue("e_tip", 1000 * float(tip_error(tuned)[-1]), display=False)
+assert stiff_lost > 100 and tip_gap(stiff)[-1] > 0.3
+glue("e_tip", 1000 * float(tip_gap(tuned)[-1]), display=False)
 glue("e_gap", 1000 * float(gap[-2000:].max()), display=False)
 glue("e_peak", 1000 * float(gap[after].max()), display=False)
 glue("e_settle", settled, display=False)
@@ -403,6 +419,7 @@ estimate of the unmeasured joints (see the section above). Here is one period wi
 made-up reading:
 
 ```{code-cell} python
+compiled = reach(arm)
 onboard = ua.controller(compiled, "frozen", "tank", tank=0.5)  # [J]
 reading = vmc.Signals(
     0.0, motor_position=[0.3, 0.3], motor_velocity=[0.0, 0.0],

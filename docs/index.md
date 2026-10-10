@@ -131,7 +131,7 @@ tutorials/fit
 
 ```{toctree}
 :hidden:
-:caption: Force
+:caption: Force and energy
 
 tutorials/contact
 tutorials/force

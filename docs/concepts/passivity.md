@@ -26,11 +26,11 @@ energy_flow.figure();
 
 The controller stores $E_c = V + T$: $V$ in its springs, $T$ in the inertances of its virtual
 states. Three powers change it. The port, $P = \tau^\top v$, is the power its torques give the
-robot. The dissipation is $D = \sum f \cdot \dot y \le 0$ over its dampers. The source power is
-$S = \sum f \cdot \dot y$ over its sources. With the [VMC equations](vmc.md),
+robot. The dissipation power is $P_D = \sum f \cdot \dot y \le 0$ over its dampers. The source power is
+$P_S = \sum f \cdot \dot y$ over its sources. With the [VMC equations](vmc.md),
 
 $$
-\dot E_c = -P + D + S .
+\dot E_c = -P + P_D + P_S .
 $$
 
 The compiled controller computes each term (`compiled.energy`, `compiled.power`), so the balance can be
@@ -41,10 +41,10 @@ checked on any run.
 Without sources, integrating the balance gives
 
 $$
-\int_0^t P\,\mathrm{d}t = E_c(0) - E_c(t) + \int_0^t D\,\mathrm{d}t \;\le\; E_c(0),
+\int_0^t P\,\mathrm{d}t = E_c(0) - E_c(t) + \int_0^t P_D\,\mathrm{d}t \;\le\; E_c(0),
 $$
 
-since $E_c(t) \ge 0$ and $D \le 0$. Whatever the robot does, the controller gives it at most the
+since $E_c(t) \ge 0$ and $P_D \le 0$. Whatever the robot does, the controller gives it at most the
 energy it stored at the start: it is passive.
 
 ## The robot and its controller together
@@ -54,7 +54,7 @@ by its input power and its own dissipation. With the default [efficiency](effici
 and no output stage, its input power is the controller's port $P$, so the two balances add up:
 
 $$
-\dot E_r + \dot E_c = D_r + D + S .
+\dot E_r + \dot E_c = P_{D,r} + P_D + P_S .
 $$
 
 Without sources the total energy can only fall. It is bounded by its value at the start. Where

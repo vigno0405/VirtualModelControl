@@ -84,6 +84,14 @@ glue("p_exact", float(spring_period), display=False)
 glue("p_err", float(err), display=False)
 glue("p_start", start, display=False)
 glue("p_nodes", nodes, display=False)
+for side in (amp, None):  # an equality at a fixed horizon, or one side
+    fixed = opt.Problem(free_swing)
+    fixed.add(opt.Collocation([amp], spring_period, nodes, periodic=True,
+                              scheme="hermite-simpson"))
+    fixed.add(opt.Bound(pos, amp, side, t_from=0.0, t_to=0.0, name="start"))
+    fixed.add(opt.Cost(pos, name="small"))
+    kept = fixed.solve(warm_start={**guess, "horizon": spring_period})
+    assert kept.converged == (side is None), (side, kept.status)
 ```
 
 The solver ended with {glue:text}`p_status` after {glue:text}`p_iter` iterations, from a
@@ -113,8 +121,9 @@ A controller can repeat too. Its reference is a function of time, `vmc.Time()`, 
 in a `Param`. The orbit repeats if the horizon is that period, and `opt.Period(name)` ties the
 two: it holds the horizon equal to the Param, which can be free like any other. Here a spring
 pulls the swinging mass towards a goal that moves as $a\cos\omega t + b\sin\omega t$, with
-$a$, $b$ and the period free. We ask for the orbit through the amplitude $0.3$ m that costs the
-least effort:
+$a$, $b$ and the period free. Their `scope="episode"` says that they change between runs, not
+during one ([Parameters](parameters.md)). We ask for the orbit through the amplitude $0.3$ m
+that costs the least effort:
 
 ```{code-cell} python
 import casadi as ca
@@ -125,7 +134,7 @@ cos = vmc.Param("cos", 0.0, unit="m", scope="episode")
 sin = vmc.Param("sin", 0.0, unit="m", scope="episode")
 
 
-def goal(t, period, cos, sin):  # repeats every `period` seconds
+def circle(t, period, cos, sin):  # repeats every `period` seconds
     phase = 2 * np.pi * t / period
     return cos * ca.cos(phase) + sin * ca.sin(phase)
 
@@ -137,7 +146,7 @@ rubbed.add("mass", vmc.Inertance(pos2, mass))
 rubbed.add("spring", vmc.LinearSpring(pos2, stiff))
 rubbed.add("friction", vmc.LinearDamper(pos2, rub))
 
-moving = vmc.Custom(goal, [vmc.Time()], dim=1, unit="m", params={
+moving = vmc.Custom(circle, [vmc.Time()], dim=1, unit="m", params={
     "period": period, "cos": cos, "sin": sin})
 pull = vmc.Mechanism("pull")
 pull.add("spring", vmc.LinearSpring(pos2 - moving, 10.0))
@@ -186,8 +195,8 @@ ax.legend(loc="upper right", fontsize=18);
 assert best.converged, best.status
 assert abs(best.horizon / period_best - 1) < 1e-3, (best.horizon, period_best)
 assert abs(best.cost / effort(period_best) - 1) < 1e-3
-tied = best.params["pull.spring.period"].item()
-assert abs(tied / best.horizon - 1) < 1e-9
+tied_period = best.params["pull.spring.period"].item()
+assert abs(tied_period / best.horizon - 1) < 1e-9
 glue("b_found", best.horizon, display=False)
 glue("b_exact", float(period_best), display=False)
 glue("b_cost", best.cost, display=False)
@@ -278,6 +287,7 @@ ax.legend(loc="lower right", fontsize=18);
 assert tied_plan.converged, tied_plan.status
 assert abs(tied_plan.q[20, 0] - 1.0) < 1e-6 and tied_plan.z.shape == (31, 2)
 assert error < 2e-3, error
+assert tied_plan.q[:, 0].max() > found  # it overshoots the goal
 assert np.abs(tied_plan.z[:, 0]).max() > 0.5
 glue("v_goal", float(tied_plan.params["follower.anchor.goal"]), display=False)
 glue("v_error", float(1e3 * error), display=False)

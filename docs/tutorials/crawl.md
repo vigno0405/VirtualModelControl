@@ -65,12 +65,13 @@ from virtualmodelcontrol import viz
 from virtualmodelcontrol.robots import turtle
 
 robot = turtle.robot()  # the two cranks
+bv = 0.3  # b_v: the flywheel's friction and its drive's gain [N·m·s/rad]
 
 def flywheel(omega, depth=0.0, steer=0.0, peak=0.0, delta=np.pi):
     ctrl = vmc.Mechanism("ctrl")
     phi = ctrl.add_state("flywheel", unit="rad")
     ctrl.add("flywheel", vmc.Inertance(phi, 0.24))  # J_v [kg·m²]
-    ctrl.add("drive", vmc.SpeedRegulator(phi, 0.3, omega, 0.5))
+    ctrl.add("drive", vmc.SpeedRegulator(phi, bv, omega, 0.5))
     behind = vmc.Ref("delta", 1, value=delta, unit="rad")
     for i, (phase, side) in enumerate([(phi, 1.0), (phi - behind, -1.0)]):
         e = robot.joint(i) - phase  # the stretch of the spring
@@ -92,7 +93,8 @@ controller = vmc.VMCController(vmc.compile(system))
 meas = vmc.Signals(0.0, motor_position=[0.0, -np.pi],
                    motor_velocity=[0.0, 0.0])
 controller.reset(0.0, meas, z0=turtle.initial_state(meas))
-controller.step(0.01, meas)["motor_torque"]
+torque = controller.step(0.01, meas)["motor_torque"]
+float(abs(torque).max())  # [N·m]
 ```
 
 The cranks sit where the springs want them, so the torques are zero. Nothing else is needed on
@@ -143,13 +145,19 @@ body and the crank angles from the log.
 :tags: [remove-cell]
 q_end = q[-1]
 assert q_end[0] > 0.5 and abs(q_end[1]) < 0.05 and 0.029 < q[:, 2].min()
+apart = np.abs(np.angle(np.exp(1j * (q[:, 7] - q[:, 8]))))[t > 1.0]
+assert apart.min() > 2.8  # half a turn, mod a turn
+assert np.abs(q[:, 7] - rows["z"][:, 0])[t > 1.0].max() < 0.4  # follows
+speed_x = np.diff(q[:, 0]) / np.diff(t)
+assert speed_x.max() > 1.5 * speed_x.mean()
 glue("distance", float(q_end[0]), display=False)
+glue("surge", float(speed_x.max() / speed_x.mean()), display=False)
 ```
 
 The body moved {glue:text}`distance:.2f` m forward in eight seconds. The top panel shows its
 distance and the bottom one the crank angles. The cranks run half a turn apart from the start,
-and the left one follows the flywheel. Each foot is on the ground for a short part of its turn,
-and the body advances while it is: its distance climbs in steps.
+and the left one follows the flywheel. The body does not go at a constant speed: at its
+fastest it moves {glue:text}`surge:.1f` times as fast as its mean.
 
 ```{code-cell} python
 :tags: [remove-input]
@@ -172,7 +180,7 @@ cranks take from the springs. The slowdown measures the load, and a constant dri
 sensor for it.
 
 ```{code-cell} python
-omega, bv = 6.0, 0.3  # the commanded speed, and b_v
+omega = 6.0  # the commanded speed [rad/s]
 phi, torque = rows["z"][:, 0], rows["motor_torque"]
 turns = np.floor(phi / (2 * np.pi)).astype(int)
 first, last = (int(np.argmax(turns >= n)) for n in (2, turns.max()))
@@ -272,15 +280,15 @@ for u, log in paths.items():
     r = log.arrays()
     k = np.floor(r["z"][:, 0] / (2 * np.pi)).astype(int)
     steps = [int(np.argmax(k >= n)) for n in range(2, k.max() + 1)]
-    heading = np.degrees(np.unwrap([yaw(x) for x in r["q"]]))
+    heading = np.unwrap([yaw(x) for x in r["q"]])  # [rad]
     turn[u] = float(np.diff(heading[steps]).mean())
-assert turn[0.8] > 5 and turn[-0.8] < -5 and abs(turn[0.0]) < 0.3
+assert turn[0.8] > 0.1 and turn[-0.8] < -0.1 and abs(turn[0.0]) < 0.005
 assert abs(turn[0.8] + turn[-0.8]) < 0.05 * turn[0.8]
 glue("turn", turn[0.8], display=False)
 ```
 
 A positive steer turns this crawler to the left, a negative one to the right, by the same
-amount: {glue:text}`turn:.1f` degrees per turn of the flywheel at $|u_s|$ = 0.8. The
+amount: {glue:text}`turn:.2f` rad per turn of the flywheel at $|u_s|$ = 0.8. The
 turning depends on the body: on another robot the stiffer side may push more or less, so
 check the sign on yours. The gait phase does not break, because both sides still ride the same
 flywheel: steering changes only how hard each side pushes. Keep $|u_s|$ below 1, or one spring
@@ -293,10 +301,12 @@ the gait's own result. It holds the Param at an estimate plus a slow sinusoidal 
 how the cost, here minus the forward speed, follows the dither, and moves the estimate downhill.
 The tone must be slow against the gait: its period is the `window`, six seconds against strides
 of a second, and `frequency` is $2\pi n/$`window` for a whole $n$, so that several Params, each with
-its own $n$, do not see one another. Every change goes through a `Tank`, whose energy comes from
-what the controller's dampers take: a change that would cost more than the tank holds is cut
-short. This is the passivity bound on a slow change of a potential ([Passivity](../concepts/passivity.md)). One `Param` is shared by the
-two springs, so that they move together:
+its own $n$, do not see one another. `amplitude` is the dither's size [rad], and `gain` turns
+the slope of the cost into the estimate's rate of change. Every change goes through a `Tank`,
+whose energy comes from what the controller's dampers take: a change that would cost more than
+the tank holds is cut short. This is the passivity bound on a slow change of a potential
+([Passivity](../concepts/passivity.md)). One `Param` is shared by the two springs, so that they
+move together:
 
 ```{code-cell} python
 from virtualmodelcontrol.adaptation import DitherSeeking
@@ -326,8 +336,8 @@ seen = np.array(seen)
 ```{code-cell} python
 :tags: [remove-input]
 fig, (top, bottom) = plt.subplots(2, 1, sharex=True, figsize=(6.4, 6.0))
-speed = np.convolve(seen[:, 1], np.ones(10) / 10, mode="valid")  # a second
-top.plot(seen[9:, 0], 100 * speed)
+smooth = np.convolve(seen[:, 1], np.ones(10) / 10, mode="valid")  # a second
+top.plot(seen[9:, 0], 100 * smooth)
 top.set_ylabel("speed [cm/s]")
 bottom.plot(seen[:, 0], seen[:, 2])
 bottom.set_xlabel("time [s]")
@@ -336,21 +346,25 @@ bottom.set_ylabel(r"estimate of $\varphi_K$ [rad]");
 
 ```{code-cell} python
 :tags: [remove-cell]
-first, last = seen[:, 0] < 15, seen[:, 0] > 105
-v0, v1 = seen[first, 1].mean(), seen[last, 1].mean()
+early, late = seen[:, 0] < 15, seen[:, 0] > 105
+v0, v1 = seen[early, 1].mean(), seen[late, 1].mean()
 assert v1 > 1.3 * v0 and seen[:, 3].min() >= -1e-9
 glue("seek_start", float(100 * v0), display=False)
 glue("seek_end", float(100 * v1), display=False)
 glue("seek_gain", float(100 * (v1 / v0 - 1)), display=False)
 glue("seek_peak", float(np.mod(seen[-1, 2], 2 * np.pi)), display=False)
+off = abs(np.angle(np.exp(1j * (seen[-1, 2] - np.pi))))  # from the pi
+assert off < 0.5
+glue("seek_off", float(off), display=False)
 ```
 
 The crawler starts at {glue:text}`seek_start:.1f` cm/s with the stiff-in-stance spring and, in two
 minutes of simulated time, learns to go at {glue:text}`seek_end:.1f` cm/s, {glue:text}`seek_gain:.0f`%
-faster. Its estimate of `peak` ends at {glue:text}`seek_peak:.1f` rad (modulo a turn), near the
-$\pi$ of the sweep above. The tank started empty, filled from what the dampers took, and never
-went below zero. On a real robot the cost is a measured speed, or a cost of transport from the flywheel's speed, and the
-run is a long one that you leave alone.
+faster. Its estimate of `peak` ends at {glue:text}`seek_peak:.1f` rad (modulo a turn), within
+{glue:text}`seek_off:.1f` rad of the $\pi$ of the sweep above. The tank started empty, filled
+from what the dampers took, and never went below zero. On a real robot the cost is a measured
+speed, or a cost of transport from the flywheel's speed, and the run is a long one that you
+leave alone.
 
 ## Plan the crawler
 
@@ -358,8 +372,8 @@ The planner can run the flywheel controller on the crawler too. `Problem(system,
 takes the dynamics from `body`, the crawler, while the controller stays the one written for the
 two cranks: it reads the motors of the plant as it does in a simulation. We plan 0.8 s of the
 gait, 120 steps at 150 Hz (a third of the crawler's control rate), from a flywheel that is up
-to speed (no ramp), once with the stiffness peak at 0. A `Shooting` is the closed loop of the simulator, step for step, so we
-start it from the simulated run, which it must reproduce:
+to speed (no ramp), once with the stiffness peak at 0. A `Shooting` is the closed loop of the
+simulator, step for step, so we start it from the simulated run, which it must reproduce:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt
@@ -428,14 +442,17 @@ assert planned.converged
 found = float(planned.params["ctrl.spring0.peak"])
 glue("swing_cm", float(100 * np.ptp(reach)), display=False)
 glue("best_cm", float(100 * reach.max()), display=False)
+maxima = int(np.sum((reach[1:-1] > reach[:-2]) & (reach[1:-1] > reach[2:])))
+assert maxima >= 2
+glue("maxima", maxima, display=False)
 glue("plan_peak", found, display=False)
 glue("plan_far", float(100 * planned.q[-1, 0]), display=False)
 assert reach.max() > planned.q[-1, 0] + 0.005
 ```
 
 The distance after the 0.8 s swings by {glue:text}`swing_cm:.0f` cm as the peak moves, with
-several maxima, because the feet catch and slip on the ground. A gradient method follows the
-slope under its feet: freeing the peak and starting from 0, the planner ends at
+{glue:text}`maxima` maxima, since the feet catch and slip on the ground. A gradient method
+follows the slope under its feet: freeing the peak and starting from 0, the planner ends at
 {glue:text}`plan_peak:.2f` rad and {glue:text}`plan_far:.1f` cm, where the sweep has
 {glue:text}`best_cm:.1f` cm. This is why the gait above is searched by trial runs
 (`DitherSeeking` moves its estimate slowly across many strides). The planner is for smooth
@@ -444,8 +461,9 @@ derivatives of that, not for finding the best gait of a rugged one.
 
 ## Going further
 
-- `limit` is the largest stretch $e_{max}$ of a spring: with it the torque saturates at
-  $\bar K(1 + |u_s|)\,e_{max}$, whatever the phase, and the loop stays passive. Saturate the
-  potential, never the torque: clipping the torque would remove the reaction on the flywheel.
+- `PhaseSpring(..., limit=e_max)` sets the largest stretch $e_{max}$ [rad] of a spring: with it
+  the torque saturates at $\bar K(1 + |u_s|)\,e_{max}$, whatever the phase, and the loop stays
+  passive. Saturate the potential, never the torque: clipping the torque would remove the
+  reaction on the flywheel.
 - `friction`, `crank_radius`, `mass` and the other constants of `turtle.CRAWLER` are keywords of
   `turtle.crawler`, so `crawl(friction=0.4)` gives the feet less grip.
