@@ -22,5 +22,7 @@ def test_arm_defaults(geometry):
 def test_gravity_override_and_unknown_geometry():
     arm = helyx.arm(gravity=[0.0, 9.81, 0.0])
     np.testing.assert_allclose(arm.params["gravity"].value, [0.0, 9.81, 0.0])
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match=r"known: .*145-145-145.*145-290-290.*290-145-145"):
         helyx.arm("100-100-100")
+    with pytest.raises(KeyError, match="unknown geometry '290-145-145'"):
+        helyx.hardware("290-145-145")  # the motors of that arm are in bimanual

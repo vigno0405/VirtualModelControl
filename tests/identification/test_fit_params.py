@@ -5,6 +5,7 @@ import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.identification import fit_params
+from virtualmodelcontrol.identification.params import _undetermined
 
 TRUE = {"mass": 2.0, "stiffness": 40.0, "damping": 1.5}
 
@@ -134,9 +135,36 @@ def test_a_matrix_param_comes_back_in_its_own_shape():
     spring.value = np.array([[10.0, 8.0], [0.0, 10.0]])  # a wrong stiffness, not symmetric
     fit = fit_params(robot, ["spring.stiffness"], [rows])
     found = fit.values["spring.stiffness"]
-    assert found.shape == (2, 2) and fit.std["spring.stiffness"].shape == (2, 2)
+    std = fit.std["spring.stiffness"]
+    assert found.shape == (2, 2) and std.shape == (2, 2)
+    # only the sum K[0, 1] + K[1, 0] is determined: the entries on their own are not
+    assert np.isfinite(np.diag(std)).all() and np.isinf([std[0, 1], std[1, 0]]).all()
     np.testing.assert_allclose(0.5 * (found + found.T), [[30.0, 5.0], [5.0, 20.0]], rtol=1e-5)
     assert found[0, 1] >= 7.0 - 1e-9 and found[1, 0] <= 3.0 + 1e-9
+
+
+def test_a_param_that_the_run_never_excites_has_an_infinite_standard_error():
+    t = np.arange(0.0, 6.0, 1 / 200)
+    q = 0.1 * np.sin(3.0 * t)[:, None]
+    zero = np.zeros_like(q)
+    # the mass sees only the acceleration and the damper only the velocity, both zero here
+    still = {"t": t, "q": q, "v": zero, "u": 40.0 * q, "a": zero}
+    fit = fit_params(slider(1.0, 10.0, 0.2), ["m.inertance", "spring.*", "damper.damping"], [still])
+    assert float(fit.values["spring.stiffness"]) == pytest.approx(40.0, rel=1e-6)
+    assert 0.0 <= float(fit.std["spring.stiffness"]) < 1e-6
+    for name, start in (("m.inertance", 1.0), ("damper.damping", 0.2)):
+        assert float(fit.values[name]) == start  # nothing moved it
+        assert float(fit.std[name]) == np.inf  # and nothing says how well it is known
+
+
+def test_columns_that_the_data_cannot_tell_apart_are_undetermined():
+    rng = np.random.default_rng(0)
+    a, b, c = rng.normal(size=(3, 50))
+    assert not _undetermined(np.column_stack([a, b, c])).any()
+    assert not _undetermined(np.column_stack([a, a + 1e-3 * b, c])).any()  # close, not the same
+    assert _undetermined(np.column_stack([a, a + 1e-7 * b, c])).tolist() == [True, True, False]
+    assert _undetermined(np.column_stack([a, 1e6 * a, c])).tolist() == [True, True, False]  # units
+    assert _undetermined(np.column_stack([a, 0.0 * b, c])).tolist() == [False, True, False]
 
 
 def test_a_name_that_matches_nothing_is_an_error():

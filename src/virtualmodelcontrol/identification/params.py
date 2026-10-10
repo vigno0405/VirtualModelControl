@@ -17,11 +17,24 @@ from .stiffness import _read
 class Fit:
     """What ``fit_params`` found: ``values`` and their standard errors ``std`` [same units] by
     Param name, in each Param's own shape, and the root-mean-square ``rms`` of the residual
-    [N·m or N] over the samples."""
+    [N·m or N] over the samples. A Param that the data do not determine (the run never excites
+    it, or it only appears in a sum with another) has ``std`` ``inf`` and keeps a value that
+    the data cannot tell from others."""
 
     values: dict[str, np.ndarray]
     std: dict[str, np.ndarray]
     rms: float
+
+
+def _undetermined(J: np.ndarray) -> np.ndarray:
+    """The columns of the Jacobian J (one per unknown) whose value the data cannot fix: those that
+    can move along a direction of the unknowns that J does not see. The columns are scaled to one
+    first, so that unknowns of different units are compared alike."""
+    norms = np.linalg.norm(J, axis=0)
+    scaled = J / np.where(norms > 0.0, norms, 1.0)
+    w, V = np.linalg.eigh(scaled.T @ scaled)
+    blind = V[:, w <= 1e-12 * max(w[-1], np.finfo(float).tiny)]  # the directions it does not see
+    return np.linalg.norm(blind, axis=1) > 1e-6
 
 
 def fit_params(
@@ -111,10 +124,12 @@ def fit_params(
     r, J = evaluate(found.x)
     dof = max(len(r) - len(columns), 1)
     cov = (r @ r / dof) * np.linalg.pinv(J.T @ J)
+    sigma = np.sqrt(np.diag(cov))
+    sigma[_undetermined(J)] = np.inf
     values, std, at = {}, {}, 0
     for name, short in zip(full, chosen, strict=True):
         shape, n = dyn.params[name].shape, dyn.params[name].size
         values[short] = found.x[at : at + n].reshape(shape, order="F")
-        std[short] = np.sqrt(np.diag(cov)[at : at + n]).reshape(shape, order="F")
+        std[short] = sigma[at : at + n].reshape(shape, order="F")
         at += n
     return Fit(values, std, float(np.sqrt(np.mean(r**2))))

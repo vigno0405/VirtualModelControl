@@ -13,23 +13,14 @@ import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {
-    ".git",
-    ".venv",
-    "venv",
-    "_build",
-    "build",
-    "dist",
-    "node_modules",
-    ".claude",
-    "__pycache__",
-}
+SKIP = {"venv", "_build", "build", "dist", "node_modules", "__pycache__"}  # and every hidden folder
 FENCE = re.compile(r"^(`{3,})\s*(\{code-cell\}\s*python|python|py)\s*$(.*?)^\1\s*$", re.S | re.M)
 
 
 def sources():
     for path in sorted(ROOT.rglob("*")):
-        if SKIP & set(path.relative_to(ROOT).parts):
+        parts = path.relative_to(ROOT).parts
+        if SKIP & set(parts) or any(part.startswith(".") for part in parts):
             continue
         if path.suffix == ".py":
             yield str(path.relative_to(ROOT)), path.read_text(encoding="utf-8")

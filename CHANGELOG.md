@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [Unreleased]
+
+### Changed
+
+- `fit_params`: a Param that the data do not determine (a run that never excites it, or an entry of a matrix
+  that only appears in a sum with another, such as the two off-diagonal entries of a spring's stiffness) has
+  `std` `inf`. It was `0.0`, which read as certainty. The values and the standard errors of the Params that
+  the data do determine are the same as before.
+- An unknown geometry in `helyx.arm`, `helyx.model` or `helyx.hardware` raises a `KeyError` that names it and
+  lists the known geometries (it was the bare name).
+- The `ValueError` that a law or an estimator raises for a `StateController` now says what to use instead:
+  `underactuated.controller(compiled, "frozen")` without `gravity=True` (that one reads the motors), or
+  `DirectionalForce` for a force. It used to say "the plain frozen controller", which a `gravity=True`
+  controller is not.
+
 ## [1.2.1] - 2026-10-10
 
 A patch: a Ctrl-C can no longer lose the log of a real-time run. Nothing else changes.

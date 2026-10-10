@@ -52,10 +52,17 @@ MOTOR_IDS = {"145-145-145": tuple(range(11, 20)), "145-290-290": tuple(range(1, 
 CONTROL_RATE = 330.0  # [Hz]
 
 
+def _geometry(table: dict[str, Any], geometry: str) -> Any:
+    """The entry of ``table`` for a geometry, or a ``KeyError`` that lists the known names."""
+    if geometry not in table:
+        raise KeyError(f"unknown geometry {geometry!r}; known: {list(table)}")
+    return table[geometry]
+
+
 @register("hardware", "helyx.hardware")
 def hardware(geometry: str = "145-290-290") -> HardwareProfile:
     """The arm's motors (the 290-145-145 arms belong to ``bimanual.hardware``)."""
-    motors = tuple(Motor(i, ENCODER_SIGN[geometry]) for i in MOTOR_IDS[geometry])
+    motors = tuple(Motor(i, ENCODER_SIGN[geometry]) for i in _geometry(MOTOR_IDS, geometry))
     return HardwareProfile(motors, rate=CONTROL_RATE)
 
 
@@ -63,7 +70,8 @@ def model(
     geometry: str = "145-290-290", *, lengths: Any = None, section_radius: Any = SECTION_RADIUS
 ) -> PCC:
     """The PCC model of an arm; ``lengths`` [m], base to tip, replace the geometry's."""
-    return PCC(GEOMETRIES[geometry]["L0"] if lengths is None else lengths, section_radius)
+    L0 = _geometry(GEOMETRIES, geometry)["L0"] if lengths is None else lengths
+    return PCC(L0, section_radius)
 
 
 def tendons(
@@ -93,7 +101,7 @@ def arm(
     frame] and the transmission's ``efficiency`` (1 by default) override them, for any number of
     segments.
     """
-    spec = GEOMETRIES[geometry]
+    spec = _geometry(GEOMETRIES, geometry)
     L0 = spec["L0"] if lengths is None else lengths
     if len(tendon_angles) != len(L0):
         raise ValueError(
