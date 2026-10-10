@@ -74,7 +74,9 @@ Pages are MyST notebooks: every code cell runs at each build, and an error fails
 
 Versions follow semantic versioning and come from git tags. To release:
 
-1. In `CHANGELOG.md`, rename "Unreleased" to the new version and date.
+1. In `CHANGELOG.md`, rename "Unreleased" to the new version and date, and add the version's
+   comparison link at the end of the file. Give `CITATION.cff` the same version and date, and the
+   pin example of `docs/installation.md` the new version.
 2. Push `main`, then tag and push the tag:
 
    ```bash

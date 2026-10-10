@@ -70,6 +70,11 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
   newest dependencies and on fresh clones, every page of the documentation read and looked at,
   the API listed in `__all__`, and a support policy.
+- **Where things stand (11 October 2026):** 1.2.1 is released: 1.1.0 added the static friction of the
+  motors, 1.2.0 runs that go on for hours (`run(window=)`, `RunLog.crop`) and 1.2.1 a Ctrl-C that waits for
+  the step that is running. On `main`, not released yet: clear errors for an unknown arm geometry and for a
+  `StateController` given to a law, and `fit_params` giving an infinite standard error, and the same values on
+  every machine, to a Param that the data do not determine.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -95,9 +100,11 @@ Everything to do, in order. Each step is done when its items below are ticked.
 6. **0.7.0, models in PyTorch and numpy** (done, 7 October 2026): every model as a numpy function
    and a PyTorch function, generated from the CasADi graph.
 7. **1.0.0** (done, 7 October 2026): everything checked, from a fresh clone, and published.
-8. **1.1.0, static friction of the motors:** the smooth force-only friction in the transmission,
-   its compensation, identification and tutorial (all ticked below; the release comes after the
-   gate).
+8. **1.1.0, static friction of the motors** (done, 9 October 2026): the smooth force-only friction in
+   the transmission, its compensation, identification and tutorial.
+9. **1.2.0, runs that go on for hours** (done, 9 October 2026): the log of a real-time run keeps only its
+   last seconds, and a log can be cropped to a time window.
+10. **1.2.1** (done, 10 October 2026): a Ctrl-C ends a real-time run between two steps, with its log.
 
 ---
 
@@ -140,6 +147,10 @@ extending the library), Run (run logs, the real-time loop, swaps, tuning, estima
 Force (contact, force tracking, stiffness, energy and passivity) and Plan (optimization and
 locomotion). With Getting started, Examples, Concepts and Reference the top bar has eight tabs.
 A new tutorial goes into the tab of its topic; none is split further than four tutorial tabs.
+
+Changed (10 October 2026): the four longest tutorials were split by topic (coordinates and components,
+your own robot, force tracking, optimization), so that a page covers one thing, and the Force tab is
+named Force and energy.
 
 **Schematics.** Every concept gets a picture before any code, drawn by code (`docs/schematics/`)
 in the lab style, readable on a phone:
@@ -633,6 +644,22 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 - [x] **Identification:** the friction Params through `fit_params`; `fit_efficiency(friction=True)`.
 - [x] **Templates and docs:** `adapt.finger_friction()`, `adapt.hand_friction()`; the tutorial
   "Static friction of the motors".
+
+---
+
+## 1.2.0: runs that go on for hours
+
+- [x] **`run(..., window=)`:** on real time, a log keeps only the last seconds of a run.
+- [x] **`RunLog.crop(t_min, t_max)`:** the steps of a time window as a new log.
+
+---
+
+## 1.2.1: a Ctrl-C that cannot lose the log
+
+- [x] **`sim.run` ends between two steps:** a Ctrl-C raises a flag that is read between steps (a second
+  one raises at once), so that no interrupt lands inside a call into CasADi or numpy.
+- [x] **Checks for the oldest Python and the oldest dependencies:** every `.py` file and every docs
+  snippet compiles on Python 3.10, and the suite runs on the oldest supported versions.
 
 ---
 

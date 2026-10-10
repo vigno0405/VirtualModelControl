@@ -150,7 +150,8 @@ the error exactly, so the torque is the gradient of the energy at any error. A c
 CasADi functions of `(q, v, z, p, t)`: the configuration, the velocity, the controller's virtual
 state (`none` here, it has none), its live values and the time. `law.tau` gives the torque on
 each joint and `law.energy` the stored and the kinetic energy. Here the goal is 0.8 rad from the
-tool:
+tool (`vmc.math.exp_so3` turns a rotation vector into a rotation matrix, and `log_so3` turns it
+back):
 
 ```{code-cell} python
 Kr = np.diag([30.0, 20.0, 10.0])  # [N·m/rad], in the goal's axes

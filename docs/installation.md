@@ -144,5 +144,7 @@ The tutorials are notebooks: each page is a sequence of code cells that you run 
 Jupyter notebook, in IPython, or pasted into one script. In a notebook or IPython, a cell shows the
 value of its last line. In a script, wrap what you want to see in `print(...)`, and end a plot with
 `plt.show()` or `plt.savefig("figure.png")`. Videos (`vmc.viz.animate`) are written to the folder
-you run from, and any video player opens them. Run the code with the environment's Python (for
-the venv above, `~/venvs/vmc/bin/python`).
+you run from, and any video player opens them. The numbers that the text quotes (a distance, a
+time, an error) are computed by cells that the page does not show, from the variables of the code
+that it does show: to check one, print the same quantity from those variables. Run the code
+with the environment's Python (for the venv above, `~/venvs/vmc/bin/python`).
