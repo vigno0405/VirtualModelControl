@@ -1,5 +1,7 @@
 """The run loop on real time: steps on schedule, measured time, stale readings, overruns."""
 
+import signal
+import threading
 import time
 
 import numpy as np
@@ -118,6 +120,80 @@ def test_ctrl_c_ends_a_real_time_run_with_the_log_so_far():
     rows = log.arrays()
     assert log.info["steps"] == 5
     assert len(rows["t"]) == len(rows["motor_torque"]) == len(rows["motor_position"]) == 5
+
+
+@pytest.fixture
+def pythons_sigint_handler():
+    """SIGINT as a plain Python program has it, and whatever it was put back afterwards."""
+    before = signal.signal(signal.SIGINT, signal.default_int_handler)
+    yield
+    signal.signal(signal.SIGINT, before)
+
+
+def test_a_ctrl_c_in_the_middle_of_a_step_ends_the_run_after_that_step(pythons_sigint_handler):
+    """The step is never interrupted: inside a call into C code (CasADi, numpy) the interrupt would
+    come out as a SystemError and the log would be lost."""
+
+    class Signalled(Controller):
+        def step(self, t, meas):
+            out = super().step(t, meas)
+            if len(self.times) == 5:
+                signal.raise_signal(signal.SIGINT)  # as it arrives in the middle of the step
+            return out
+
+    time = FakeTime()
+    clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+    log = vmc.sim.run(Plant(time), Signalled(time), clock, T=None)
+    rows = log.arrays()
+    assert log.info["steps"] == 5 and all(
+        len(v) == 5 for v in rows.values()
+    )  # whole steps, the fifth too
+    assert (
+        signal.getsignal(signal.SIGINT) is signal.default_int_handler
+    )  # and the handler is put back
+
+
+def test_a_second_ctrl_c_stops_a_run_at_once(pythons_sigint_handler):
+    class Stuck(Controller):
+        def step(self, t, meas):
+            if len(self.times) == 2:
+                signal.raise_signal(signal.SIGINT)
+                signal.raise_signal(signal.SIGINT)  # the first only asked; this one raises
+            return super().step(t, meas)
+
+    time = FakeTime()
+    clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+    log = vmc.sim.run(Plant(time), Stuck(time), clock, T=None)
+    assert log.info["steps"] == 2 and all(len(v) == 2 for v in log.arrays().values())
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+
+def test_a_handler_of_the_program_and_other_threads_are_left_alone(pythons_sigint_handler):
+    seen = []
+    mine = lambda *_: seen.append(1)  # noqa: E731
+    signal.signal(signal.SIGINT, mine)
+
+    class Looking(Controller):
+        def step(self, t, meas):
+            seen.append(signal.getsignal(signal.SIGINT) is mine)
+            return super().step(t, meas)
+
+    time = FakeTime()
+    clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+    vmc.sim.run(Plant(time), Looking(time), clock, T=0.03)
+    assert seen == [True] * 3 and signal.getsignal(signal.SIGINT) is mine
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    done = []
+
+    def in_a_thread():  # signals can only be set on the main thread: no error, the run just goes
+        time = FakeTime()
+        clock = vmc.sim.WallClock(dt=0.01, now=time.now, sleep=time.sleep)
+        done.append(vmc.sim.run(Plant(time), Controller(time), clock, T=0.03).info["steps"])
+
+    thread = threading.Thread(target=in_a_thread)
+    thread.start()
+    thread.join()
+    assert done == [3]
 
 
 def test_a_simulated_run_needs_its_duration():

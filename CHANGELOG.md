@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [Unreleased]
+
+### Fixed
+
+- A Ctrl-C (or `_thread.interrupt_main()`) that arrived in the middle of a real-time step could land
+  inside a call into CasADi or numpy, come out as a `SystemError` and lose the log. On the main thread,
+  with Python's own handler on SIGINT, `sim.run` now only raises a flag, reads it between two steps and
+  returns the log; a second Ctrl-C raises at once, for a run that is stuck. A handler of your own, and
+  any other thread, are left alone.
+
 ## [1.2.0] - 2026-10-09
 
 A robot that runs for hours: the log of a real-time run can keep only its last seconds. Nothing that

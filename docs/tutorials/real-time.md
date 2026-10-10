@@ -369,8 +369,10 @@ assert old.info["stale"] == len(old.arrays()["t"])
 assert not old.arrays()["motor_torque"].any() and blind.info["guard_trips"] > 20
 ```
 
-**Ctrl-C.** It ends a real-time run with the log so far. Here the controller raises it at its
-60th step:
+**Ctrl-C.** It ends a real-time run with the log so far. The step that is running finishes first
+(an interrupt in the middle of a step could land inside a call into CasADi or numpy and lose the log),
+and a second Ctrl-C stops the run at once, for one that is stuck. A signal handler of your own is
+left alone. Here the controller raises it at its 60th step:
 
 ```{code-cell} python
 class Stop(Slow):

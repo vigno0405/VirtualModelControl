@@ -54,6 +54,21 @@ jobs:
       - run: pip install -e ".[dev]" "${{ matrix.numpy }}"
       - run: python -m pytest
 
+  # The oldest versions of the dependencies that pyproject.toml declares (numpy 1.26, SciPy 1.11,
+  # CasADi 3.6, Matplotlib 3.8) on the oldest Python: what a student with an old environment has.
+  minimum-versions:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install uv
+      - run: uv pip install --system --resolution lowest-direct -e . "pytest>=8"
+      - run: python -m pytest
+
   # The models as PyTorch code need torch, which the other jobs leave out.
   torch:
     runs-on: ubuntu-24.04

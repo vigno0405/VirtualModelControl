@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
+import signal
+import threading
 import time
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -69,7 +72,7 @@ def run(
     Each step reads the plant, asks the controller for a command (zero torque if the guard
     trips), writes it, then advances a simulated plant by ``clock.dt`` or, with a ``WallClock``,
     waits for the next step. On real time, ``T=None`` runs until Ctrl-C, and Ctrl-C ends the run
-    with the log so far. ``z0`` sets the controller's initial
+    with the log so far, after the step that is running. ``z0`` sets the controller's initial
     virtual state, or is a function of the first reading that returns it. The log holds, at every
     step, the measurements, the command (and the law's torque before any output stage), the
     virtual state ``z`` when the controller has one, and what ``record`` asks for (see
@@ -186,6 +189,36 @@ def _reset(controller: Any, t: float, meas: Signals, z0: Any) -> None:
         controller.reset(t, meas, z0=z0)
 
 
+@contextlib.contextmanager
+def _ctrl_c_waits_for_the_step() -> Iterator[Callable[[], bool]]:
+    """Ctrl-C waits for the step that is running.
+
+    On the main thread, with Python's own handler on SIGINT, a first Ctrl-C only raises a flag
+    that the loop reads between two steps. An interrupt raised in the middle of a step can land
+    inside a call into C code (CasADi, numpy), which turns it into a SystemError and loses the log.
+    A second Ctrl-C raises KeyboardInterrupt at once, for a run that is stuck. Any other handler,
+    and any other thread, is left alone.
+    """
+    flag = threading.Event()
+    ours = (
+        threading.current_thread() is threading.main_thread()
+        and signal.getsignal(signal.SIGINT) is signal.default_int_handler
+    )
+
+    def on_sigint(signum: int, frame: object) -> None:
+        if flag.is_set():
+            raise KeyboardInterrupt
+        flag.set()
+
+    if ours:
+        signal.signal(signal.SIGINT, on_sigint)
+    try:
+        yield flag.is_set
+    finally:
+        if ours:
+            signal.signal(signal.SIGINT, signal.default_int_handler)
+
+
 def _run_wall(
     plant: Any,
     controller: Any,
@@ -204,36 +237,37 @@ def _run_wall(
     _reset(controller, 0.0, meas, z0)
     _describe(log, plant, controller)
     steps = overruns = stale = dropped = 0
-    try:
-        while limit is None or steps < limit:
-            now = clock.now()
-            t = now - t0
-            meas = plant.read()
-            old = clock.stale is not None and plant.t - meas.t > clock.stale
-            stale += old
-            good = guard.ok(meas) and not old
-            if good:
-                cmd = controller.step(t, meas)
-            else:
-                cmd = Signals(t, motor_torque=np.zeros(motors))
-            plant.write(cmd)
-            values = _values(t, cmd, meas, controller, plant, extras if good else None)
-            log.step(dt=now - previous, **values)
-            steps += 1
-            if window is not None and len(log.rows["t"]) > 1.25 * window / clock.dt:
-                # a fifth at a time: trimming a list costs its length
-                drop = len(log.rows["t"]) // 5
-                dropped += drop
-                for rows in log.rows.values():
-                    del rows[:drop]
-            previous, tick = now, tick + clock.dt
-            wait = tick - clock.now()
-            if wait > 0:
-                clock.sleep(wait)
-            else:  # late: start again from now rather than catching up in a burst
-                overruns, tick = overruns + 1, clock.now()
-    except KeyboardInterrupt:  # Ctrl-C ends a real-time run with the log so far
-        log.rows = {name: rows[: steps - dropped] for name, rows in log.rows.items()}
+    with _ctrl_c_waits_for_the_step() as interrupted:
+        try:
+            while (limit is None or steps < limit) and not interrupted():
+                now = clock.now()
+                t = now - t0
+                meas = plant.read()
+                old = clock.stale is not None and plant.t - meas.t > clock.stale
+                stale += old
+                good = guard.ok(meas) and not old
+                if good:
+                    cmd = controller.step(t, meas)
+                else:
+                    cmd = Signals(t, motor_torque=np.zeros(motors))
+                plant.write(cmd)
+                values = _values(t, cmd, meas, controller, plant, extras if good else None)
+                log.step(dt=now - previous, **values)
+                steps += 1
+                if window is not None and len(log.rows["t"]) > 1.25 * window / clock.dt:
+                    # a fifth at a time: trimming a list costs its length
+                    drop = len(log.rows["t"]) // 5
+                    dropped += drop
+                    for rows in log.rows.values():
+                        del rows[:drop]
+                previous, tick = now, tick + clock.dt
+                wait = tick - clock.now()
+                if wait > 0:
+                    clock.sleep(wait)
+                else:  # late: start again from now rather than catching up in a burst
+                    overruns, tick = overruns + 1, clock.now()
+        except KeyboardInterrupt:  # Ctrl-C ends a real-time run with the log so far
+            log.rows = {name: rows[: steps - dropped] for name, rows in log.rows.items()}
     dt = np.diff(log.arrays()["t"].ravel()) if steps > 1 else np.array([clock.dt])
     log.info = {
         "steps": steps,
