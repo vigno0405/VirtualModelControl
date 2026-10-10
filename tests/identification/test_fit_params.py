@@ -106,7 +106,8 @@ def test_the_samples_not_in_the_train_mask_are_left_out():
     assert float(fit.values["m.inertance"]) == pytest.approx(2.0, rel=1e-6)
 
 
-def test_a_matrix_param_comes_back_in_its_own_shape():
+def pair_run():
+    """A robot of two masses on a spring with a stiffness matrix, and a run of it."""
     robot = vmc.Mechanism(
         "pair", model=vmc.models.JointSpace(2, unit="m"), actuation=vmc.models.Direct(1.0)
     )
@@ -126,21 +127,48 @@ def test_a_matrix_param_comes_back_in_its_own_shape():
         for key, value in zip(rows, (t, plant.q.copy(), plant.v.copy(), u, a), strict=True):
             rows[key].append(value)
         plant.advance(1 / 200)
-    rows = {key: np.array(value) for key, value in rows.items()}
-    # a spring only feels the symmetric part, so the data fix only K[0, 1] + K[1, 0] = 10 and where
-    # the solver puts the difference depends on the rounding of the machine. The bounds pin its
-    # sign instead, entry [0, 1] above [1, 0], which a transposed layout would break
-    spring = robot.components["spring"].stiffness
-    spring.bounds = ([[0.0, 7.0], [0.0, 0.0]], [[100.0, 100.0], [3.0, 100.0]])
-    spring.value = np.array([[10.0, 8.0], [0.0, 10.0]])  # a wrong stiffness, not symmetric
+    return robot, {key: np.array(value) for key, value in rows.items()}
+
+
+def test_a_matrix_param_comes_back_in_its_own_shape():
+    robot, rows = pair_run()
+    start = np.array([[10.0, 4.0], [0.0, 10.0]])  # a wrong stiffness, not symmetric
+    robot.components["spring"].stiffness.value = start
     fit = fit_params(robot, ["spring.stiffness"], [rows])
-    found = fit.values["spring.stiffness"]
-    std = fit.std["spring.stiffness"]
+    found, std = fit.values["spring.stiffness"], fit.std["spring.stiffness"]
     assert found.shape == (2, 2) and std.shape == (2, 2)
-    # only the sum K[0, 1] + K[1, 0] is determined: the entries on their own are not
-    assert np.isfinite(np.diag(std)).all() and np.isinf([std[0, 1], std[1, 0]]).all()
     np.testing.assert_allclose(0.5 * (found + found.T), [[30.0, 5.0], [5.0, 20.0]], rtol=1e-5)
-    assert found[0, 1] >= 7.0 - 1e-9 and found[1, 0] <= 3.0 + 1e-9
+    # a spring only feels the symmetric part: the data fix K[0, 1] + K[1, 0] but not the entries on
+    # their own, so those have no standard error, and the fit leaves their difference where it
+    # started (entry [0, 1] above [1, 0] by 4, which a transposed layout would flip), on every
+    # machine
+    assert np.isfinite(np.diag(std)).all() and np.isinf([std[0, 1], std[1, 0]]).all()
+    assert found[0, 1] - found[1, 0] == pytest.approx(4.0, abs=1e-6)
+
+
+def test_an_unseen_direction_stays_where_it_was_unless_the_bounds_forbid_it():
+    robot, rows = pair_run()
+    spring = robot.components["spring"].stiffness
+    # K[0, 1] <= 7 and K[1, 0] <= 3 leave only the corner (7, 3) for the sum of 10: the unseen
+    # difference cannot go back to the start's (7), and the fit stays at the corner
+    spring.bounds = ([[0.0, 0.0], [0.0, 0.0]], [[100.0, 7.0], [3.0, 100.0]])
+    spring.value = np.array([[10.0, 8.0], [0.0, 10.0]])
+    found = fit_params(robot, ["spring.stiffness"], [rows]).values["spring.stiffness"]
+    assert found[0, 1] == pytest.approx(7.0, abs=1e-4) and found[1, 0] == pytest.approx(
+        3.0, abs=1e-4
+    )
+
+
+def test_a_move_the_residual_feels_is_not_taken_back():
+    # at one speed only, a saturating damper's two Params show in one number, F tanh(D v / F): the
+    # pairs that fit equally lie on a curve, and a straight step back towards the start leaves it
+    t = np.arange(0.0, 2.0, 1 / 200)
+    q, v, a = np.zeros((t.size, 1)), np.full((t.size, 1), 0.5), np.zeros((t.size, 1))
+    force = 0.8 * np.tanh(1.5 * 0.5 / 0.8)  # what the damper gives at that speed
+    run = {"t": t, "q": q, "v": v, "u": np.full_like(q, force), "a": a}
+    fit = fit_params(slider(tanh=(0.2, 3.0)), ["damper.*"], [run])
+    assert fit.rms < 1e-6  # the fit explains the data, so the move was not undone
+    assert np.isinf([float(fit.std["damper.damping"]), float(fit.std["damper.max_force"])]).all()
 
 
 def test_a_param_that_the_run_never_excites_has_an_infinite_standard_error():

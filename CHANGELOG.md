@@ -10,8 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - `fit_params`: a Param that the data do not determine (a run that never excites it, or an entry of a matrix
   that only appears in a sum with another, such as the two off-diagonal entries of a spring's stiffness) has
-  `std` `inf`. It was `0.0`, which read as certainty. The values and the standard errors of the Params that
-  the data do determine are the same as before.
+  `std` `inf`. It was `0.0`, which read as certainty. Along such a direction the fit used to end wherever the
+  rounding of the machine left it (the difference of those two entries came out as 4.06, 3.67 or -2.31 on
+  different CPUs); it now stays at the start, inside the bounds and only if the fit stays as good. The values
+  and the standard errors of the Params that the data do determine are the same as before.
 - An unknown geometry in `helyx.arm`, `helyx.model` or `helyx.hardware` raises a `KeyError` that names it and
   lists the known geometries (it was the bare name).
 - The `ValueError` that a law or an estimator raises for a `StateController` now says what to use instead:

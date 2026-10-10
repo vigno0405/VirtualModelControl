@@ -18,23 +18,29 @@ class Fit:
     """What ``fit_params`` found: ``values`` and their standard errors ``std`` [same units] by
     Param name, in each Param's own shape, and the root-mean-square ``rms`` of the residual
     [N·m or N] over the samples. A Param that the data do not determine (the run never excites
-    it, or it only appears in a sum with another) has ``std`` ``inf`` and keeps a value that
-    the data cannot tell from others."""
+    it, or it only appears in a sum with another) has ``std`` ``inf``, and the fit leaves it
+    where it started, along every direction that the data do not see."""
 
     values: dict[str, np.ndarray]
     std: dict[str, np.ndarray]
     rms: float
 
 
-def _undetermined(J: np.ndarray) -> np.ndarray:
-    """The columns of the Jacobian J (one per unknown) whose value the data cannot fix: those that
-    can move along a direction of the unknowns that J does not see. The columns are scaled to one
-    first, so that unknowns of different units are compared alike."""
+def _blind(J: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The scale of each unknown (the norm of its column of the Jacobian J, 1 for a zero column)
+    and the directions of the scaled unknowns that J does not see, one per column. The columns are
+    scaled to one so that unknowns of different units are compared alike."""
     norms = np.linalg.norm(J, axis=0)
-    scaled = J / np.where(norms > 0.0, norms, 1.0)
+    norms = np.where(norms > 0.0, norms, 1.0)
+    scaled = J / norms
     w, V = np.linalg.eigh(scaled.T @ scaled)
-    blind = V[:, w <= 1e-12 * max(w[-1], np.finfo(float).tiny)]  # the directions it does not see
-    return np.linalg.norm(blind, axis=1) > 1e-6
+    return norms, V[:, w <= 1e-12 * max(w[-1], np.finfo(float).tiny)]
+
+
+def _undetermined(J: np.ndarray) -> np.ndarray:
+    """The unknowns whose value the data cannot fix: those that can move along a direction that
+    J does not see."""
+    return np.linalg.norm(_blind(J)[1], axis=1) > 1e-6
 
 
 def fit_params(
@@ -121,7 +127,21 @@ def fit_params(
         bounds=(lower, upper),
         x_scale="jac",
     )
-    r, J = evaluate(found.x)
+    x = found.x
+    r, J = evaluate(x)
+    # along a direction the data do not see the solver ends wherever its rounding leaves it, which
+    # depends on the machine: take that part of the move back, if it is inside the bounds and the
+    # residual hardly feels it (a hundred-millionth of the misfit at the start)
+    norms, blind = _blind(J)
+    if blind.size:
+        step = norms * (x - x0)
+        back = x0 + (step - blind @ (blind.T @ step)) / norms
+        r_back, r_start = evaluate(back)[0], evaluate(x0)[0]
+        if np.all((lower <= back) & (back <= upper)) and (
+            np.linalg.norm(r_back - r) <= 1e-8 * np.linalg.norm(r_start)
+        ):
+            x = back
+            r, J = evaluate(x)
     dof = max(len(r) - len(columns), 1)
     cov = (r @ r / dof) * np.linalg.pinv(J.T @ J)
     sigma = np.sqrt(np.diag(cov))
@@ -129,7 +149,7 @@ def fit_params(
     values, std, at = {}, {}, 0
     for name, short in zip(full, chosen, strict=True):
         shape, n = dyn.params[name].shape, dyn.params[name].size
-        values[short] = found.x[at : at + n].reshape(shape, order="F")
+        values[short] = x[at : at + n].reshape(shape, order="F")
         std[short] = sigma[at : at + n].reshape(shape, order="F")
         at += n
     return Fit(values, std, float(np.sqrt(np.mean(r**2))))
