@@ -178,7 +178,8 @@ import torch
 dynamics = vmc.compile_dynamics(arm)
 model = dynamics.export("torch")  # forward, residual, mass, ...
 p = torch.as_tensor(dynamics.live_values())
-q_batch = torch.zeros(64, 9, dtype=torch.float64, requires_grad=True)  # a batch
+# a batch of 64 states
+q_batch = torch.zeros(64, 9, dtype=torch.float64, requires_grad=True)
 v_batch = torch.zeros_like(q_batch)
 u_batch = torch.zeros_like(q_batch)
 acceleration = model.forward(q_batch, v_batch, u_batch, p, 0.0)  # (64, 9)
