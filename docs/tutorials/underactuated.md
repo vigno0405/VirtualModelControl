@@ -10,7 +10,8 @@ Some robots have joints that no motor drives: a finger whose last joint follows 
 soft arm whose tendons bend it in fewer ways than it can bend. A virtual spring on such a robot
 asks for torques that the motors cannot all give. In this tutorial we control a planar arm
 with three joints and two motors, see what is lost, and compare the two ways the library
-renders the torques, with and without a correction that keeps the arm passive.
+renders the torques, with and without a correction that keeps the arm passive. If you only want
+to know which controller to take, read [Choosing](#choosing) at the end.
 
 ```{code-cell} python
 :tags: [remove-cell]

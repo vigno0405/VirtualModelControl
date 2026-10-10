@@ -7,7 +7,9 @@ kernelspec:
 # Crawl with a flywheel
 
 In this tutorial a crawler crawls across the ground in simulation. Two cranks push it forward,
-one per side, and one virtual flywheel keeps them in step.
+one per side, and one virtual flywheel keeps them in step. We see how a virtual state drives a
+gait, shape the stiffness of the springs with the flywheel's phase, steer, let the crawler find its
+own gait by search, and plan a stride with the optimizer.
 
 ```{code-cell} python
 :tags: [remove-cell]

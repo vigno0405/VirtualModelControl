@@ -4,10 +4,11 @@ kernelspec:
   name: python3
 ---
 
-# Tuning stiffness and damping
+# Tuning the damping of a spring
 
-In this tutorial we choose the stiffness and damping of a fingertip spring from the finger's
-mass, and find the damping beyond which the control loop turns unstable.
+In this tutorial we take a fingertip spring of a given stiffness, choose its damping from the
+finger's mass, search for the best damping with trial runs, and find the damping beyond which the
+control loop turns unstable.
 
 ```{code-cell} python
 :tags: [remove-cell]

@@ -4,7 +4,7 @@ kernelspec:
   name: python3
 ---
 
-# Kinematics on the UR5
+# Kinematics and tool springs on the UR5
 
 In this tutorial we compute the position and rotation of the UR5's tool, and its Jacobians and
 Hessian, which we check against finite differences. Then we compute the joint stiffness that a

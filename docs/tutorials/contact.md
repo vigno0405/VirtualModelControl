@@ -6,8 +6,10 @@ kernelspec:
 
 # Contact
 
-In this tutorial we press a fingertip on a table with a chosen force, then use the same
-elements as a virtual wall that the controller enforces.
+In this tutorial we press a fingertip on a table with a chosen force, rub it along the table with
+friction, and use the same elements as a virtual wall that the controller enforces. Then we put
+contacts on other surfaces and between two points of a robot, such as an object squeezed between
+two masses, and end with how to choose the numbers.
 
 ```{code-cell} python
 :tags: [remove-cell]

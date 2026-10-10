@@ -6,8 +6,8 @@ kernelspec:
 
 # Energy and passivity
 
-In this tutorial we follow the energy of the soft arm and of its controller through a run, and
-check that the energy balance closes.
+In this tutorial we follow the energy of the soft arm and of its controller through a run, check
+that the energy balance closes, and limit the changes of a running controller with a tank.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -306,6 +306,8 @@ glue("level", float(tank.level), display=False)
 
 The level is {glue:text}`level:.2f` J, the energy the dampers took in the balance above. A change
 that raises the controller's energy can now be paid from it.
+
+### A stiffness that a law proposes
 
 A stiffness that a law proposes can be indefinite or not symmetric, and then a spring with it
 can store negative energy. `project_psd` gives the nearest symmetric positive semidefinite
