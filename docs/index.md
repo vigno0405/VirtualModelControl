@@ -67,7 +67,7 @@ pip install virtualmodelcontrol
 [How it works](tutorials/introduction.md) explains the idea, and
 [your first controller](tutorials/first-controller.md) puts it to work on the soft arm. The
 tutorials then go through the library by topic, each a tab of the top bar: how to
-[build](tutorials/coordinates-and-components.md) a controller and a robot, how to
+[build](tutorials/coordinates.md) a controller and a robot, how to
 [run](tutorials/run-logs.md) it, log it, tune it and estimate its state, how to control
 [force](tutorials/contact.md) and contact within an energy budget, and how to
 [plan](tutorials/optimize.md) a motion. The examples apply it to complete tasks on ready-made
@@ -104,11 +104,14 @@ troubleshooting
 :hidden:
 :caption: Build
 
-tutorials/coordinates-and-components
+tutorials/coordinates
+tutorials/components
 tutorials/parameters
 tutorials/configurations
 tutorials/kinematics
 tutorials/build-a-robot
+tutorials/joints
+tutorials/soft-and-assemblies
 tutorials/friction
 tutorials/extend
 tutorials/outside
@@ -132,6 +135,7 @@ tutorials/fit
 
 tutorials/contact
 tutorials/force
+tutorials/force-estimates
 tutorials/stiffness
 tutorials/energy
 tutorials/underactuated
@@ -142,6 +146,8 @@ tutorials/underactuated
 :caption: Plan
 
 tutorials/optimize
+tutorials/optimize-obstacles
+tutorials/optimize-periodic
 tutorials/mpc
 tutorials/crawl
 ```

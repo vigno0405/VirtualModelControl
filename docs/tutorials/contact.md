@@ -315,7 +315,7 @@ The masses stop {glue:text}`squeeze_sink:.1f` mm into the object, where its forc
 {glue:text}`squeeze_force:.2f` N, equals the virtual spring's pull: 50 N/m times the distance between the masses,
 {glue:text}`squeeze_gap:.2f` cm.
 An object with a mass of its own, or with several coordinates, is a part with its own joints
-in the robot, as in [Build your own robot](build-a-robot.md); the contact is the same.
+in the robot, as in [Joints and bodies](joints.md); the contact is the same.
 
 ### Friction between two points
 

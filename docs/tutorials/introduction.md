@@ -70,8 +70,7 @@ four_steps.figure();
 ## Where to go next
 
 - [Your first controller](first-controller.md) runs the four steps on the soft arm.
-- [Coordinates and components](coordinates-and-components.md) lists what we can attach, and
-  where.
+- [Coordinates](coordinates.md) lists where we can attach, and [Components](components.md) what.
 - [Parameters](parameters.md) shows which numbers can change while the robot runs.
 - [Energy and passivity](energy.md) follows the energy through a run.
 - [Build a robot](build-a-robot.md) describes a robot of our own.

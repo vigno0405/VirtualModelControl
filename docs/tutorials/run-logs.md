@@ -141,7 +141,7 @@ the same way, with `log.step(t=..., q=...)`.
 `save` writes the log as one compressed NumPy file, and `RunLog.load` reads it back:
 
 ```{code-cell} python
-path = log.save("reach.npz")
+path = log.save("reach.npz", overwrite=True)  # runs again without error
 again = vmc.sim.RunLog.load(path)
 again.meta["params"]["ctrl.reach.stiffness"]
 ```
@@ -158,7 +158,7 @@ start time, and the value every Param had at the start (the controller's own, if
 changed it). A plant that has a hardware profile as `plant.profile` adds it. A real-time run
 also fills `info` with its statistics (steps, rate, overruns). `save` writes a temporary file
 and renames it, so an interrupted save never leaves half a log. It refuses a name that is
-taken, unless you pass `overwrite=True`.
+taken, unless you pass `overwrite=True`, as the cell above does.
 
 A saved log is a plain NumPy archive, so `np.load("reach.npz")["q"]` reads a signal without the
 library.
@@ -243,10 +243,12 @@ A configuration ([Experiments in files](configurations.md)) saves each of its ru
 ```
 
 `name` is the file name (by default the start time of the run), `folder` is relative to the
-configuration file, and `record` lists what to add to the log. We add these lines, indented by two
-spaces as in the file, at the end of the `experiment` section of that tutorial's file and run it.
-Download [reach.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/reach.yaml) and [run-settings.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/run-settings.yaml) into the
-folder where you run the code:
+configuration file, and `record` lists what to add to the log. Download
+[reach.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/reach.yaml)
+and [run-settings.yaml](https://github.com/vigno0405/VirtualModelControl/blob/main/docs/tutorials/run-settings.yaml)
+into the folder where you run the code. The cell adds these lines, indented by two spaces as in
+the file, at the end of `reach.yaml`, where its `experiment` section ends, and runs the result.
+Run it once: a second run is refused, as explained below it.
 
 ```{code-cell} python
 from pathlib import Path

@@ -261,8 +261,8 @@ The object feels {glue:text}`grip_blind:.2f` N with the estimates alone and
 in the second. With the sensor, the ripple follows `max_force_step` (0.01 N by default): half
 that step gives {glue:text}`grip_ripple_half:.3f` N. The right arm's estimate,
 {glue:text}`grip_believed:.2f` N, is right too, because the model has no error here. A wrong
-mass in the model would give a wrong force, as in the
-[force tracking tutorial](../tutorials/force.md).
+mass in the model would give a wrong force, as in
+[Estimate a contact force](../tutorials/force-estimates.md).
 
 Moving a goal inward stores energy in the spring, and a [tank](../tutorials/energy.md) pays for
 it. The laws take the tank in place of the controller. We run it with 0.2 J and with an empty
