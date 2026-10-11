@@ -369,7 +369,7 @@ tank, tuning and the calibrations), which was never released on its own.
     geometric terms out and is not provided.
   - `KalmanFilter(system, dt, Q=None, P0=None, gate=40.0, robot=None)` and `Measurement(q, v, Rq,
     Rv, observed, name)`: a Kalman filter of the robot's state (q, v). Its process model is the
-    robot's own dynamics, linearised at the estimate at rest and held over the step (the lab's
+    robot's own dynamics, linearized at the estimate at rest and held over the step (the lab's
     frozen mass matrix, in general form), with the command going through the system's
     transmission. It fuses encoders (`kf.encoder`) and any sensor that sees part of the state,
     gates each measurement on its innovation, and reports the sensors it rejected (`rejected`,
@@ -460,9 +460,9 @@ tank, tuning and the calibrations), which was never released on its own.
   covariance, on a mass, spring and damper. The tutorial "Fit Params to a run" uses it.
 - `KalmanFilter(..., unscented=True, substeps=10)`: the prediction sends sigma points of the
   estimate (the scaled unscented transform, a root of three standard deviations out) through the
-  robot's own integrator, in `substeps` steps, instead of linearising at the estimate; the sensors
+  robot's own integrator, in `substeps` steps, instead of linearizing at the estimate; the sensors
   stay linear, so the update is the same. On a double pendulum it follows the mean of a Monte
-  Carlo to 0.003 where the linearised prediction is off by 2; on a linear robot the two agree.
+  Carlo to 0.003 where the linearized prediction is off by 2; on a linear robot the two agree.
 - `vmc.estimation.MomentumObserver(system, dt, gain, robot=None)`: the external force on a robot
   from its motion, without accelerations. From the momentum and what the model says would change
   it, it gives the generalized force the model does not explain, as a low-pass filter of bandwidth

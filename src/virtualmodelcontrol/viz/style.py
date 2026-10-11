@@ -21,9 +21,9 @@ PALETTE = [
     "#91D1C2",  # light teal
     "#DC0000",  # bright red
     "#7E6148",  # brown
-    "#949494",  # grey
+    "#949494",  # gray
 ]
-"""Colours in plotting order (NPG palette)."""
+"""Colors in plotting order (NPG palette)."""
 
 
 def rc(usetex: bool | None = None, font_size: float = 18.0) -> dict[str, Any]:

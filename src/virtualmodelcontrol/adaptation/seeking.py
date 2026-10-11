@@ -74,9 +74,9 @@ class DitherSeeking:
         if len(self._t) > 2 and self._t[-1] - self._t[0] > 0.9 * self.window:
             times, costs = np.array(self._t), np.array(self._cost)
             weights = np.gradient(times)
-            centred = costs - np.sum(costs * weights) / np.sum(weights)
+            centered = costs - np.sum(costs * weights) / np.sum(weights)
             probes = np.sin(np.outer(self.frequency, times))
-            self.slope = 2.0 / self.amplitude * (probes @ (centred * weights)) / np.sum(weights)
+            self.slope = 2.0 / self.amplitude * (probes @ (centered * weights)) / np.sum(weights)
             dt = times[-1] - times[-2]
             rate = np.clip(self.gain * self.slope, -self.max_rate, self.max_rate)
             for i, name in enumerate(self.names):

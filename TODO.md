@@ -28,7 +28,7 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   anything with `read` and `write`.
 - **Everything has a release.** No item waits in a backlog: each one has its release, and 1.0.0
   holds them all.
-- **Opt-in.** New behaviour never changes how finished experiments run; projects pin a version.
+- **Opt-in.** New behavior never changes how finished experiments run; projects pin a version.
 - **Modular.** Each subpackage works without the ones above it. Someone with only a kinematic
   model builds and runs a controller without importing simulation, optimization or learning code.
 - **Safety.** Nothing touches a real robot without the owner's go-ahead. No torque limits unless
@@ -427,7 +427,7 @@ turtle crawling.
   laws; `TaskStiffness`, the task-space stiffness with the Hessian terms (the exact one of the
   lab; the first-order one is not provided); the tutorials "Track a contact force" and "Shape
   the stiffness of the tip" use them.
-  `KalmanFilter` and `Measurement` (6 October 2026): the robot's own dynamics linearised at the
+  `KalmanFilter` and `Measurement` (6 October 2026): the robot's own dynamics linearized at the
   estimate, per-sensor gating with `rejected`, `rejected_total` and `missing`, partial sensors,
   encoders through the transmission; its state, covariance, gate and health agree with the lab's
   filter over a run with dropouts and outliers. The shape from motion capture: `Inversion`
@@ -556,7 +556,7 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   `controller.z` (`Shooting(z0=)`).
 - [x] **Underactuated VMC:** actuation projector, torque defect, feasible force set; naive and
   frozen controllers; passive and tank corrections; direction-constrained force tracking; each a
-  flag of `control.underactuated.controller`, so the old and new behaviour compare; the
+  flag of `control.underactuated.controller`, so the old and new behavior compare; the
   allocation reports the part it cannot realize (`Underactuated.defect`). Done, against the
   lab's own code. Open: adaptation laws and estimators that read a controller's inputs expect the
   motor layout, so they do not run on a `StateController`.
@@ -721,7 +721,7 @@ new designs against these themes, so nothing they need is made hard:
 ## Open points to check with the robot owners
 
 - `controller.set()` changes the controller's own copy of the live parameters, not the shared
-  `Param` objects. Confirm this is the wanted behaviour, then document it.
+  `Param` objects. Confirm this is the wanted behavior, then document it.
 - Gravity compensation of the soft arms is about 20% stronger than before the arc-formula fix:
   check it on the next real-arm run.
 - The hand's thumb tip: the template keeps the point the hand's controllers attach to,

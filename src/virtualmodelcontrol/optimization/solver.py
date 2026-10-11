@@ -15,7 +15,7 @@ IPOPT: dict[str, Any] = {
     # One flat expression graph: an iteration costs about a tenth of the nested function calls.
     "expand": True,
     "ipopt.print_level": 0,
-    "ipopt.sb": "yes",  # no licence banner in the terminal
+    "ipopt.sb": "yes",  # no license banner in the terminal
     "print_time": 0,
     "ipopt.max_iter": 500,
     "ipopt.tol": 1e-6,

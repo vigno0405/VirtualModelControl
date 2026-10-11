@@ -81,7 +81,7 @@ class SphereDistance(SurfaceDistance):
         self.radius = as_param(radius, "radius", unit="m", scope=scope, bounds=(0.0, np.inf))
 
     def params(self) -> dict[str, Param]:
-        """Centre and radius."""
+        """Center and radius."""
         return {"center": self.center, "radius": self.radius}
 
     def surface(self, p: Any, ctx: Context) -> Any:
@@ -131,7 +131,7 @@ class BoxDistance(SurfaceDistance):
         )
 
     def params(self) -> dict[str, Param]:
-        """Centre and half sides."""
+        """Center and half sides."""
         return {"center": self.center, "half_sizes": self.half_sizes}
 
     def surface(self, p: Any, ctx: Context) -> Any:
@@ -166,7 +166,7 @@ class CylinderDistance(SurfaceDistance):
         )
 
     def params(self) -> dict[str, Param]:
-        """Centre, axis, radius and half height."""
+        """Center, axis, radius and half height."""
         return {
             "center": self.center,
             "axis": self.axis,

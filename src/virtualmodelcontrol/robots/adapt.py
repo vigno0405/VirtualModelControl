@@ -53,7 +53,7 @@ LINK_COGS = (
     np.array([0.000925, 0.015, 0.001138]),
     np.array([-0.000716, 0.0105, 0.000955]),
 )
-"""Centres of gravity in each phalanx's frame [m]."""
+"""Centers of gravity in each phalanx's frame [m]."""
 
 GRAVITY = (0.0, 0.0, 9.81)
 """Gravity in the finger's base frame [m/s²], as mounted (the frame's z axis points down)."""
@@ -326,7 +326,7 @@ HAND_LINK_COGS = {
     "pinky_middle": (0.003, 0.0037, 0.0089),
     "pinky_distal": (0.0052, 0.0042, 0.0081),
 }
-"""Centre of gravity of each link in its frame [m]."""
+"""Center of gravity of each link in its frame [m]."""
 
 HAND_JOINT_LIMITS = {
     "thumb_CMC1": (0.0, 1.5),
