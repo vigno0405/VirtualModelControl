@@ -70,11 +70,11 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
   newest dependencies and on fresh clones, every page of the documentation read and looked at,
   the API listed in `__all__`, and a support policy.
-- **Where things stand (11 October 2026):** 1.2.1 is released: 1.1.0 added the static friction of the
-  motors, 1.2.0 runs that go on for hours (`run(window=)`, `RunLog.crop`) and 1.2.1 a Ctrl-C that waits for
-  the step that is running. On `main`, not released yet: clear errors for an unknown arm geometry and for a
-  `StateController` given to a law, and `fit_params` giving an infinite standard error, and the same values on
-  every machine, to a Param that the data do not determine.
+- **Where things stand (11 October 2026):** 1.2.2 is released: 1.1.0 added the static friction of the
+  motors, 1.2.0 runs that go on for hours (`run(window=)`, `RunLog.crop`), 1.2.1 a Ctrl-C that waits for
+  the step that is running, and 1.2.2 a fit that says when its data do not determine a Param (an infinite
+  standard error) and gives the same values on every machine, with clearer errors for an unknown arm
+  geometry and for a `StateController` given to a law.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -105,6 +105,8 @@ Everything to do, in order. Each step is done when its items below are ticked.
 9. **1.2.0, runs that go on for hours** (done, 9 October 2026): the log of a real-time run keeps only its
    last seconds, and a log can be cropped to a time window.
 10. **1.2.1** (done, 10 October 2026): a Ctrl-C ends a real-time run between two steps, with its log.
+11. **1.2.2** (done, 11 October 2026): `fit_params` is honest about what the data do not determine, and
+    the same on every machine; two clearer error messages.
 
 ---
 
@@ -660,6 +662,15 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   one raises at once), so that no interrupt lands inside a call into CasADi or numpy.
 - [x] **Checks for the oldest Python and the oldest dependencies:** every `.py` file and every docs
   snippet compiles on Python 3.10, and the suite runs on the oldest supported versions.
+
+---
+
+## 1.2.2: a fit that is honest about its data
+
+- [x] **`fit_params`:** a Param that the data do not determine has an infinite standard error, and a
+  direction that the data do not see stays at its start, so that the result is the same on every machine.
+- [x] **Clearer errors:** an unknown arm geometry lists the known ones; a `StateController` given to a law
+  says which controller to use.
 
 ---
 

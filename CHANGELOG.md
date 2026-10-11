@@ -4,9 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
-## [Unreleased]
+## [1.2.2] - 2026-10-11
 
-### Changed
+A patch: a fit says when its data do not determine a Param, and gives the same values on every machine; two
+error messages say what to do instead. Nothing else changes.
+
+### Fixed
 
 - `fit_params`: a Param that the data do not determine (a run that never excites it, or an entry of a matrix
   that only appears in a sum with another, such as the two off-diagonal entries of a spring's stiffness) has
@@ -14,6 +17,9 @@ All notable changes to this project are documented here. The format follows
   rounding of the machine left it (the difference of those two entries came out as 4.06, 3.67 or -2.31 on
   different CPUs); it now stays at the start, inside the bounds and only if the fit stays as good. The values
   and the standard errors of the Params that the data do determine are the same as before.
+
+### Changed
+
 - An unknown geometry in `helyx.arm`, `helyx.model` or `helyx.hardware` raises a `KeyError` that names it and
   lists the known geometries (it was the bare name).
 - The `ValueError` that a law or an estimator raises for a `StateController` now says what to use instead:
@@ -848,7 +854,8 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.0.0...v1.1.0

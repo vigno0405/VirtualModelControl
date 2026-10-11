@@ -91,8 +91,8 @@ Between releases, the newest code is on the `main` branch on GitHub. pip install
 pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"
 ```
 
-This documentation describes that version. What only `main` has, and no release yet, is listed
-under "Unreleased" in the [changelog](development/changelog.md).
+This documentation describes that version. If `main` has changes that no release has, the
+[changelog](development/changelog.md) lists them under "Unreleased".
 
 ## Update
 
@@ -109,7 +109,7 @@ From GitHub, the newest `main`:
 pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"
 ```
 
-Every commit on `main` has its own version number, such as `1.2.2.dev3+g1a2b3c4d5`, so pip
+Every commit on `main` has its own version number, such as `1.2.3.dev3+g1a2b3c4d5`, so pip
 notices a newer commit and reinstalls. The output then ends with
 `Successfully installed virtualmodelcontrol-...`. If nothing changed on `main`, pip lists the
 dependencies as already satisfied and installs nothing.
@@ -128,10 +128,10 @@ pip install -e .
 An experiment should always run the same code. Pin the version, and move the pin on purpose:
 
 ```bash
-pip install "virtualmodelcontrol==1.2.1"
+pip install "virtualmodelcontrol==1.2.2"
 ```
 
-In a `requirements.txt` file, write `virtualmodelcontrol==1.2.1`. In a conda `environment.yml`,
+In a `requirements.txt` file, write `virtualmodelcontrol==1.2.2`. In a conda `environment.yml`,
 list it under `pip:`. `pip show virtualmodelcontrol` tells you which version you have, and the
 [changelog](development/changelog.md) what changed between versions.
 
