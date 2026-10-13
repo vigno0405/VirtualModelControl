@@ -114,6 +114,59 @@ class TorqueLimit:
         return np.clip(u, -lim, lim)
 
 
+@register("output", "tension_floor")
+@dataclass
+class TensionFloor:
+    """A floor under the torques of tendons that only pull, so that none is told to push.
+
+    A motor commanded to push a tendon unwinds without end. The torques of each group of ``group``
+    consecutive motors (the tendons of a segment) are lifted together, by as much as the lowest one
+    is short of ``floor`` [N·m]. When the tendons of a segment are spaced evenly around it, equal
+    torques on all of them add only an axial squeeze, so the bend that the command makes is the
+    same. The corner is rounded over ``width`` [N·m], so a tendon is never below the floor and the
+    lift is at most (ln ``group`` + ln 2) ``width`` above the exact one. ``symbolic`` is the same
+    smooth map for a plan (``Problem(output=)``). With ``floor`` 0, no tendon pushes and nothing
+    more: the needed tendons pull and the others do nothing.
+    """
+
+    floor: float
+    width: float = 0.001
+    group: int = 3
+
+    def _lift(self, u: list[Any], fmin: Any, exp: Any, log: Any, fmax: Any, fabs: Any) -> Any:
+        """The lift of one group's torques ``u``: a soft max(0, floor - min(u))."""
+        w, lowest = self.width, u[0]
+        for x in u[1:]:
+            lowest = fmin(lowest, x)
+        soft_min = lowest - w * log(sum(exp(-(x - lowest) / w) for x in u))
+        short = self.floor - soft_min
+        return fmax(0.0, short) + w * log(1.0 + exp(-fabs(short) / w))
+
+    def _check(self, n: int) -> None:
+        if n % self.group:
+            raise ValueError(f"{n} motor torques are not groups of {self.group} tendons")
+
+    def __call__(self, u: np.ndarray, meas: Signals) -> np.ndarray:
+        """Lift each group to the floor."""
+        u = np.array(u, dtype=float)
+        self._check(u.size)
+        for k in range(0, u.size, self.group):
+            group = u[k : k + self.group]
+            group += self._lift(list(group), np.minimum, np.exp, np.log, np.maximum, np.abs)
+        return u
+
+    def symbolic(self, u: Any) -> Any:
+        """The same map for CasADi expressions."""
+        n = int(u.shape[0])
+        self._check(n)
+        parts = []
+        for k in range(0, n, self.group):
+            group = [u[k + i] for i in range(self.group)]
+            lift = self._lift(group, ca.fmin, ca.exp, ca.log, ca.fmax, ca.fabs)
+            parts.append(u[k : k + self.group] + lift)
+        return ca.vertcat(*parts)
+
+
 def apply(stages: list[Any], u: np.ndarray, meas: Signals) -> np.ndarray:
     """Run the stages in order."""
     for stage in stages:

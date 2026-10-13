@@ -78,6 +78,15 @@ The nine motors and their bus are in `helyx.hardware("145-145-145")`. On the rea
 `helyx.output_stage()` adds a small pretension to every motor command
 ({glue:text}`pretension:.3f` N·m per radian of motor angle). The simulations below leave it out.
 
+A tendon only pulls, and a motor that is told to push unwinds without end. A virtual spring on
+the tip asks the tendons on the far side of a bend to do just that. `helyx.tension_stage()` is an
+output stage that lifts the three tendons of each segment together until the lowest is at
+`helyx.TENSION_FLOOR`: equal torques on three evenly spaced tendons only squeeze the segment, so
+the bend is the same, and every tendon stays taut. `helyx.unwind_limit(arm)` is a spring on the
+motor angles that pushes back a motor that has unwound more than `helyx.UNWIND_LIMIT` from its
+start angle. Both are optional and tunable, and both have a smooth form, so a plan can include
+them with `Problem(output=helyx.tension_stage())`.
+
 ## Reach past an obstacle
 
 A spring pulls the tip towards a target beyond an obstacle, while two repulsive Gaussian

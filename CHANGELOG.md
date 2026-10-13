@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [Unreleased]
+
+### Added
+
+- `control.TensionFloor`: an output stage for tendons that only pull. It lifts the torques of each
+  group of tendons (a segment's three) together until the lowest is at a floor, so no tendon is
+  told to push. Equal torques on evenly spaced tendons only squeeze the segment, so the bend
+  that the command makes is the same. Its corner is rounded, and `symbolic` is the same map for
+  a plan (`Problem(output=)`).
+- `Mechanism.motor` and the `MotorAngle` coordinate: entries of the robot's motor angles, as its
+  actuation gives them. A `LimitSpring` on it is a limit on how far a motor may turn.
+- `helyx.tension_stage`, `helyx.unwind_limit` and their numbers `TENSION_FLOOR`,
+  `UNWIND_LIMIT` and `UNWIND_STIFFNESS`: the tension floor, and a limit on how far a motor may
+  unwind (pulling is free). Both are optional, and `helyx.output_stage` is unchanged.
+
 ## [1.2.2] - 2026-10-11
 
 A patch: a fit says when its data do not determine a Param, and gives the same values on every machine; two

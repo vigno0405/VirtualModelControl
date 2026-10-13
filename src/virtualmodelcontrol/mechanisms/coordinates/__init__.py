@@ -10,7 +10,7 @@ from .geometry import (
     SphereDistance,
     SurfaceDistance,
 )
-from .joints import Joint, State
+from .joints import Joint, MotorAngle, State
 from .ops import Custom, Difference, Norm, Projection, Slice, Stack, Sum
 from .references import Ref, Time
 
@@ -27,6 +27,7 @@ __all__ = [
     "FromFrame",
     "InFrame",
     "Joint",
+    "MotorAngle",
     "Norm",
     "OrientationError",
     "PlaneDistance",

@@ -35,6 +35,24 @@ class Joint(Coordinate):
         return f"Joint({self.indices}, unit={self.unit!r})"
 
 
+class MotorAngle(Coordinate):
+    """Entries of the robot's motor angles θ(q) [rad], as its actuation gives them: positive when a
+    motor pulls a tendon. A limit on how far a motor may turn acts on this."""
+
+    def __init__(self, actuation: Any, indices: Sequence[int]) -> None:
+        super().__init__(len(indices), "rad")
+        self.actuation = actuation
+        self.indices = [int(i) for i in indices]
+
+    def value(self, ctx: Context) -> Any:
+        """Selected entries of θ(q)."""
+        theta = self.actuation.motor_angles(ctx.q, ctx.view(self.actuation.params))
+        return ca.vertcat(*[theta[i] for i in self.indices])
+
+    def __repr__(self) -> str:
+        return f"MotorAngle({self.indices})"
+
+
 class State(Coordinate):
     """Position of a virtual degree of freedom owned by a controller (part of its state z)."""
 

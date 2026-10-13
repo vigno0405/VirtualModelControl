@@ -6,11 +6,18 @@ from typing import Any
 
 import numpy as np
 
-from ..control.output import Pretension
+from ..control.output import Pretension, TensionFloor
 from ..core.params import Param
 from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
-from ..mechanisms import Gravity, LinearDamper, LinearSpring, Mechanism, PointMass
+from ..mechanisms import (
+    Gravity,
+    LimitSpring,
+    LinearDamper,
+    LinearSpring,
+    Mechanism,
+    PointMass,
+)
 from ..models import PCC, TendonTransmission
 
 GEOMETRIES: dict[str, dict[str, Any]] = {
@@ -39,6 +46,29 @@ PRETENSION_WEIGHTS = 0.010  # [N·m/rad] per motor, on the real arm only
 def output_stage(motors: int = 9) -> list[Any]:
     """The real arm's output stage: a linear pretension W ∘ θ on every motor."""
     return [Pretension(np.full(motors, PRETENSION_WEIGHTS))]
+
+
+TENSION_FLOOR = 0.03  # [N·m] the least torque on a segment's tendons, so they stay taut
+UNWIND_LIMIT = np.radians(30.0)  # [rad] how far a motor may unwind from its start angle
+UNWIND_STIFFNESS = 0.1  # [N·m/rad] the torque that pushes a motor back from past that
+
+
+@register("output", "helyx.tension_stage")
+def tension_stage(floor: float = TENSION_FLOOR) -> list[Any]:
+    """The output stage for tendons that only pull: ``TensionFloor``, which keeps the torque of
+    every tendon at or above ``floor`` [N·m] without changing the bend. Optional, like every
+    output stage; ``floor`` 0 only stops a tendon from pushing."""
+    return [TensionFloor(floor)]
+
+
+@register("component", "helyx.unwind_limit")
+def unwind_limit(
+    robot: Mechanism, limit: float = UNWIND_LIMIT, stiffness: Any = UNWIND_STIFFNESS
+) -> LimitSpring:
+    """A spring that pushes back each motor that has unwound more than ``limit`` [rad] from its
+    start angle, with ``stiffness`` [N·m/rad]. Only unwinding is limited; pulling is not. Add it to
+    a controller next to the tension stage."""
+    return LimitSpring(robot.motor(slice(None)), stiffness, -limit, np.inf)
 
 
 EFFICIENCY = 0.12
