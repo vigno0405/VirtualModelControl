@@ -8,16 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- `control.TensionFloor`: an output stage for tendons that only pull. It lifts the torques of each
-  group of tendons (a segment's three) together until the lowest is at a floor, so no tendon is
-  told to push. Equal torques on evenly spaced tendons only squeeze the segment, so the bend
-  that the command makes is the same. Its corner is rounded, and `symbolic` is the same map for
-  a plan (`Problem(output=)`).
 - `Mechanism.motor` and the `MotorAngle` coordinate: entries of the robot's motor angles, as its
   actuation gives them. A `LimitSpring` on it is a limit on how far a motor may turn.
-- `helyx.tension_stage`, `helyx.unwind_limit` and their numbers `TENSION_FLOOR`,
-  `UNWIND_LIMIT` and `UNWIND_STIFFNESS`: the tension floor, and a limit on how far a motor may
-  unwind (pulling is free). Both are optional, and `helyx.output_stage` is unchanged.
+- `helyx.unwind_limit` and its numbers `UNWIND_LIMIT` and `UNWIND_STIFFNESS`: a limit on how far a
+  motor may unwind (pulling is free). It is optional, and `helyx.output_stage` is unchanged.
+
+### Removed
+
+- The tension floor, added earlier in this line: `control.TensionFloor`, `helyx.tension_stage` and
+  `helyx.TENSION_FLOOR`. `helyx.unwind_limit` stays.
 
 ## [1.2.2] - 2026-10-11
 

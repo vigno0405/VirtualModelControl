@@ -94,7 +94,7 @@ tank
 
 output stage
   An optional correction of the motor commands for real hardware: friction compensation,
-  pretension, a tension floor, an offset or a torque limit.
+  pretension, an offset or a torque limit.
 
 template
   A function that builds a ready-made robot, such as `helyx.arm`, with every geometric number

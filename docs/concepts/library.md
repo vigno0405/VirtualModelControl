@@ -39,7 +39,7 @@ a robot middleware such as ROS: signals come in and go out as arrays.
 | describe a new robot | `vmc.models`: `PCC`, `SerialChain`, `JointSpace`, `LinearCoupling`, `Assembly`, `TendonTransmission` |
 | place virtual elements | `vmc.Mechanism`, coordinates and components such as `vmc.LinearSpring` |
 | compile and run a controller | `vmc.VirtualMechanismSystem`, `vmc.compile`, `vmc.VMCController` |
-| correct commands for real hardware | `vmc.control.output`: friction compensation, pretension, a tension floor, limits |
+| correct commands for real hardware | `vmc.control.output`: friction compensation, pretension, limits |
 | get positions, Jacobians, Hessians | `vmc.Kinematics` |
 | get the robot's equations of motion | `vmc.compile_dynamics` (from the components, or from a function with `vmc.models.Equations`) |
 | simulate a closed loop | `vmc.sim`: `ModelPlant`, `run`, `SimClock` |

@@ -2,13 +2,10 @@
 
 from pathlib import Path
 
-import casadi as ca
 import numpy as np
-import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.control import output
-from virtualmodelcontrol.core.registry import get
 from virtualmodelcontrol.robots import adapt, bimanual, helyx
 
 HAND = np.load(Path(__file__).parents[1] / "data" / "hand.npz")
@@ -64,55 +61,3 @@ def test_controller_applies_stages_after_the_law():
     out = c.step(0.0, meas(np.array([1.0, -0.05])))
     np.testing.assert_allclose(out["law_torque"], [-1.0, 0.05])
     np.testing.assert_allclose(out["motor_torque"], [-0.05, 0.1])  # clipped, then offset
-
-
-def exact_floor(u, floor):
-    """The floor without the rounded corner: each group lifted until its lowest is on it."""
-    out = u.copy()
-    for k in range(0, u.size, 3):
-        out[k : k + 3] += max(0.0, floor - u[k : k + 3].min())
-    return out
-
-
-def test_tension_floor_keeps_every_tendon_up_without_changing_the_bend():
-    stage = output.TensionFloor(0.03)
-    for _ in range(50):
-        u = rng.uniform(-0.5, 0.5, 9)
-        out = stage(u, meas(np.zeros(9)))
-        assert (out >= 0.03 - 1e-12).all()
-        # the lift is equal on the three tendons of a segment: their differences are the command's
-        np.testing.assert_allclose(
-            np.diff(out.reshape(3, 3), axis=1), np.diff(u.reshape(3, 3), axis=1), atol=1e-12
-        )
-        assert np.abs(out - exact_floor(u, 0.03)).max() <= (np.log(3) + np.log(2)) * stage.width
-
-
-def test_tension_floor_leaves_tendons_far_above_it_and_survives_big_commands():
-    stage = output.TensionFloor(0.03)
-    far = np.full(9, 0.4)
-    np.testing.assert_allclose(stage(far, meas(np.zeros(9))), far, atol=1e-12)
-    big = stage(np.array([-80.0, 0.3, 0.2] * 3), meas(np.zeros(9)))
-    assert np.isfinite(big).all() and big.min() >= 0.03 - 1e-12
-
-
-def test_tension_floor_symbolic_is_the_same_map():
-    stage = output.TensionFloor(0.03, width=0.002)
-    u = ca.SX.sym("u", 9)
-    f = ca.Function("f", [u], [stage.symbolic(u)])
-    for _ in range(20):
-        x = rng.uniform(-0.5, 0.5, 9)
-        np.testing.assert_allclose(np.array(f(x)).ravel(), stage(x, meas(np.zeros(9))), atol=1e-14)
-    slope = ca.Function("slope", [u], [ca.jacobian(stage.symbolic(u), u)])
-    assert np.isfinite(np.array(slope(rng.uniform(-0.5, 0.5, 9)))).all()
-
-
-def test_tension_floor_groups_and_registry():
-    with pytest.raises(ValueError, match="groups of 3"):
-        output.TensionFloor(0.03)(np.zeros(8), meas(np.zeros(8)))
-    pair = output.TensionFloor(0.0, group=2)
-    np.testing.assert_allclose(
-        pair(np.array([-0.1, 0.3]), meas(np.zeros(2))), [0.0, 0.4], atol=2e-3
-    )
-    assert get("output", "tension_floor") is output.TensionFloor
-    assert helyx.tension_stage()[0].floor == helyx.TENSION_FLOOR
-    assert helyx.tension_stage(0.0)[0].floor == 0.0

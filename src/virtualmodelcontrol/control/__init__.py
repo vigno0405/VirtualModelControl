@@ -6,7 +6,6 @@ from .output import (
     FrictionCompensation,
     Pretension,
     StaticFrictionCompensation,
-    TensionFloor,
     TorqueLimit,
     TorqueOffset,
 )
@@ -24,7 +23,6 @@ __all__ = [
     "StaticFrictionCompensation",
     "SwapController",
     "Tank",
-    "TensionFloor",
     "TorqueLimit",
     "TorqueOffset",
     "VMCController",
