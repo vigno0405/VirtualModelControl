@@ -256,8 +256,9 @@ glue("gain", float(100 * (1 - found.result.cost / anchor)), display=False)
 sideways = [c["cost"] for c in found.candidates
             if c["cost"] is not None
             and np.abs(np.array(c["references"][key]) - target)[:2].max() > 1e-6]
-assert len(sideways) >= 2 and min(sideways) > 5 * anchor
-glue("sideways", float(min(sideways) / anchor), display=False)
+assert len(sideways) >= 2 and min(sideways) > anchor  # the target is the better reference
+glue("sideways_min", float(min(sideways) / anchor), display=False)
+glue("sideways_max", float(max(sideways) / anchor), display=False)
 glue("k_search", found.result.params["new.pull.stiffness"].item(), display=False)
 ```
 
@@ -266,8 +267,10 @@ neighbors. The status says how each solve ended: an acceptable level counts as c
 point that did not converge has no cost. The best reference lies {glue:text}`offset:.0f` mm from
 the target along z, and it lowers the cost by {glue:text}`gain:.1f` %, with a stiffness of
 {glue:text}`k_search:.0f` N/m: for this task the target is already a good reference. Moving it
-sideways costs at least {glue:text}`sideways:.0f` times more. `found.result` is the plan, `found.references` the
-point that gave it, and `found.candidates` every point tried.
+sideways costs {glue:text}`sideways_min:.1f` to {glue:text}`sideways_max:.0f` times more (a solve of
+this non-convex plan can end at a different optimum from another point's, and the CasADi version
+changes where: read the statuses). `found.result` is the plan, `found.references` the point that gave it, and
+`found.candidates` every point tried.
 
 ## Where the arm rests
 
