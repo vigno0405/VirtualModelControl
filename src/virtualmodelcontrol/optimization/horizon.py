@@ -63,6 +63,14 @@ class MovingHorizon:
         self._config = ca.Function(
             "config", [theta, theta_dot], [q_enc, act.velocity_from_motors(q_enc, theta_dot, pa)]
         )
+        q_s, v_s = ca.SX.sym("q", n), ca.SX.sym("v", n)
+        self._motors = ca.Function(
+            "motors", [q_s, v_s], [act.motor_angles(q_s, pa), act.motor_rates(q_s, v_s, pa)]
+        )
+        self._motor_jacobian = ca.Function(
+            "motor_jacobian", [q_s], [ca.jacobian(act.motor_angles(q_s, pa), q_s)]
+        )
+        self._n_angles = act.motor_sizes(space)[0]
         self._neutral = np.asarray(space.neutral(), dtype=float)
         self.dt, self.window, self.iterations = dt, window, iterations
         self._Q = covariance(PROCESS_NOISE if Q is None else Q, 2 * n, "Q")
@@ -78,6 +86,7 @@ class MovingHorizon:
         self._commands: list[np.ndarray] = []
         self._readings: list[tuple[np.ndarray, np.ndarray]] = []
         self._times: list[float] = []
+        self._covariance = self._P0.copy()
         self.cost = 0.0
 
     def step(self, u: ArrayLike, measurements: Sequence[Measurement], t: float = 0.0) -> np.ndarray:
@@ -195,13 +204,36 @@ class MovingHorizon:
         Rv: ArrayLike | None = None,
         name: str = "encoder",
     ) -> Measurement:
-        """The measurement of motor angles [rad] and rates [rad/s], as the Kalman filter's."""
+        """The measurement of motor angles [rad] and rates [rad/s], as the Kalman filter's: through
+        the transmission, and for a robot with fewer motors than coordinates the motors themselves,
+        linearized at the present estimate (``Rq`` and ``Rv`` are then the motors' covariances)."""
+        if self._n_angles < self._n:
+            return self._motor_reading(theta, theta_dot, Rq, Rv, name)
         rates = np.zeros(self._dynamics.n_u) if theta_dot is None else theta_dot
         seen = self._config(
             ca.DM(np.asarray(theta, dtype=float)), ca.DM(np.asarray(rates, dtype=float))
         )
         q, v = (np.array(a).ravel() for a in seen)
         return Measurement(q, None if theta_dot is None else v, Rq, Rv, name=name)
+
+    def _motor_reading(
+        self,
+        theta: ArrayLike,
+        theta_dot: ArrayLike | None,
+        Rq: ArrayLike,
+        Rv: ArrayLike | None,
+        name: str,
+    ) -> Measurement:
+        """Motor readings as a measurement of (q, v), as the Kalman filter makes it: the motors'
+        Jacobian at the present estimate is the matrix on q and on v, and the angles are moved by
+        what the matrix leaves out."""
+        at = self._states[-1] if len(self._states) else self._prior
+        q, v = at[: self._n], at[self._n :]
+        J = np.array(self._motor_jacobian(q))
+        model = np.array(self._motors(q, v)[0]).ravel()
+        y_q = np.asarray(theta, dtype=float) - model + J @ q
+        y_v = None if theta_dot is None else np.asarray(theta_dot, dtype=float)
+        return Measurement(y_q, y_v, Rq, Rv, name=name, matrix=J)
 
     @property
     def q(self) -> np.ndarray:

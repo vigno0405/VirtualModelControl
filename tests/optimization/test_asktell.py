@@ -257,3 +257,24 @@ def test_bayes_refines_around_the_best_point_in_six_dimensions():
         opt.tune(bayes, lambda x: float(np.sum((np.asarray(x) - centre) ** 2)), 40)
         print(f"6-D bowl, seed {seed}: {bayes.best_cost:.3f}")
         assert bayes.best_cost < 0.06  # random points alone stay near 0.1 here
+
+
+def test_a_failed_episode_counts_as_the_worst_so_far_and_never_as_the_best():
+    for make in (
+        lambda: opt.Bayes([0.0, 0.0], [1.0, 1.0], initial=3, seed=1),
+        lambda: opt.ExtremumSeeking([0.5, 0.5], 0.1, 0.1, [0.0, 0.0], [1.0, 1.0]),
+        lambda: opt.CMAES([0.5, 0.5], 0.3, [0.0, 0.0], [1.0, 1.0], seed=1),
+    ):
+        searcher = make()
+        for round_ in range(6):
+            candidates = searcher.ask()
+            costs = [sphere(x) for x in candidates]
+            if round_ in (1, 4):
+                costs[0] = float("inf") if round_ == 1 else float("nan")  # the episode failed
+            searcher.tell(candidates, costs)
+            assert all(np.isfinite(c) for _, c in searcher.history)
+            assert np.isfinite(searcher.best_cost) or round_ == 0
+        assert all(np.isfinite(x) for x in searcher.ask()[0])
+    first = opt.Random([0.0], [1.0], size=2)
+    first.tell([[0.2], [0.4]], [float("inf"), float("inf")])  # nothing finite yet
+    assert first.best is None and [c for _, c in first.history] == [0.0, 0.0]

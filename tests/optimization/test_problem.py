@@ -10,6 +10,7 @@ import pytest
 import virtualmodelcontrol as vmc
 from small_plan import STIFFNESS, mass_spring, tanh_mass, two_masses
 from virtualmodelcontrol import optimization as opt
+from virtualmodelcontrol.models import JointSpace
 
 GOAL, SPRING = "ctrl.spring.goal", "ctrl.spring.stiffness"
 
@@ -422,3 +423,21 @@ def test_apply_leaves_out_what_belongs_to_the_task_not_the_controller():
     controller = vmc.VMCController(vmc.compile(system))
     result.apply(controller)
     assert controller.live_params()[GOAL] == pytest.approx(result.params[GOAL])
+
+
+def test_the_params_found_stay_inside_their_bounds_though_the_solver_relaxes_them():
+    robot = vmc.Mechanism("r", model=JointSpace(1, unit="m"))
+    robot.add("m", vmc.Inertance(robot.joint(0), 1.0))
+    robot.add("friction", vmc.LinearDamper(robot.joint(0), 0.5))
+    gate = vmc.Param("gate", 1.0, bounds=(0.0, 1.0), scope="stage")
+    ctrl = vmc.Mechanism("c")
+    ctrl.add("spring", vmc.TanhSpring(robot.joint(0) - 0.1, 5.0, 3.0))
+    ctrl.add("gate", vmc.LinearSpring(robot.joint(0), gate))
+    ctrl.add("damp", vmc.LinearDamper(robot.joint(0), 2.0))
+    problem = opt.Problem(vmc.VirtualMechanismSystem(robot, ctrl))
+    problem.add(opt.Collocation([0.0], 3.0, 21))
+    problem.add(opt.Cost(robot.joint(0) - 0.1, 1.0))
+    problem.add(opt.Sparsity(1.0, "c.gate.stiffness"))
+    problem.free("c.gate.stiffness")
+    found = problem.solve().params["c.gate.stiffness"]
+    assert found >= 0.0 and found <= 1.0  # it was -1e-8 at the lower bound before

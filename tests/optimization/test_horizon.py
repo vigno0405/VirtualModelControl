@@ -261,3 +261,39 @@ def test_a_short_window_that_slides_is_the_kalman_filter_at_every_step():
         x, S = kalman(system, prior, P, Q, commands[:k], readings[: k + 1], R)
         np.testing.assert_allclose(estimate, x, atol=1e-6, err_msg=f"step {k}")
         np.testing.assert_allclose(mhe.P, S, atol=1e-8, err_msg=f"step {k}")
+
+
+def test_a_robot_with_fewer_motors_than_coordinates_is_estimated_through_the_motors():
+    """The encoders see Bᵀ q, so the passive joint is left to the model, as in the Kalman filter
+    (it used to be pinned at its rest angle)."""
+    from virtualmodelcontrol.control import underactuated as ua
+    from virtualmodelcontrol.estimation import Encoders
+    from virtualmodelcontrol.robots import planar
+
+    arm = planar.add_dynamics(planar.arm("three-link"))
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("reach", vmc.LinearSpring(arm.point("tip") - [0.45, 0.15, 0.0], 30.0))
+    ctrl.add("damp", vmc.LinearDamper(arm.point("tip"), 25.0))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    system = vmc.VirtualMechanismSystem(arm, ctrl)
+    onboard, dt = ua.controller(vmc.compile(system), "naive"), 5e-3
+    plant = vmc.sim.ModelPlant(arm, q0=[0.5, -0.3, 0.8], max_step=dt)
+    encoders = Encoders(arm, noise=1e-4, rate_noise=1e-3)
+    mhe = MovingHorizon(system, dt, window=5, Q=1e-3)
+    mhe.reset([0.5, -0.3, 0.8])
+    first = mhe.P
+    onboard.reset(0.0, plant.read())
+    command, errors = np.zeros(2), []
+    for _ in range(100):
+        theta, rate = encoders.read(plant.q, plant.v)
+        mhe.step(command, [mhe.encoder(theta, rate, 1e-8, 1e-6)], plant.t)
+        seen = vmc.Signals(plant.t, motor_position=theta, motor_velocity=rate, q=mhe.q, v=mhe.v)
+        command = np.asarray(onboard.step(plant.t, seen)["motor_torque"])
+        plant.write(vmc.Signals(plant.t, motor_torque=command))
+        plant.advance(dt)
+        errors.append(abs(mhe.q[1] - plant.q[1]))
+    assert abs(plant.q[1]) > 0.1  # the passive joint is away from its rest angle (0)
+    assert np.mean(errors[30:]) < 0.02  # and the estimate follows it
+    assert not np.allclose(mhe.P, first)
+    mhe.reset()
+    np.testing.assert_allclose(mhe.P, first)  # reset forgets what the readings taught

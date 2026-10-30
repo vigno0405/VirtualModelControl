@@ -238,6 +238,8 @@ class Problem:
         )
         parts = nlp.costs(x, p) if nlp.cost_names else ()
         parts = parts if isinstance(parts, (tuple, list)) else (parts,)
+        found["params"] = self._within_bounds(found["params"])
+        found["steps"] = self._within_bounds(found["steps"])
         nodes = len(nlp.trajectory.t)
         horizon = float(nlp.outputs["horizon"](x, p)) if "horizon" in nlp.outputs else 0.0
         times = np.arange(nodes) * (horizon / (nodes - 1)) if nodes > 1 else np.zeros(nodes)
@@ -296,6 +298,16 @@ class Problem:
             values[name] = value
             p[where] = value.ravel(order="F")
         return values, p
+
+    def _within_bounds(self, values: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+        """The Params' values held to their bounds: IPOPT relaxes a bound by about 1e-8, and a
+        value that is 1e-8 outside it (a stiffness below zero, say) is not one to apply."""
+        held = {}
+        for name, value in values.items():
+            param = self.params[name]
+            lower, upper = (b.reshape(param.shape, order="F") for b in param_bounds(param))
+            held[name] = np.clip(value, lower, upper)
+        return held
 
     def _bounds(self, nlp: NLP) -> tuple[np.ndarray, np.ndarray]:
         """The bounds of the variables, with the free Params' current bounds."""

@@ -52,6 +52,23 @@ def model(lengths: Any) -> SerialChain:
     return SerialChain(["revolute"] * len(length), [(0.0, 0.0, 1.0)] * len(length), points, sites)
 
 
+def rest_per_joint(rest: Any, n: int, motors: Any) -> np.ndarray:
+    """The rest angles of ``n`` joints from one value for all, one per passive joint (the motors'
+    joints get 0) or one per joint."""
+    rest = np.asarray(rest, dtype=float)
+    passive = [i for i in range(n) if i not in set(motors)]
+    if rest.ndim == 0 or rest.size == n:
+        return np.broadcast_to(rest, (n,)).copy()
+    if rest.size == len(passive):
+        full = np.zeros(n)
+        full[passive] = rest
+        return full
+    raise ValueError(
+        f"rest takes one angle, one per passive joint ({len(passive)}) or one per joint ({n}), "
+        f"not {rest.size}"
+    )
+
+
 @register("robot", "planar.arm")
 def arm(
     preset: str = "three-link",
@@ -70,8 +87,8 @@ def arm(
 
     ``preset`` gives the defaults; ``lengths`` [m], ``masses`` [kg], ``actuated`` joints,
     ``gravity`` [m/s², base frame], ``rest`` (the passive joints' rest angles [rad], also the
-    frozen controller's q̄: one value for every passive joint, or one per joint of the arm) and
-    the motors' ``efficiency`` override them, for any number of links.
+    frozen controller's q̄: one value for all, one per passive joint, or one per joint of the
+    arm) and the motors' ``efficiency`` override them, for any number of links.
     """
     spec = PRESETS[preset]
     length = np.asarray(spec["lengths"] if lengths is None else lengths, dtype=float)
@@ -80,7 +97,7 @@ def arm(
     if length.shape != mass.shape:
         raise ValueError(f"{length.size} link lengths but {mass.size} masses")
     n = length.size
-    rest_angles = np.broadcast_to(np.asarray(0.0 if rest is None else rest, dtype=float), (n,))
+    rest_angles = rest_per_joint(0.0 if rest is None else rest, n, motors)
     robot = Mechanism(
         name,
         model=model(length),

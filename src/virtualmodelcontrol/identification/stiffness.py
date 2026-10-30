@@ -83,6 +83,8 @@ def fit_stiffness_damping(
         v = savgol_filter(v, min(smoothing, len(t) - (1 - len(t) % 2)), 3, axis=0)
         a = np.gradient(v, dt, axis=0)
         idx = np.flatnonzero(keep & (np.arange(len(t)) % stride == 0))
+        if not idx.size:
+            raise ValueError("a run has no samples to fit: its train mask is off everywhere")
         q0, u0 = q[:baseline].mean(axis=0), u[:baseline].mean(axis=0)
         zero, no_torque = np.zeros(space.nv), np.zeros(u.shape[1])
         r0 = np.array(dyn.residual(q0, zero, zero, no_torque, p, 0.0)).ravel()  # −g(q₀)

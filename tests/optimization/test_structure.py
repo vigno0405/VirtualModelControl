@@ -60,7 +60,8 @@ def test_a_lighter_weight_keeps_more():
 
 def test_the_term_is_the_weighted_sum_of_the_gates():
     r = plan(1e-2)
-    assert r.costs["sparsity"] == pytest.approx(1e-2 * gates(r).sum(), rel=1e-12)
+    # the gates are held inside their bounds, which the solver relaxes by about 1e-8
+    assert r.costs["sparsity"] == pytest.approx(1e-2 * gates(r).sum(), rel=1e-6)
 
 
 def test_the_term_needs_free_params_that_cannot_be_negative():

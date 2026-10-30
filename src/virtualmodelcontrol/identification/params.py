@@ -52,6 +52,7 @@ def fit_params(
 
     check_smoothing(smoothing)
 
+    names = [names] if isinstance(names, str) else list(names)
     chosen = robot.params.select(patterns=names)
     if not chosen:
         raise ValueError(f"no Param of {robot.name!r} matches {list(names)}")
@@ -92,6 +93,8 @@ def fit_params(
             # velocities at t_k sees the mean of the torques before and after it
             us = 0.5 * (us + np.concatenate([us[:1], us[:-1]]))
         idx = np.flatnonzero(keep & (np.arange(len(ts)) % stride == 0))
+        if not idx.size:
+            raise ValueError("a run has no samples to fit: its train mask is off everywhere")
         samples.append((ts[idx], qs[idx], vs[idx], accel[idx], us[idx]))
     t_all, q_all, v_all, a_all, u_all = (np.concatenate(x) for x in zip(*samples, strict=True))
     m = len(t_all)

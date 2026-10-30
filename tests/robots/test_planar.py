@@ -92,3 +92,13 @@ def test_the_continuum_rest_is_the_frozen_rest_and_the_springs():
     arm = planar.add_continuum_dynamics(planar.continuum(rest=[0.1, -0.2, 0.3]))
     np.testing.assert_allclose(arm.params["q_rest"].value, [0.1, -0.2, 0.3])
     np.testing.assert_allclose(arm.params["spring.rest"].value, [0.1, -0.2, 0.3])
+
+
+def test_the_rest_angles_come_one_per_passive_joint_as_well_as_one_per_joint():
+    five = planar.arm("five-link", rest=[0.1, 0.2, 0.3])  # joints 2, 3 and 4 are passive
+    np.testing.assert_allclose(five.params["q_rest"].value, [0.0, 0.1, 0.2, 0.3, 0.0])
+    same = planar.arm("five-link", rest=[0.0, 0.1, 0.2, 0.3, 0.0])
+    np.testing.assert_allclose(same.params["q_rest"].value, five.params["q_rest"].value)
+    np.testing.assert_allclose(planar.arm("five-link", rest=0.2).params["q_rest"].value, [0.2] * 5)
+    with pytest.raises(ValueError, match="one per passive joint"):
+        planar.arm("five-link", rest=[0.1, 0.2])

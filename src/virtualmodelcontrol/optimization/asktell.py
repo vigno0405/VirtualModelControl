@@ -25,13 +25,24 @@ class _Searcher:
         raise NotImplementedError
 
     def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
-        """Give the cost of each candidate that was asked, in the same order."""
+        """Give the cost of each candidate that was asked, in the same order. A cost that is not
+        finite (an episode that failed) counts as the worst finite cost so far, and such a
+        candidate is never the best."""
+        self._record(candidates, costs)
+
+    def _record(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> np.ndarray:
+        """Add the candidates to the history; returns their costs as kept (all finite)."""
         if len(candidates) != len(costs):
             raise ValueError(f"{len(candidates)} candidates but {len(costs)} costs")
-        for x, cost in zip(candidates, costs, strict=True):
+        costs = np.array(costs, dtype=float)
+        failed = ~np.isfinite(costs)
+        known = [c for _, c in self.history] + list(costs[~failed])
+        costs[failed] = max(known, default=0.0)
+        for x, cost, bad in zip(candidates, costs, failed, strict=True):
             self.history.append((np.array(x, dtype=float), float(cost)))
-            if cost < self.best_cost:
+            if cost < self.best_cost and not bad:
                 self.best, self.best_cost = self.history[-1][0], float(cost)
+        return costs
 
 
 class Grid(_Searcher):
@@ -108,7 +119,7 @@ class CMAES(_Searcher):
 
     def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
         """Record the costs, then move the mean, the step size and the covariance."""
-        super().tell(candidates, costs)
+        costs = self._record(candidates, costs)
         n, w = self.mean.size, self._w
         B, D = self._axes()
         best = np.argsort(costs)[: w.size]
@@ -169,7 +180,7 @@ class ExtremumSeeking(_Searcher):
 
     def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
         """Record the two costs, then step against the slope between them."""
-        super().tell(candidates, costs)
+        costs = self._record(candidates, costs)
         up, down = (np.asarray(c, dtype=float) for c in candidates)
         spread = up - down  # the perturbation, shortened where a bound clipped it
         slope = (costs[0] - costs[1]) / np.where(spread != 0.0, spread, np.inf)

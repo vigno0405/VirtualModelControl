@@ -224,3 +224,14 @@ def test_values_and_standard_errors_are_those_of_ordinary_least_squares():
     np.testing.assert_allclose([float(fit.values[n]) for n in names], theta, rtol=1e-6)
     np.testing.assert_allclose([float(fit.std[n]) for n in names], std, rtol=1e-4)
     assert fit.rms == pytest.approx(np.sqrt(np.mean((y - X @ theta) ** 2)), rel=1e-6)
+
+
+def test_one_name_is_one_name_and_an_empty_training_set_is_said():
+    run = record(slider(), seconds=2.0)
+    fit = fit_params(slider(1.0, 10.0, 0.2), "spring.*", [run])  # a string, not its letters
+    assert len(fit.values) == 1 and next(iter(fit.values)).startswith("spring")
+    none = {**run, "train": np.zeros(len(run["t"]), dtype=bool)}
+    with pytest.raises(ValueError, match="no samples to fit"):
+        fit_params(slider(), ["spring.*"], [none])
+    with pytest.raises(ValueError, match="no samples to fit"):
+        vmc.identification.fit_stiffness_damping(slider(), [none])
