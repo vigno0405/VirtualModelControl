@@ -8,7 +8,7 @@ import casadi as ca
 import numpy as np
 
 from ..compiler import compile as compile_system
-from ..core.params import Binding, Param
+from ..core.params import Binding, Param, ParamSet
 from ..dynamics import compile_dynamics
 from ..mechanisms.coordinates.base import Context, Coordinate, walk
 from ..mechanisms.coordinates.joints import State
@@ -45,7 +45,10 @@ class Builder:
         parameters: list[str],
         plant: Any = None,
         output: Any = (),
+        reads: str | None = None,
     ) -> None:
+        if reads not in (None, "state", "motors"):
+            raise ValueError(f"reads is 'state' or 'motors', not {reads!r}")
         self.system = system
         self.plant = system.robot if plant is None else plant
         self.stages = tuple(output)
@@ -55,7 +58,12 @@ class Builder:
         declared = [literal(name) for name in (*free, *parameters)]
         self.compiled = compile_system(system, runtime=declared)
         own = self.plant is system.robot
+        if reads == "state" and not own:
+            raise ValueError("a controller for other coordinates than the plant's reads its motors")
         self.dynamics = compile_dynamics(self.plant, declared, system.actuation if own else None)
+        space = self.plant.model.space
+        fewer = 0 < system.actuation.motor_sizes(space)[0] < space.nv
+        self.motors = not own or reads == "motors" or (reads is None and fewer)
         if not own and self.dynamics.n_u != self.compiled.n_motors[1]:
             raise ValueError(
                 f"the controller commands {self.compiled.n_motors[1]} motors and the plant "
@@ -84,10 +92,11 @@ class Builder:
 
     def command(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> tuple[Any, Any]:
         """The motor torques of ``compiled`` and the rate of its virtual state at the plant's state
-        (q, v): its law, or, if the controller is for other coordinates than the plant's, the law
-        of the motors the plant reports, as a controller in a simulation reads them, then the
-        output stages."""
-        if self.plant is self.system.robot:
+        (q, v): its law, or, if the controller reads the plant's motors (it is for other
+        coordinates than the plant's, or the robot has fewer motors than coordinates), the law of
+        the motors the plant reports, as a controller in a simulation reads them, then the output
+        stages."""
+        if not self.motors:
             u, zdot = compiled.law(q, v, z, p, t)
         else:
             out = compiled.fast(self._at_motors(q, v, z, p, t))
@@ -98,13 +107,13 @@ class Builder:
 
     def stored(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The energy [J] of ``compiled`` at the plant's state: stored plus virtual kinetic."""
-        if self.plant is self.system.robot:
+        if not self.motors:
             return sum(compiled.energy(q, v, z, p, t))
         return compiled.fast_energy(self._at_motors(q, v, z, p, t))
 
     def dissipation(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The power [W] that the dampers of ``compiled`` take at the plant's state."""
-        if self.plant is self.system.robot:
+        if not self.motors:
             return compiled.power(q, v, z, p, t)[1]
         return compiled.fast_power(self._at_motors(q, v, z, p, t))[3]
 
@@ -185,7 +194,13 @@ class Builder:
                 )
             space = self.plant.model.space
             q, v, t = ca.SX.sym("q", space.nq), ca.SX.sym("v", space.nv), ca.SX.sym("t")
-            binding = Binding(self.params, [*self.free, *self.parameters])
+            params = self.params
+            if self.plant is not self.system.robot:  # a site of the plant: its Params are constants
+                params = ParamSet()
+                for name, param in self.params.items():
+                    params.add(param, name)
+                params.merge(self.dynamics.params, "plant")
+            binding = Binding(params, [*self.free, *self.parameters])
             y = Context(q, binding, t=t).value(coord)
             Jq = ca.mtimes(ca.jacobian(y, q), space.velocity_map(q))
             yd = ca.mtimes(Jq, v) + ca.jacobian(y, t)
@@ -196,7 +211,9 @@ class Builder:
     def finish(self) -> NLP:
         """The program: variables, parameters, cost and constraints, as built."""
         if self.trajectory is None:
-            raise ValueError("add a Collocation or an Equilibrium to the problem before solving it")
+            raise ValueError(
+                "add a Collocation, Shooting or Equilibrium to the problem before solving it"
+            )
         self.make_free()
         variables = self.variables
         rows: dict[str, slice] = {}

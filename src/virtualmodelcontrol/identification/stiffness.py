@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -14,6 +15,7 @@ from ..mechanisms.mechanism import Mechanism
 from ..models.actuation import Direct
 from ..sim.rollout import rollout
 from ..system import VirtualMechanismSystem
+from .identifiability import check_smoothing, undetermined
 
 MOVING = 0.01
 """A motor moves, for the friction column, above this fraction of the fastest rate in the run."""
@@ -55,10 +57,14 @@ def fit_stiffness_damping(
     ``smoothing`` samples); ``stride`` keeps every stride-th sample. With ``friction``, each motor
     also loses a static friction torque F ≥ 0 against its motion, F sign(θ̇), and ``F`` [N·m] is
     returned after K and D. A motor that stands still has none: step and settle runs hardly show
-    friction, which then hides in K.
+    friction, which then hides in K. A stiffness or damping that the runs do not determine (a
+    coordinate that never moves, or one that moves only together with another) is NaN, with a
+    warning that names it.
     """
     from scipy.optimize import lsq_linear
     from scipy.signal import savgol_filter
+
+    check_smoothing(smoothing)
 
     dyn = compile_dynamics(robot, runtime)
     actuation = robot.actuation if robot.actuation is not None else Direct()
@@ -96,6 +102,14 @@ def fit_stiffness_damping(
     A_all = np.concatenate(rows).reshape(-1, rows[0].shape[2])
     x = lsq_linear(A_all, np.concatenate(rhs).ravel(), bounds=(0.0, np.inf), method="trf").x
     nv = space.nv
+    blind = undetermined(A_all)[: 2 * nv]
+    if blind.any():
+        names = [f"{'stiffness' if i < nv else 'damping'} {i % nv}" for i in np.flatnonzero(blind)]
+        warnings.warn(
+            f"the runs do not determine the {', '.join(names)} (coordinate, from 0); they are NaN",
+            stacklevel=2,
+        )
+        x[: 2 * nv][blind] = np.nan
     return (x[:nv], x[nv : 2 * nv], x[2 * nv :]) if friction else (x[:nv], x[nv:])
 
 

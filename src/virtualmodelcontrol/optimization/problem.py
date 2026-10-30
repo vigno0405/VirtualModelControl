@@ -24,8 +24,8 @@ WARM_START = ("q", "v", "a", "z", "horizon", "params", "steps")
 class Problem:
     """Optimize the Params of a ``VirtualMechanismSystem`` over a planned motion.
 
-    Add a ``Collocation`` (or an ``Equilibrium``) and terms (``Effort``, ``Cost``, ``Bound``).
-    ``free`` chooses the Params
+    Add a ``Collocation``, a ``Shooting`` or an ``Equilibrium`` and terms (``Effort``, ``Cost``,
+    ``Bound``). ``free`` chooses the Params
     to optimize (bounds and scale come from the Param) and ``parameter`` the ones set at every
     solve (references, say). The program is built at the first ``solve`` and kept: the values of
     those Params and the bounds of the free ones are read again at every solve, every other Param
@@ -37,6 +37,13 @@ class Problem:
     its own: the dynamics are the plant's, and the controller reads the plant's motors as it does
     in a simulation (``ModelPlant`` and ``VMCController``). Terms and ``q0`` are in the plant's
     coordinates. By default the plant is the system's robot.
+
+    ``reads`` says what the controller reads in the plan: ``"motors"``, the motor angles and rates
+    as a ``VMCController`` does, or ``"state"``, the robot's whole state (q, v), as a
+    ``StateController`` does. The default is the motors when the robot has fewer motors than
+    coordinates (then the controller is the frozen one of ``control.underactuated``, and the
+    passive coordinates are at their rest values), and the state otherwise, where the two are the
+    same. ``"state"`` needs the system's own robot as the plant.
 
     ``output`` lists output stages with a ``symbolic`` form (``StaticFrictionCompensation``),
     applied to the controller's command in the plan as ``VMCController(output=)`` applies them in
@@ -51,9 +58,13 @@ class Problem:
         options: Mapping[str, Any] | None = None,
         plant: Any = None,
         output: Sequence[Any] | None = None,
+        reads: str | None = None,
     ):
+        if reads not in (None, "state", "motors"):
+            raise ValueError(f"reads is 'state' or 'motors', not {reads!r}")
         self.system = system
         self.plant = plant
+        self.reads = reads
         self.output = list(output or [])
         for stage in self.output:
             if not hasattr(stage, "symbolic"):
@@ -61,6 +72,7 @@ class Problem:
                     f"{type(stage).__name__} has no symbolic form: it cannot be in a plan"
                 )
         self.solver = solver
+        self._solver_before_rti: str | None = None  # what an MPC with ``rti`` replaced
         self.options: dict[str, Any] = dict(options or {})
         self.params = ParamSet()
         for name, param in system.params.items():
@@ -84,9 +96,11 @@ class Problem:
         motion = getattr(block, "motion", False)
         has_motion = any(getattr(b, "motion", False) for b in self._blocks)
         if motion and has_motion:
-            raise ValueError("a problem has one Collocation or Equilibrium")
+            raise ValueError("a problem has one Collocation, Shooting or Equilibrium")
         if not motion and not has_motion:
-            raise ValueError(f"add the Collocation or Equilibrium before the term {block.name!r}")
+            raise ValueError(
+                f"add the Collocation, Shooting or Equilibrium before the term {block.name!r}"
+            )
         taken = {b.name for b in self._blocks}
         name, k = block.name, 2
         while name in taken:
@@ -126,7 +140,13 @@ class Problem:
         """The program, built at the first call and kept."""
         if self._nlp is None:
             builder = Builder(
-                self.system, self.params, self._free, self._parameters, self.plant, self.output
+                self.system,
+                self.params,
+                self._free,
+                self._parameters,
+                self.plant,
+                self.output,
+                self.reads,
             )
             for block in self._blocks:
                 block.build(builder)

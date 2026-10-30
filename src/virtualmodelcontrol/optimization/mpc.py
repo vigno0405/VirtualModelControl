@@ -24,13 +24,17 @@ class MPC:
     starting from the previous plan shifted by ``shift`` intervals, and sets the plan's Params on
     the controller through ``controller.set``, so that a ``Tank`` around it bounds what changes.
     A plan that took ``latency`` [s] to compute is applied as of that time (its value in the
-    interval the time falls in), since the robot has moved on by then. With ``rti`` the solver
-    takes one SQP iteration per step (the real-time iteration) instead of solving to convergence.
+    interval the time falls in), since the robot has moved on by then. A plan whose solve did not
+    converge is not applied (``result.converged`` says), unless ``rti``: the solver then takes one
+    SQP iteration per step (the real-time iteration) instead of solving to convergence, sets the
+    problem's solver to ``"rti"``, and a later ``MPC`` of the same problem without it puts the
+    previous solver back.
     A controller with virtual states is planned from the state it runs in (``controller.z``):
     give the ``Shooting`` a ``z0``. The controller's time counts from the start of each plan.
     ``start`` and ``poll`` do the same in a thread, so that a control loop is not held while a
-    plan is made (a solve lets the other threads run). The solver is created with the MPC, so
-    set the problem's solver and options before it.
+    plan is made (a solve lets the other threads run); ``start`` waits until the last plan has
+    been polled, and ``reset`` drops a plan that is being made. The solver is created with the
+    MPC, so set the problem's solver and options before it.
     """
 
     def __init__(self, problem: Problem, *, shift: int = 1, rti: bool = False) -> None:
@@ -42,7 +46,11 @@ class MPC:
             raise ValueError("shift is at least 1 interval")
         self.problem, self.shift = problem, int(shift)
         if rti:
+            if problem.solver != "rti":
+                problem._solver_before_rti = problem.solver
             problem.solver = "rti"
+        elif problem.solver == "rti" and problem._solver_before_rti is not None:
+            problem.solver, problem._solver_before_rti = problem._solver_before_rti, None
         self._start = (f"{shooting.name}.q0", f"{shooting.name}.v0")
         self._z = None if shooting._z0 is None else f"{shooting.name}.z0"
         self._level = next((f"{b.name}.level" for b in blocks if isinstance(b, TankBudget)), None)
@@ -65,10 +73,16 @@ class MPC:
         self._pending: Result | None = None
         self._error: BaseException | None = None
         self._started = 0.0
+        self._epoch = 0  # counts the resets: a plan made before one is dropped
 
     def reset(self) -> None:
-        """Forget the previous plan: the next solve starts from the measured state."""
-        self._warm, self.result = None, None
+        """Forget the previous plan, also one that is being made: the next solve starts from the
+        measured state."""
+        self._warm, self.result, self._pending = None, None, None
+        self._epoch += 1
+        if self._thread is not None and not self._thread.is_alive():  # a plan nobody polled
+            self._thread.join()
+            self._thread, self._error = None, None
 
     def step(
         self,
@@ -85,7 +99,7 @@ class MPC:
         late the plan will be applied: the measured solve time by default. Returns the jump of
         the controller's energy [J] that was applied, as the adaptation laws do.
         """
-        result = self._solve(self._inputs(controller, q, v, references))
+        result = self._solve(self._inputs(controller, q, v, references), self._epoch)
         return self._apply(controller, result, result.seconds if latency is None else latency)
 
     def start(
@@ -96,12 +110,13 @@ class MPC:
         references: dict[str, ArrayLike] | None = None,
     ) -> bool:
         """Start planning in a thread, from the measured state, so that a control loop goes on
-        meanwhile. Returns False, and does nothing, while the last plan is still being made."""
-        if self.busy:
+        meanwhile. Returns False, and does nothing, while the last plan is being made or has not
+        been polled yet."""
+        if self._thread is not None:
             return False
         inputs = self._inputs(controller, q, v, references)
         self._pending, self._error, self._started = None, None, time.perf_counter()
-        self._thread = threading.Thread(target=self._run, args=(inputs,), daemon=True)
+        self._thread = threading.Thread(target=self._run, args=(inputs, self._epoch), daemon=True)
         self._thread.start()
         return True
 
@@ -121,12 +136,15 @@ class MPC:
         if self._error is not None:
             raise self._error
         late = time.perf_counter() - self._started if latency is None else latency
-        assert self._pending is not None
-        return self._apply(controller, self._pending, late)
+        pending, self._pending = self._pending, None
+        if pending is None:  # a reset dropped it
+            return None
+        return self._apply(controller, pending, late)
 
-    def _run(self, inputs: tuple[dict[str, Any], dict[str, Any]]) -> None:
+    def _run(self, inputs: tuple[dict[str, Any], dict[str, Any]], epoch: int) -> None:
         try:
-            self._pending = self._solve(inputs)
+            result = self._solve(inputs, epoch)
+            self._pending = result if epoch == self._epoch else None
         except BaseException as error:  # raised again by poll, in the control loop
             self._error = error
 
@@ -144,25 +162,30 @@ class MPC:
             refs[self._level] = controller.level
         return refs, live
 
-    def _solve(self, inputs: tuple[dict[str, Any], dict[str, Any]]) -> Result:
+    def _solve(self, inputs: tuple[dict[str, Any], dict[str, Any]], epoch: int) -> Result:
         refs, live = inputs
-        if self._warm is None:
+        warm = self._warm
+        if warm is None:
             q, v, rows = refs[self._start[0]], refs[self._start[1]], self.intervals
-            self._warm = {
+            warm = {
                 "q": np.tile(q, (rows + 1, 1)),
                 "v": np.tile(v, (rows + 1, 1)),
                 "steps": {name: np.stack([live[name]] * rows) for name in self.names},
             }
             if self._z is not None:
-                self._warm["z"] = np.tile(refs[self._z], (rows + 1, 1))
-        result = self.problem.solve(refs, warm_start=self._warm)
-        self.result = result
-        self._warm = self._shifted(result)
+                warm["z"] = np.tile(refs[self._z], (rows + 1, 1))
+        result = self.problem.solve(refs, warm_start=warm)
+        if epoch == self._epoch:  # not after a reset: the plan is of the past
+            self.result = result
+            self._warm = self._shifted(result)
         return result
 
     def _apply(self, controller: Any, result: Result, late: float) -> float:
-        """Set the plan's Params as of ``late`` seconds into it."""
+        """Set the plan's Params as of ``late`` seconds into it, if it converged (or is a
+        real-time iteration)."""
         self.interval = min(int(late / self.dt), self.intervals - 1)
+        if not (result.converged or self.problem.solver == "rti"):
+            return 0.0
         return float(result.apply(controller, self.interval) or 0.0)
 
     def _shifted(self, plan: Result) -> dict[str, Any]:

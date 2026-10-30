@@ -143,9 +143,9 @@ def test_the_arguments_and_the_blocks_are_checked():
         wrong.build()
     twice = opt.Problem(system)
     twice.add(opt.Equilibrium([0.0]))
-    with pytest.raises(ValueError, match="one Collocation or Equilibrium"):
+    with pytest.raises(ValueError, match="one Collocation, Shooting or Equilibrium"):
         twice.add(opt.Collocation([0.0], 1.0, 5))
-    with pytest.raises(ValueError, match="one Collocation or Equilibrium"):
+    with pytest.raises(ValueError, match="one Collocation, Shooting or Equilibrium"):
         twice.add(opt.Equilibrium([0.0]))
-    with pytest.raises(ValueError, match="Collocation or Equilibrium before the term"):
+    with pytest.raises(ValueError, match="Collocation, Shooting or Equilibrium before the term"):
         opt.Problem(system).add(opt.Effort(1.0))

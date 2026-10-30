@@ -10,6 +10,7 @@ import casadi as ca
 import numpy as np
 
 from ..dynamics import compile_dynamics
+from .identifiability import blind_directions, check_smoothing, undetermined
 from .stiffness import _read
 
 
@@ -24,23 +25,6 @@ class Fit:
     values: dict[str, np.ndarray]
     std: dict[str, np.ndarray]
     rms: float
-
-
-def _blind(J: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """The scale of each unknown (the norm of its column of the Jacobian J, 1 for a zero column)
-    and the directions of the scaled unknowns that J does not see, one per column. The columns are
-    scaled to one so that unknowns of different units are compared alike."""
-    norms = np.linalg.norm(J, axis=0)
-    norms = np.where(norms > 0.0, norms, 1.0)
-    scaled = J / norms
-    w, V = np.linalg.eigh(scaled.T @ scaled)
-    return norms, V[:, w <= 1e-12 * max(w[-1], np.finfo(float).tiny)]
-
-
-def _undetermined(J: np.ndarray) -> np.ndarray:
-    """The unknowns whose value the data cannot fix: those that can move along a direction that
-    J does not see."""
-    return np.linalg.norm(_blind(J)[1], axis=1) > 1e-6
 
 
 def fit_params(
@@ -65,6 +49,8 @@ def fit_params(
     """
     from scipy.optimize import least_squares
     from scipy.signal import savgol_filter
+
+    check_smoothing(smoothing)
 
     chosen = robot.params.select(patterns=names)
     if not chosen:
@@ -132,7 +118,7 @@ def fit_params(
     # along a direction the data do not see the solver ends wherever its rounding leaves it, which
     # depends on the machine: take that part of the move back, if it is inside the bounds and the
     # residual hardly feels it (a hundred-millionth of the misfit at the start)
-    norms, blind = _blind(J)
+    norms, blind = blind_directions(J)
     if blind.size:
         step = norms * (x - x0)
         back = x0 + (step - blind @ (blind.T @ step)) / norms
@@ -145,7 +131,7 @@ def fit_params(
     dof = max(len(r) - len(columns), 1)
     cov = (r @ r / dof) * np.linalg.pinv(J.T @ J)
     sigma = np.sqrt(np.diag(cov))
-    sigma[_undetermined(J)] = np.inf
+    sigma[undetermined(J)] = np.inf
     values, std, at = {}, {}, 0
     for name, short in zip(full, chosen, strict=True):
         shape, n = dyn.params[name].shape, dyn.params[name].size

@@ -5,7 +5,7 @@ import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.identification import fit_params
-from virtualmodelcontrol.identification.params import _undetermined
+from virtualmodelcontrol.identification.identifiability import undetermined
 
 TRUE = {"mass": 2.0, "stiffness": 40.0, "damping": 1.5}
 
@@ -185,14 +185,14 @@ def test_a_param_that_the_run_never_excites_has_an_infinite_standard_error():
         assert float(fit.std[name]) == np.inf  # and nothing says how well it is known
 
 
-def test_columns_that_the_data_cannot_tell_apart_are_undetermined():
+def test_columns_that_the_data_cannot_tell_apart_areundetermined():
     rng = np.random.default_rng(0)
     a, b, c = rng.normal(size=(3, 50))
-    assert not _undetermined(np.column_stack([a, b, c])).any()
-    assert not _undetermined(np.column_stack([a, a + 1e-3 * b, c])).any()  # close, not the same
-    assert _undetermined(np.column_stack([a, a + 1e-7 * b, c])).tolist() == [True, True, False]
-    assert _undetermined(np.column_stack([a, 1e6 * a, c])).tolist() == [True, True, False]  # units
-    assert _undetermined(np.column_stack([a, 0.0 * b, c])).tolist() == [False, True, False]
+    assert not undetermined(np.column_stack([a, b, c])).any()
+    assert not undetermined(np.column_stack([a, a + 1e-3 * b, c])).any()  # close, not the same
+    assert undetermined(np.column_stack([a, a + 1e-7 * b, c])).tolist() == [True, True, False]
+    assert undetermined(np.column_stack([a, 1e6 * a, c])).tolist() == [True, True, False]  # units
+    assert undetermined(np.column_stack([a, 0.0 * b, c])).tolist() == [False, True, False]
 
 
 def test_a_name_that_matches_nothing_is_an_error():

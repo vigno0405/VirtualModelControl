@@ -250,3 +250,64 @@ def test_a_tank_on_a_plant_counts_the_energy_of_the_controller_at_the_motors_of_
     g = np.array(nlp.functions()[1](x, np.zeros(0))).ravel()
     assert plan.converged and np.abs(g[nlp.constraints["tank"]]).max() < 1e-7
     assert np.abs(plan.steps[name] - 12.0).max() > 0.1  # the stiffness did step
+
+
+def _arm_reach():
+    from virtualmodelcontrol.robots import planar
+
+    arm = planar.add_dynamics(planar.arm("three-link"))
+    tip, goal = arm.point("tip"), [0.45, 0.15, 0.0]
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("reach", vmc.LinearSpring(tip - goal, 30.0))
+    ctrl.add("damp", vmc.LinearDamper(tip, 6.0))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    return arm, vmc.VirtualMechanismSystem(arm, ctrl)
+
+
+def _plan_gap(reads, make_controller):
+    """The largest gap in q between a plan of the arm's reach and the simulation that follows it."""
+    arm, system = _arm_reach()
+    q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 10
+    problem = opt.Problem(system, reads=reads)
+    problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
+    plan = problem.solve()
+    h = 0.5 / (nodes - 1) / sub
+    plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
+    rows = vmc.sim.run(plant, make_controller(vmc.compile(system)), vmc.sim.SimClock(h), T=0.5)
+    q = np.asarray(rows.arrays()["q"])
+    return np.abs(q[::sub][: nodes - 1] - plan.q[:-1]).max()
+
+
+def test_a_plan_of_an_underactuated_robot_reads_the_motors_like_the_controller_does():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    def frozen(compiled):
+        return vmc.VMCController(compiled)
+
+    def naive(compiled):
+        return ua.controller(compiled, "naive")
+
+    assert _plan_gap(None, frozen) < 1e-4  # the default: what VMCController does
+    assert _plan_gap("motors", frozen) < 1e-4
+    assert _plan_gap("state", naive) < 1e-9  # the whole state, as a StateController
+    assert _plan_gap(None, naive) > 0.1  # and the two are not the same controller
+
+
+def test_reads_has_two_values_and_the_state_needs_the_robots_own_plant():
+    _, system = _arm_reach()
+    with pytest.raises(ValueError, match="'state' or 'motors'"):
+        opt.Problem(system, reads="both")
+    problem = opt.Problem(system, plant=_arm_reach()[0], reads="state")
+    problem.add(opt.Equilibrium([0.3, 0.3, 0.3]))
+    with pytest.raises(ValueError, match="reads its motors"):
+        problem.solve()
+
+
+def test_a_term_can_use_a_site_of_the_plant_when_the_plant_is_another_robot():
+    _, system = _arm_reach()
+    plant, _ = _arm_reach()
+    problem = opt.Problem(system, plant=plant)
+    problem.add(opt.Equilibrium([0.3, 0.3, 0.3]))
+    problem.add(opt.Cost(plant.point("tip") - [0.45, 0.15, 0.0], 1.0, name="reach"))
+    result = problem.solve()
+    assert result.converged and np.isfinite(result.costs["reach"])

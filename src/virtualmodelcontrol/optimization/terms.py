@@ -56,7 +56,9 @@ class Term:
         """Add the term to the problem."""
         trajectory = builder.trajectory
         if trajectory is None:
-            raise ValueError(f"add a Collocation or an Equilibrium before the term {self.name!r}")
+            raise ValueError(
+                f"add a Collocation, Shooting or Equilibrium before the term {self.name!r}"
+            )
         cost = self.cost(trajectory)
         if cost is not None:
             builder.cost(self.name, cost)

@@ -314,3 +314,73 @@ def test_the_loop_with_plans_made_in_threads_reaches_the_goal():
         plant.write(command)
         plant.advance(H)
     assert abs(plant.q[0] - 1.0) < 5e-3
+
+
+def test_rti_sets_the_solver_for_that_mpc_and_a_later_one_puts_it_back():
+    _system, problem, _mpc = program()
+    assert problem.solver == "ipopt-exact"
+    opt.MPC(problem, rti=True)
+    assert problem.solver == "rti"
+    opt.MPC(problem)
+    assert problem.solver == "ipopt-exact"
+    opt.MPC(problem)  # nothing to put back: the solver stays
+    assert problem.solver == "ipopt-exact"
+    problem.solver = "rti"  # a problem made with the solver the user chose keeps it
+    opt.MPC(problem)
+    assert problem.solver == "rti"
+
+
+def test_a_bad_first_call_leaves_no_warm_start_behind():
+    system, _problem, mpc = program()
+    controller, plant = ready(system)
+    with pytest.raises(Exception):  # noqa: B017  a state of the wrong size
+        mpc.step(controller, [0.0, 0.0, 0.0], plant.v)
+    assert mpc.result is None
+    mpc.step(controller, plant.q, plant.v)  # the next call is a first call, and works
+    assert mpc.result.converged
+
+
+def test_a_reset_drops_the_plan_that_is_being_made(monkeypatch):
+    system, problem, mpc = program()
+    controller, plant = ready(system)
+    gate, solve = threading.Event(), problem.solve
+
+    def held(*args, **kwargs):
+        gate.wait(5.0)
+        return solve(*args, **kwargs)
+
+    monkeypatch.setattr(problem, "solve", held)
+    assert mpc.start(controller, plant.q, plant.v)
+    mpc.reset()
+    gate.set()
+    mpc._thread.join()
+    assert mpc._warm is None and mpc.result is None  # the plan of the past did not come back
+    assert mpc.poll(controller) is None and controller.live_params()[K] == 2.0
+
+
+def test_start_waits_until_the_last_plan_is_polled():
+    system, _problem, mpc = program()
+    controller, plant = ready(system)
+    assert mpc.start(controller, plant.q, plant.v)
+    mpc._thread.join()  # finished, not polled
+    assert not mpc.busy and mpc.start(controller, plant.q, plant.v) is False
+    assert mpc.poll(controller, latency=0.0) is not None  # the plan was kept
+    assert mpc.start(controller, plant.q, plant.v) is True
+    mpc._thread.join()
+    mpc.reset()  # a plan nobody polled is dropped by a reset
+    assert mpc.start(controller, plant.q, plant.v) is True
+    mpc._thread.join()
+
+
+def test_a_plan_that_did_not_converge_is_not_applied_unless_it_is_a_real_time_iteration():
+    def sets(mpc, controller, plant):
+        calls = []
+        controller.set = lambda *args, **kwargs: calls.append(args) or 0.0
+        mpc.step(controller, plant.q, plant.v)
+        return len(calls)
+
+    system, problem, mpc = program()
+    problem.options["ipopt.max_iter"] = 1  # a solve that stops far from a solution
+    assert sets(mpc, *ready(system)) == 0 and not mpc.result.converged
+    system, _problem, quick = program(rti=True)  # one iteration is the real-time iteration
+    assert sets(quick, *ready(system)) == 1 and not quick.result.converged
