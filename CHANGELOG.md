@@ -4,7 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
-## [Unreleased]
+## [1.3.0] - 2026-10-30
+
+A minor release. A plan of a robot with fewer motors than coordinates now reads the motors, as the controller that
+runs does (see Changed), and the result of a review of the whole library: the fixes below, most of them for
+cases that gave a wrong or a silent answer, and the tension floor for tendons that only pull. Nothing else changes
+for a robot with a motor on every coordinate.
 
 ### Added
 
@@ -923,7 +928,8 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.1.0...v1.2.0

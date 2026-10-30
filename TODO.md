@@ -70,11 +70,12 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
   newest dependencies and on fresh clones, every page of the documentation read and looked at,
   the API listed in `__all__`, and a support policy.
-- **Where things stand (11 October 2026):** 1.2.2 is released: 1.1.0 added the static friction of the
+- **Where things stand (30 October 2026):** 1.3.0 is released: 1.1.0 added the static friction of the
   motors, 1.2.0 runs that go on for hours (`run(window=)`, `RunLog.crop`), 1.2.1 a Ctrl-C that waits for
   the step that is running, and 1.2.2 a fit that says when its data do not determine a Param (an infinite
   standard error) and gives the same values on every machine, with clearer errors for an unknown arm
-  geometry and for a `StateController` given to a law.
+  geometry and for a `StateController` given to a law, and 1.3.0 the result of a review of the library:
+  a plan reads what the controller on the robot reads, the fixes of the review, and the tension floor.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -107,6 +108,10 @@ Everything to do, in order. Each step is done when its items below are ticked.
 10. **1.2.1** (done, 10 October 2026): a Ctrl-C ends a real-time run between two steps, with its log.
 11. **1.2.2** (done, 11 October 2026): `fit_params` is honest about what the data do not determine, and
     the same on every machine; two clearer error messages.
+12. **1.3.0** (done, 30 October 2026): the review of the library: a plan of a robot with fewer motors than
+    coordinates reads the motors, a frozen rest balanced once at a pose, an MPC that applies only a plan that
+    converged, estimators and fits that say what they cannot determine, a `Param` shared by several sections,
+    and the tension floor of a tendon arm.
 
 ---
 
@@ -671,6 +676,16 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
   direction that the data do not see stays at its start, so that the result is the same on every machine.
 - [x] **Clearer errors:** an unknown arm geometry lists the known ones; a `StateController` given to a law
   says which controller to use.
+
+---
+
+## 1.3.0: the review of the library
+
+- [x] **A plan reads the motors** of a robot with fewer motors than coordinates (`Problem(reads=)`),
+  and a term can use a site of a plant that is another robot.
+- [x] **The frozen controller's rest balanced once** (`gravity=` the motor angles of a pose): a gradient again.
+- [x] **Honest estimators and fits, a sound MPC, a shared `Param`,** and the checks and messages of the review
+  (see the changelog).
 
 ---
 
