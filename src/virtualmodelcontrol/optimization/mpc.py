@@ -25,10 +25,11 @@ class MPC:
     the controller through ``controller.set``, so that a ``Tank`` around it bounds what changes.
     A plan that took ``latency`` [s] to compute is applied as of that time (its value in the
     interval the time falls in), since the robot has moved on by then. A plan whose solve did not
-    converge is not applied (``result.converged`` says), unless ``rti``: the solver then takes one
-    SQP iteration per step (the real-time iteration) instead of solving to convergence, sets the
-    problem's solver to ``"rti"``, and a later ``MPC`` of the same problem without it puts the
-    previous solver back.
+    converge is not applied and the next solve starts from the measured state, unless ``rti``;
+    ``applied`` says whether the last plan was. With ``rti`` the solver takes one SQP iteration
+    per step (the real-time iteration) instead of solving to convergence, sets the problem's
+    solver to ``"rti"``, and a later ``MPC`` of the same problem without it puts the previous
+    solver back.
     A controller with virtual states is planned from the state it runs in (``controller.z``):
     give the ``Shooting`` a ``z0``. The controller's time counts from the start of each plan.
     ``start`` and ``poll`` do the same in a thread, so that a control loop is not held while a
@@ -74,12 +75,15 @@ class MPC:
         self._error: BaseException | None = None
         self._started = 0.0
         self._epoch = 0  # counts the resets: a plan made before one is dropped
+        self._lock = threading.Lock()  # a plan is stored, or dropped by a reset, whole
+        self.applied = False
 
     def reset(self) -> None:
         """Forget the previous plan, also one that is being made: the next solve starts from the
         measured state."""
-        self._warm, self.result, self._pending = None, None, None
-        self._epoch += 1
+        with self._lock:
+            self._warm, self.result, self._pending = None, None, None
+            self._epoch += 1
         if self._thread is not None and not self._thread.is_alive():  # a plan nobody polled
             self._thread.join()
             self._thread, self._error = None, None
@@ -144,7 +148,8 @@ class MPC:
     def _run(self, inputs: tuple[dict[str, Any], dict[str, Any]], epoch: int) -> None:
         try:
             result = self._solve(inputs, epoch)
-            self._pending = result if epoch == self._epoch else None
+            with self._lock:
+                self._pending = result if epoch == self._epoch else None
         except BaseException as error:  # raised again by poll, in the control loop
             self._error = error
 
@@ -175,16 +180,19 @@ class MPC:
             if self._z is not None:
                 warm["z"] = np.tile(refs[self._z], (rows + 1, 1))
         result = self.problem.solve(refs, warm_start=warm)
-        if epoch == self._epoch:  # not after a reset: the plan is of the past
-            self.result = result
-            self._warm = self._shifted(result)
+        with self._lock:
+            if epoch == self._epoch:  # not after a reset: the plan is of the past
+                self.result = result
+                usable = result.converged or self.problem.solver == "rti"
+                self._warm = self._shifted(result) if usable else None
         return result
 
     def _apply(self, controller: Any, result: Result, late: float) -> float:
         """Set the plan's Params as of ``late`` seconds into it, if it converged (or is a
         real-time iteration)."""
         self.interval = min(int(late / self.dt), self.intervals - 1)
-        if not (result.converged or self.problem.solver == "rti"):
+        self.applied = result.converged or self.problem.solver == "rti"
+        if not self.applied:
             return 0.0
         return float(result.apply(controller, self.interval) or 0.0)
 

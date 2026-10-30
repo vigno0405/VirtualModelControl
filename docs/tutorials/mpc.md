@@ -123,7 +123,8 @@ bottom.set_ylabel("stiffness [N/m]");
 `MPC` wraps the problem. It builds the program once, and every `step` solves it from the
 measured state, starting from the previous plan moved one interval on. It sets the Params of the
 plan on the controller through `controller.set`, if the solve converged (a failed one leaves the
-Params as they are, and `mpc.result.converged` says), and returns the jump this gave the
+Params as they are, `mpc.applied` and `mpc.result.converged` say, and the next solve starts from
+the measured state), and returns the jump this gave the
 controller's energy, as the [adaptation laws](stiffness.md) do:
 
 ```{code-cell} python
@@ -330,7 +331,9 @@ glue("it_exact", int(rows["ipopt-exact"][0]), display=False)
 
 The default `"ipopt"` takes {glue:text}`it_ipopt` iterations against {glue:text}`it_exact` for
 `"ipopt-exact"`, as its Hessian is approximate, and ends at an acceptable level; `"rti"` is one
-step from a cold start, so its plan is not the optimum.
+step from a cold start, so its plan is not the optimum. On a harder shooting the quasi-Newton
+Hessian can use all of its 500 iterations without converging (it does on another problem with
+CasADi 3.8.2): take `"ipopt-exact"` for a shooting, and read `plan.converged`.
 
 Which QP solver the SQP presets use is the `qpsol` option, and not every one of CasADi's
 suits a shooting. Tried on this problem with CasADi 3.7 and 3.8: `qrqp` (the default), `qpoases`

@@ -24,7 +24,8 @@ All notable changes to this project are documented here. The format follows
   has a curl of a few percent in the test. `Frozen.rest` can be set as the `q_rest` of the
   actuation.
 - A `Param` can be shared by several sections or joints (`PCC([0.2, 0.2], radius)`, one axis for two
-  joints): it keeps one value, and `ParamSet.by_name()` lists every name it has.
+  joints): it keeps one value, `ParamSet.by_name()` lists every name it has, and `select` finds
+  it by any of them (under its own name).
 - `MovingHorizon.encoder` of a robot with fewer motors than coordinates measures the motors, as the
   Kalman filter's does (it pinned the passive joint at its rest angle: an error of 0.37 rad in the
   test, 0.001 now). `MovingHorizon.P` is defined from `reset` on.
@@ -39,26 +40,29 @@ All notable changes to this project are documented here. The format follows
   controller (`StateController`, `"naive"`), and `reads="motors"` asks for the default outright.
   For a robot with a motor on every coordinate nothing changes.
 - `MPC` applies a plan only if its solve converged (a real-time iteration is applied as it is):
-  a failed solve used to jump the controller's Params. `rti=True` is undone by a later `MPC` of
-  the same problem without it, `reset` drops a plan that is being made, and `start` waits until
-  the last plan was polled.
+  a failed solve used to jump the controller's Params. `MPC.applied` says whether the last plan
+  was, and the next solve after a failed one starts from the measured state. `rti=True` is undone
+  by a later `MPC` of the same problem without it, `reset` drops a plan that is being made, and
+  `start` waits until the last plan was polled.
 - `Result.params` and `Result.steps` are held inside the Params' bounds (the solver relaxes a
   bound by about 1e-8).
 - `fit_params` and `fit_stiffness_damping` refuse an even `smoothing` (it shifted the derivative by
   half a sample: a damping of 1.5 came out as 1.88), and a run whose `train` mask is off everywhere.
   `fit_stiffness_damping` returns NaN, with a warning that names it, for a stiffness or damping
-  that the runs do not determine (it returned 0). `fit_params` takes one name as a string.
+  that the runs do not determine (it returned 0). `fit_params` takes one name as a string, and
+  a run with nothing to train is skipped when another has samples (an error when none has).
 - `VMCController.set` refuses a value whose size is not the Param's (a scalar was broadcast into a
   matrix), and `live_params()` returns copies. `balance()` and `elements()` use the Params as
   `set` left them.
 - `register` replaces a class defined again (a script or a notebook cell run twice) and still
   refuses another object under a taken name. A plugin that fails to import no longer keeps the
-  others from loading, and its error is raised every time.
+  others from loading: its error is raised by `get` of a name that is missing (and said in the
+  `KeyError`), and is a warning in `names`.
 - `robot.joint` counts from the end (`slice(0, -1)`) and takes numpy integers; an index out of
   range is a `ValueError` that says how many coordinates there are.
 - `TensionFloor` needs a positive `width` (zero gave NaN).
 - In `ask` and `tell`, a cost that is not finite (an episode that failed) counts as the worst cost
-  so far and is never the best; `Bayes` used to fail for good after one.
+  so far (`inf` until one is known) and is never the best; `Bayes` used to fail for good after one.
 - `planar.arm(rest=)` takes one angle per passive joint as well as one per joint.
 - The messages that named `Collocation` and `Equilibrium` name `Shooting` too.
 

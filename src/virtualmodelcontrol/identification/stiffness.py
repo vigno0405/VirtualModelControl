@@ -84,7 +84,7 @@ def fit_stiffness_damping(
         a = np.gradient(v, dt, axis=0)
         idx = np.flatnonzero(keep & (np.arange(len(t)) % stride == 0))
         if not idx.size:
-            raise ValueError("a run has no samples to fit: its train mask is off everywhere")
+            continue  # nothing of this run trains
         q0, u0 = q[:baseline].mean(axis=0), u[:baseline].mean(axis=0)
         zero, no_torque = np.zeros(space.nv), np.zeros(u.shape[1])
         r0 = np.array(dyn.residual(q0, zero, zero, no_torque, p, 0.0)).ravel()  # −g(q₀)
@@ -101,6 +101,8 @@ def fit_stiffness_damping(
             columns.append(sign[:, :, None] * np.eye(u.shape[1]))
         rows.append(np.concatenate(columns, axis=2))
         rhs.append(u[idx] - u0 - np.einsum("kmn,kn->km", A, known))
+    if not rows:
+        raise ValueError("the runs have no samples to fit: their train masks are off everywhere")
     A_all = np.concatenate(rows).reshape(-1, rows[0].shape[2])
     x = lsq_linear(A_all, np.concatenate(rhs).ravel(), bounds=(0.0, np.inf), method="trf").x
     nv = space.nv

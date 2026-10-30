@@ -384,3 +384,11 @@ def test_the_fixed_rest_is_the_q_rest_a_plan_can_read_and_it_needs_the_dynamics(
     np.testing.assert_allclose(plain(off), fixed(off), atol=1e-9)
     with pytest.raises(ValueError, match="needs the robot's dynamics"):
         ua.Frozen(robot.actuation, at=pose)
+
+
+def test_gravity_is_a_flag_or_the_motor_angles_of_a_pose():
+    _, compiled = arm_with_law()
+    for off in (False, None, 0, 0.0, np.False_):
+        assert type(ua.controller(compiled, "frozen", gravity=off)) is vmc.VMCController
+    for on in (True, 1, np.True_, [0.5, 0.2], np.array([0.5, 0.2])):
+        assert isinstance(ua.controller(compiled, "frozen", gravity=on), StateController)

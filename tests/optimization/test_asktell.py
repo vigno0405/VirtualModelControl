@@ -277,4 +277,20 @@ def test_a_failed_episode_counts_as_the_worst_so_far_and_never_as_the_best():
         assert all(np.isfinite(x) for x in searcher.ask()[0])
     first = opt.Random([0.0], [1.0], size=2)
     first.tell([[0.2], [0.4]], [float("inf"), float("inf")])  # nothing finite yet
-    assert first.best is None and [c for _, c in first.history] == [0.0, 0.0]
+    assert first.best is None and [c for _, c in first.history] == [np.inf, np.inf]
+
+
+def test_a_failure_before_any_finite_cost_is_not_the_best_and_is_filled_in_later():
+    bayes = opt.Bayes([0.0, 0.0], [1.0, 1.0], initial=2, seed=3)
+    first = bayes.ask()
+    bayes.tell(first, [float("nan")])
+    assert bayes.best is None and bayes.history[0][1] == np.inf  # nothing known: not a cost of 0
+    second = bayes.ask()
+    bayes.tell(second, [float("inf")])
+    third = bayes.ask()  # every episode failed so far: it asks anywhere, and does not fail
+    assert len(third) == 1 and np.isfinite(third[0]).all()
+    bayes.tell(third, [4.0])
+    assert [c for _, c in bayes.history] == [4.0, 4.0, 4.0]  # the failures take the worst cost
+    assert bayes.best_cost == 4.0 and np.allclose(bayes.best, third[0])
+    bayes.tell(bayes.ask(), [1.0])
+    assert bayes.best_cost == 1.0

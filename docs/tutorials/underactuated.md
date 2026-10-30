@@ -595,7 +595,7 @@ assert torque.shape == (2,) and np.isfinite(torque).all()
   the frozen torque, which needs no correction.
 - The laws and estimators that read a controller's motors (`ForceTracking`, `StiffnessTracking`,
   `PositionRegulation`, `HoldingGoals`, `ContactForce`, `TaskStiffness`) refuse a
-  `StateController`, which is what `"naive"` and `"frozen"` with `gravity=True` give, with a
+  `StateController`, which is what `"naive"` and `"frozen"` with `gravity` set give, with a
   `ValueError`. Plain `"frozen"` is a `VMCController` and works with them; for a force on
   an underactuated arm use `DirectionalForce`.
 - `gravity=` holds the passive joints where their springs balance the arm's weight, not at

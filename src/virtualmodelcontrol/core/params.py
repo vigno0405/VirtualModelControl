@@ -167,13 +167,15 @@ class ParamSet(Mapping[str, Param]):
         return id(param) in self._names
 
     def select(self, patterns: Iterable[str] = (), scopes: Iterable[str] = ()) -> list[str]:
-        """Names matching any glob pattern (``ctrl.*.stiffness``) or having any of the scopes."""
+        """Names matching any glob pattern (``ctrl.*.stiffness``) or having any of the scopes. A
+        Param that is found by one of its other names is returned under its own."""
         patterns, scopes = list(patterns), set(scopes)
-        return [
-            name
-            for name, param in self._params.items()
+        found = {
+            self._names[id(param)]
+            for name, param in self.by_name().items()
             if param.scope in scopes or any(fnmatch.fnmatchcase(name, pat) for pat in patterns)
-        ]
+        }
+        return [name for name in self._params if name in found]
 
     def size(self, names: Iterable[str] | None = None) -> int:
         """Total number of entries of the named Params (default: all)."""
@@ -206,7 +208,11 @@ class ParamSet(Mapping[str, Param]):
             self[name].value = value
 
     def _names_or_all(self, names: Iterable[str] | None) -> list[str]:
-        return list(self._params) if names is None else list(names)
+        """The names asked for, each Param once and under its own name (all, by default)."""
+        if names is None:
+            return list(self._params)
+        own = (self._names[id(self[name])] for name in names)
+        return list(dict.fromkeys(own))
 
 
 def named(params: Mapping[str, Param]) -> Mapping[str, Param]:

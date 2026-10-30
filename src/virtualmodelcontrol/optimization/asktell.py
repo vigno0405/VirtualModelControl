@@ -19,6 +19,7 @@ class _Searcher:
         self.history: list[tuple[np.ndarray, float]] = []
         self.best: np.ndarray | None = None
         self.best_cost = np.inf
+        self._failed: list[int] = []  # the places in ``history`` of episodes that failed
 
     def ask(self) -> list[np.ndarray]:
         """The next candidates to try (an empty list when there are none left)."""
@@ -26,22 +27,30 @@ class _Searcher:
 
     def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
         """Give the cost of each candidate that was asked, in the same order. A cost that is not
-        finite (an episode that failed) counts as the worst finite cost so far, and such a
-        candidate is never the best."""
+        finite (an episode that failed) counts as the worst finite cost so far (``inf`` until one
+        is known), and such a candidate is never the best."""
         self._record(candidates, costs)
 
     def _record(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> np.ndarray:
-        """Add the candidates to the history; returns their costs as kept (all finite)."""
+        """Add the candidates to the history; returns their costs as kept (all finite: for the
+        ranking of a batch, a failure with nothing finite known is 0)."""
         if len(candidates) != len(costs):
             raise ValueError(f"{len(candidates)} candidates but {len(costs)} costs")
         kept = np.array(costs, dtype=float)
         failed = ~np.isfinite(kept)
-        known = [c for _, c in self.history] + list(kept[~failed])
-        kept[failed] = max(known, default=0.0)
+        real = [c for i, (_, c) in enumerate(self.history) if i not in self._failed]
+        real += list(kept[~failed])
+        worst = max(real, default=None)
+        kept[failed] = 0.0 if worst is None else worst
         for x, cost, bad in zip(candidates, kept, failed, strict=True):
-            self.history.append((np.array(x, dtype=float), float(cost)))
+            if bad:
+                self._failed.append(len(self.history))
+            self.history.append((np.array(x, dtype=float), np.inf if bad else float(cost)))
             if cost < self.best_cost and not bad:
                 self.best, self.best_cost = self.history[-1][0], float(cost)
+        if worst is not None:  # the failures so far take the worst cost now known
+            for i in self._failed:
+                self.history[i] = (self.history[i][0], worst)
         return kept
 
 
@@ -226,8 +235,11 @@ class Bayes(_Searcher):
             self._start = list(self.lower + sample * (self.upper - self.lower))
         if len(self.history) < self.initial:
             return [self._start[len(self.history)]]
-        x = np.array([self._unit(point) for point, _ in self.history])
-        cost = np.array([c for _, c in self.history])
+        seen = [(point, c) for point, c in self.history if np.isfinite(c)]
+        if not seen:  # every episode so far failed: nothing to model, try anywhere
+            return [self.lower + self._rng.uniform(size=n) * (self.upper - self.lower)]
+        x = np.array([self._unit(point) for point, _ in seen])
+        cost = np.array([c for _, c in seen])
         y = (cost - cost.mean()) / (cost.std() or 1.0)
 
         def gram(a: np.ndarray, b: np.ndarray, length: float) -> np.ndarray:

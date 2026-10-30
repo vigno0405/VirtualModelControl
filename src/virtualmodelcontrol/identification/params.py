@@ -93,9 +93,10 @@ def fit_params(
             # velocities at t_k sees the mean of the torques before and after it
             us = 0.5 * (us + np.concatenate([us[:1], us[:-1]]))
         idx = np.flatnonzero(keep & (np.arange(len(ts)) % stride == 0))
-        if not idx.size:
-            raise ValueError("a run has no samples to fit: its train mask is off everywhere")
-        samples.append((ts[idx], qs[idx], vs[idx], accel[idx], us[idx]))
+        if idx.size:
+            samples.append((ts[idx], qs[idx], vs[idx], accel[idx], us[idx]))
+    if not samples:
+        raise ValueError("the runs have no samples to fit: their train masks are off everywhere")
     t_all, q_all, v_all, a_all, u_all = (np.concatenate(x) for x in zip(*samples, strict=True))
     m = len(t_all)
     mapped = terms.map(m)

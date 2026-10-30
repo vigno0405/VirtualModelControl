@@ -264,18 +264,24 @@ def _arm_reach():
     return arm, vmc.VirtualMechanismSystem(arm, ctrl)
 
 
-def _plan_gap(reads, make_controller):
-    """The largest gap in q between a plan of the arm's reach and the simulation that follows it."""
+def _violation(reads, make_controller):
+    """How far a simulation of the arm's reach is from the plan's constraints (the closed loop's
+    dynamics at every step) under the reading ``reads``: the plan is not solved, since a cold
+    start from rest converges on one machine and not on another, but the simulation is put in as
+    the starting point and the solver stopped there."""
+    from virtualmodelcontrol.control import underactuated as ua  # noqa: F401
+
     arm, system = _arm_reach()
     q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 10
-    problem = opt.Problem(system, reads=reads)
-    problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
-    plan = problem.solve()
     h = 0.5 / (nodes - 1) / sub
     plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
-    rows = vmc.sim.run(plant, make_controller(vmc.compile(system)), vmc.sim.SimClock(h), T=0.5)
-    q = np.asarray(rows.arrays()["q"])
-    return np.abs(q[::sub][: nodes - 1] - plan.q[:-1]).max()
+    log = vmc.sim.run(
+        plant, make_controller(vmc.compile(system)), vmc.sim.SimClock(h), T=0.5 + 2 * h
+    ).arrays()
+    start = {"q": np.asarray(log["q"])[::sub][:nodes], "v": np.asarray(log["v"])[::sub][:nodes]}
+    problem = opt.Problem(system, reads=reads, options={"ipopt.max_iter": 0})
+    problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
+    return problem.solve(warm_start=start).violation
 
 
 def test_a_plan_of_an_underactuated_robot_reads_the_motors_like_the_controller_does():
@@ -287,10 +293,13 @@ def test_a_plan_of_an_underactuated_robot_reads_the_motors_like_the_controller_d
     def naive(compiled):
         return ua.controller(compiled, "naive")
 
-    assert _plan_gap(None, frozen) < 1e-4  # the default: what VMCController does
-    assert _plan_gap("motors", frozen) < 1e-4
-    assert _plan_gap("state", naive) < 1e-9  # the whole state, as a StateController
-    assert _plan_gap(None, naive) > 0.1  # and the two are not the same controller
+    # a simulation of a controller satisfies the plan that reads what that controller reads...
+    assert _violation(None, frozen) < 1e-4  # the default: what VMCController does
+    assert _violation("motors", frozen) < 1e-4
+    assert _violation("state", naive) < 1e-8  # the whole state, as a StateController
+    # ...and breaks the plan that reads the other thing
+    assert _violation("state", frozen) > 1e-2
+    assert _violation(None, naive) > 1e-2
 
 
 def test_reads_has_two_values_and_the_state_needs_the_robots_own_plant():

@@ -62,7 +62,7 @@ class Builder:
             raise ValueError("a controller for other coordinates than the plant's reads its motors")
         self.dynamics = compile_dynamics(self.plant, declared, system.actuation if own else None)
         space = self.plant.model.space
-        fewer = 0 < system.actuation.motor_sizes(space)[0] < space.nv
+        fewer = own and 0 < system.actuation.motor_sizes(space)[0] < space.nv
         self.motors = not own or reads == "motors" or (reads is None and fewer)
         if not own and self.dynamics.n_u != self.compiled.n_motors[1]:
             raise ValueError(

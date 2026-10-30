@@ -74,9 +74,9 @@ def test_a_failing_plugin_reports_its_error_every_time_and_the_others_still_load
             registry.register("model", "plugin_arm")(dict)
 
     monkeypatch.setattr(registry, "entry_points", lambda group: [Broken(), Fine()])
-    for _ in range(2):
-        with pytest.raises(ImportError, match=r"needs_extra.*no module named extra"):
-            registry.names("model")
+    for _ in range(2):  # a listing warns and still lists the others
+        with pytest.warns(UserWarning, match=r"needs_extra.*no module named extra"):
+            assert registry.names("model") == ["plugin_arm"]
     with pytest.raises(KeyError, match=r"no model named 'other'.*needs_extra"):
         registry.get("model", "other")  # an unknown name says so, and that a plugin is broken
     assert registry.get("model", "plugin_arm") is dict  # the plugin after the broken one loaded

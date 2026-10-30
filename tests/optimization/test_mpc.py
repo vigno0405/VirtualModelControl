@@ -384,3 +384,14 @@ def test_a_plan_that_did_not_converge_is_not_applied_unless_it_is_a_real_time_it
     assert sets(mpc, *ready(system)) == 0 and not mpc.result.converged
     system, _problem, quick = program(rti=True)  # one iteration is the real-time iteration
     assert sets(quick, *ready(system)) == 1 and not quick.result.converged
+
+
+def test_a_plan_that_failed_says_so_and_the_next_solve_starts_from_the_measured_state():
+    system, problem, mpc = program()
+    controller, plant = ready(system)
+    mpc.step(controller, plant.q, plant.v)
+    assert mpc.applied and mpc._warm is not None  # a plan that converged is applied and kept
+    problem.options["ipopt.max_iter"] = 1
+    assert mpc.step(controller, plant.q, [0.0]) == 0.0
+    assert not mpc.applied and not mpc.result.converged
+    assert mpc._warm is None  # no warm start from a failed plan

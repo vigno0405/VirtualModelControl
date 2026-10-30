@@ -70,6 +70,6 @@ def require_motor_layout(controller: Any, what: str) -> None:
         raise ValueError(
             f"{what} reads the motors of a controller, and a StateController reads the state "
             "(q, v) of the robot. For a robot with fewer motors than coordinates, use "
-            "control.underactuated.controller(compiled, 'frozen') without gravity=True, which "
+            "control.underactuated.controller(compiled, 'frozen') without gravity, which "
             "reads the motors, or control.underactuated.DirectionalForce for a force"
         )

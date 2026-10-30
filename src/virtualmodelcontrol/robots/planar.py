@@ -57,7 +57,7 @@ def rest_per_joint(rest: Any, n: int, motors: Any) -> np.ndarray:
     joints get 0) or one per joint."""
     rest = np.asarray(rest, dtype=float)
     passive = [i for i in range(n) if i not in set(motors)]
-    if rest.ndim == 0 or rest.size == n:
+    if rest.ndim == 0 or rest.size in (1, n):
         return np.broadcast_to(rest, (n,)).copy()
     if rest.size == len(passive):
         full = np.zeros(n)

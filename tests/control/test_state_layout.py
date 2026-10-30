@@ -44,7 +44,7 @@ def test_a_law_or_an_estimator_on_the_motors_refuses_a_state_controller(name):
     assert build(motors) is not None  # a controller that reads the motors is accepted
     for refused in (state, Tank(state, level=1.0)):
         # the message says what to use instead: the frozen controller, and not with gravity
-        pattern = f"{name} reads the motors.*StateController.*'frozen'\\) without gravity=True"
+        pattern = f"{name} reads the motors.*StateController.*'frozen'\\) without gravity"
         with pytest.raises(ValueError, match=pattern):
             build(refused)
     assert build(Tank(motors, level=1.0)) is not None  # a tank around it does not hide that

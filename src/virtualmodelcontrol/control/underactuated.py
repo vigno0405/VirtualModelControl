@@ -266,7 +266,8 @@ def controller(
         raise ValueError(f"correction must be None, 'passive' or 'tank', not {correction!r}")
     system = compiled.system
     dynamics = None
-    weighed = gravity is not False and gravity is not None
+    pose = None if np.ndim(gravity) == 0 else gravity  # a flag, or the motor angles of a pose
+    weighed = bool(gravity) if pose is None else True
     if correction or weighed:
         dynamics = compile_dynamics(system.robot, actuation=system.actuation)
     level = tank if correction == "tank" else None
@@ -274,7 +275,6 @@ def controller(
     if base == "naive":
         return StateController(compiled, stages)
     if weighed:
-        pose = None if gravity is True else gravity
         return StateController(compiled, stages, read=Frozen(system.actuation, dynamics, pose))
     return VMCController(compiled, stages)
 

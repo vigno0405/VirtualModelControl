@@ -100,5 +100,8 @@ def test_the_rest_angles_come_one_per_passive_joint_as_well_as_one_per_joint():
     same = planar.arm("five-link", rest=[0.0, 0.1, 0.2, 0.3, 0.0])
     np.testing.assert_allclose(same.params["q_rest"].value, five.params["q_rest"].value)
     np.testing.assert_allclose(planar.arm("five-link", rest=0.2).params["q_rest"].value, [0.2] * 5)
+    np.testing.assert_allclose(
+        planar.arm("five-link", rest=[0.3]).params["q_rest"].value, [0.3] * 5
+    )
     with pytest.raises(ValueError, match="one per passive joint"):
         planar.arm("five-link", rest=[0.1, 0.2])

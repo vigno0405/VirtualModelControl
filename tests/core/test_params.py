@@ -104,3 +104,14 @@ def test_binding_live_slices_and_frozen_constants():
 def test_constants_view():
     ps = ParamSet([Param("v", [1.0, 2.0])])
     np.testing.assert_array_equal(np.array(constants(ps)["v"]).ravel(), [1.0, 2.0])
+
+
+def test_a_param_is_found_by_its_other_name_and_counts_once():
+    shared = Param("radius", 0.03, unit="m")
+    params = ParamSet()
+    params.add(shared, "seg1.d")
+    params.add(shared, "seg2.d")
+    assert params.select(patterns=["seg2.d"]) == ["seg1.d"]  # under its own name
+    assert params.select(patterns=["seg*.d"]) == ["seg1.d"]  # once
+    assert params.size(["seg1.d", "seg2.d"]) == 1
+    assert params.vector(["seg2.d", "seg1.d"]).tolist() == [0.03]

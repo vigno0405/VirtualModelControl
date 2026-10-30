@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from importlib.metadata import entry_points
 from typing import Any, TypeVar
@@ -56,8 +57,12 @@ def get(kind: str, name: str) -> Any:
 
 
 def names(kind: str) -> list[str]:
-    """Registered names of one kind, plugins included."""
-    load_plugins()
+    """Registered names of one kind, plugins included (a plugin that fails to load is a warning
+    here: the others are listed)."""
+    try:
+        load_plugins()
+    except ImportError as error:
+        warnings.warn(str(error), stacklevel=2)
     return sorted(_REGISTRY.get(kind, {}))
 
 

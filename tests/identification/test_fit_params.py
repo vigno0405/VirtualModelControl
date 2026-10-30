@@ -235,3 +235,12 @@ def test_one_name_is_one_name_and_an_empty_training_set_is_said():
         fit_params(slider(), ["spring.*"], [none])
     with pytest.raises(ValueError, match="no samples to fit"):
         vmc.identification.fit_stiffness_damping(slider(), [none])
+
+
+def test_a_run_with_nothing_to_train_is_skipped_when_another_has_samples():
+    run = record(slider(), seconds=2.0)
+    off = {**run, "train": np.zeros(len(run["t"]), dtype=bool)}
+    both = fit_params(slider(1.0, 10.0, 0.2), ["spring.*"], [off, run])
+    alone = fit_params(slider(1.0, 10.0, 0.2), ["spring.*"], [run])
+    key = next(iter(alone.values))
+    assert float(both.values[key]) == pytest.approx(float(alone.values[key]), rel=1e-9)
