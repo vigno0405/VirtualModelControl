@@ -339,3 +339,48 @@ def test_a_state_controller_reports_its_elements_and_energy_on_an_underactuated_
     plant = vmc.sim.ModelPlant(robot, q0=[0.3, 0.3, 0.3], max_step=1e-4)
     log = vmc.sim.run(plant, controller, vmc.sim.SimClock(1e-3), T=0.01, record=["energy"])
     assert np.isfinite(vmc.sim.energy_balance(log)["energy"]).all()
+
+
+def _frozen_on_the_motors(compiled, **kwargs):
+    controller = ua.controller(compiled, "frozen", **kwargs)
+
+    def torque(theta):
+        meas = vmc.Signals(0.0, motor_position=theta, motor_velocity=np.zeros(2),
+                           q=np.zeros(3), v=np.zeros(3))  # fmt: skip
+        controller.reset(0.0, meas)
+        return np.array(controller.step(0.0, meas)["law_torque"])
+
+    return torque
+
+
+def _asymmetry(torque, theta, h=1e-6):
+    jac = np.column_stack([(torque(theta + h * e) - torque(theta - h * e)) / (2 * h)
+                           for e in np.eye(2)])  # fmt: skip
+    return abs(jac - jac.T).max() / abs(jac).max()
+
+
+def test_a_rest_balanced_once_keeps_the_frozen_torque_a_gradient_and_one_per_reading_does_not():
+    _, compiled = arm_with_law()
+    pose = np.array([0.5, 0.2])
+    fixed = _frozen_on_the_motors(compiled, gravity=pose)
+    moving = _frozen_on_the_motors(compiled, gravity=True)
+    assert _asymmetry(fixed, pose) < 1e-6  # the field of a potential
+    assert _asymmetry(moving, pose) > 1e-3  # the rest moves with the motors: a curl
+    np.testing.assert_allclose(fixed(pose), moving(pose), atol=1e-9)  # the same where it was solved
+    off = pose + np.array([0.3, -0.2])
+    assert abs(fixed(off) - moving(off)).max() > 1e-3  # and not off it
+
+
+def test_the_fixed_rest_is_the_q_rest_a_plan_can_read_and_it_needs_the_dynamics():
+    robot, compiled = arm_with_law()
+    dynamics = vmc.compile_dynamics(robot)
+    pose = np.array([0.5, 0.2])
+    rest = ua.Frozen(robot.actuation, dynamics, at=pose).rest
+    assert abs(rest[1]) > 1e-2 and rest[0] == rest[2] == 0.0  # the passive joint sags
+    robot.actuation.params["q_rest"].value = rest  # a plain frozen controller with that rest
+    plain = _frozen_on_the_motors(vmc.compile(compiled.system))
+    off = pose + np.array([0.1, 0.1])
+    fixed = _frozen_on_the_motors(compiled, gravity=pose)
+    np.testing.assert_allclose(plain(off), fixed(off), atol=1e-9)
+    with pytest.raises(ValueError, match="needs the robot's dynamics"):
+        ua.Frozen(robot.actuation, at=pose)

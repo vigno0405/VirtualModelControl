@@ -54,10 +54,14 @@ class Frozen:
     The motors give the part (I − E) q of the configuration and (I − E) v of the velocity; the
     rest of q is put at the rest value E q̄ of the ``Underactuated`` ``actuation``. With
     ``dynamics`` (the robot's, compiled) the rest is the passive coordinates' static balance
-    instead: the point where E ∇V = 0, with V the robot's springs and gravity.
+    instead: the point where E ∇V = 0, with V the robot's springs and gravity, solved at every
+    reading. That rest moves with the motors, so the torque of the controller is then not the
+    gradient of a potential. With ``at`` (motor angles [rad]) the balance is solved once, there,
+    and ``rest`` holds it: a fixed rest, as ``Underactuated`` has, and the torque is a gradient
+    again. ``rest`` can be set as the ``q_rest`` Param of the actuation, which a plan reads.
     """
 
-    def __init__(self, actuation: Any, dynamics: Any = None) -> None:
+    def __init__(self, actuation: Any, dynamics: Any = None, at: ArrayLike | None = None) -> None:
         values = constants(actuation.params)
         self.B = np.reshape(np.asarray(values["B"]), (actuation.n, actuation.m), order="F")
         self.rest = np.ravel(np.asarray(values["q_rest"]))
@@ -65,6 +69,11 @@ class Frozen:
         eigenvalues, vectors = np.linalg.eigh(self.E)
         self.basis = vectors[:, eigenvalues > 0.5]  # an orthonormal basis of the range of E
         self.dynamics = dynamics
+        if at is not None:
+            if dynamics is None:
+                raise ValueError("a rest balanced at motor angles needs the robot's dynamics")
+            self.rest = self.E @ self.point(at)
+            self.dynamics = None
 
     def point(self, theta: ArrayLike) -> np.ndarray:
         """The frozen configuration for motor angles θ."""
@@ -236,7 +245,7 @@ def controller(
     base: str = "naive",
     correction: str | None = None,
     *,
-    gravity: bool = False,
+    gravity: bool | ArrayLike = False,
     tank: float = 1.0,
     **stage: float,
 ) -> VMCController:
@@ -244,10 +253,12 @@ def controller(
 
     ``base="naive"`` renders the wrench as it is (B⁺ τ at the measured state, which must hold
     ``q`` and ``v``); ``"frozen"`` renders it at the frozen configuration the motors give, so it
-    needs the motors only. With ``gravity`` the frozen configuration also balances the robot's
-    own gravity. ``correction`` is ``None``, ``"passive"`` or ``"tank"`` (starting at ``tank``
-    [J]), a ``Passivation`` stage, which needs ``q`` and ``v`` in the measurement; ``stage`` are
-    its ``width``, ``regularizer`` and ``tank_width``.
+    needs the motors only. With ``gravity=True`` the frozen configuration also balances the
+    robot's own gravity, at every reading (the torque is then not a gradient: see ``Frozen``);
+    with ``gravity`` the motor angles [rad] of a pose, the balance is solved once there, a fixed
+    rest, and the torque is a gradient. ``correction`` is ``None``, ``"passive"`` or ``"tank"``
+    (starting at ``tank`` [J]), a ``Passivation`` stage, which needs ``q`` and ``v`` in the
+    measurement; ``stage`` are its ``width``, ``regularizer`` and ``tank_width``.
     """
     if base not in ("naive", "frozen"):
         raise ValueError(f"base must be 'naive' or 'frozen', not {base!r}")
@@ -255,14 +266,16 @@ def controller(
         raise ValueError(f"correction must be None, 'passive' or 'tank', not {correction!r}")
     system = compiled.system
     dynamics = None
-    if correction or gravity:
+    weighed = gravity is not False and gravity is not None
+    if correction or weighed:
         dynamics = compile_dynamics(system.robot, actuation=system.actuation)
     level = tank if correction == "tank" else None
     stages = [] if correction is None else [Passivation(dynamics, level, **stage)]
     if base == "naive":
         return StateController(compiled, stages)
-    if gravity:
-        return StateController(compiled, stages, read=Frozen(system.actuation, dynamics))
+    if weighed:
+        pose = None if gravity is True else gravity
+        return StateController(compiled, stages, read=Frozen(system.actuation, dynamics, pose))
     return VMCController(compiled, stages)
 
 
