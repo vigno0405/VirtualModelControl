@@ -6,6 +6,7 @@ measurement and returns new torques. Motor angles follow the library convention 
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +16,7 @@ from numpy.typing import ArrayLike
 
 from ..core.registry import register
 from ..core.signals import Signals
+from ..dynamics import needs_energy
 
 
 @register("output", "friction_compensation")
@@ -174,6 +176,36 @@ class TensionFloor:
             lift = self._lift(group, ca.fmin, ca.exp, ca.log, ca.fmax, ca.fabs)
             parts.append(u[k : k + self.group] + lift)
         return ca.vertcat(*parts)
+
+
+@dataclass
+class PlantState:
+    """What a stage that corrects for the robot sees in a plan or a rollout, as CasADi expressions:
+    the motor ``rates`` [rad/s] and the power [W] that the robot's own dampers take
+    (``dissipation``, at least 0)."""
+
+    rates: Any
+    dissipation: Any
+
+
+def plant_state(dynamics: Any, q: Any, v: Any, p: Any, t: Any) -> PlantState:
+    """The plant's ``PlantState`` at (q, v), with ``p`` the packed live Params of ``dynamics``."""
+    _, power = needs_energy(dynamics, "a correction that depends on the plant")
+    rates = dynamics.motors(q, v, p)[1]
+    return PlantState(rates, -power(q, v, ca.DM.zeros(dynamics.n_u), p, t)[1])
+
+
+def apply_symbolic(stages: Iterable[Any], u: Any, plant: Callable[[], PlantState]) -> Any:
+    """Run the stages' ``symbolic`` forms in order. A stage with ``needs_plant`` set takes the
+    ``PlantState`` as a second argument (``plant()`` makes it, once); the others take only ``u``."""
+    state = None
+    for stage in stages:
+        if getattr(stage, "needs_plant", False):
+            state = plant() if state is None else state
+            u = stage.symbolic(u, state)
+        else:
+            u = stage.symbolic(u)
+    return u
 
 
 def apply(stages: list[Any], u: np.ndarray, meas: Signals) -> np.ndarray:

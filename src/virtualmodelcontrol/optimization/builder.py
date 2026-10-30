@@ -8,8 +8,9 @@ import casadi as ca
 import numpy as np
 
 from ..compiler import compile as compile_system
+from ..control.output import apply_symbolic, plant_state
 from ..core.params import Binding, Param, ParamSet
-from ..dynamics import compile_dynamics
+from ..dynamics import compile_dynamics, reads_motors
 from ..mechanisms.coordinates.base import Context, Coordinate, walk
 from ..mechanisms.coordinates.joints import State
 from .nlp import NLP
@@ -62,7 +63,7 @@ class Builder:
             raise ValueError("a controller for other coordinates than the plant's reads its motors")
         self.dynamics = compile_dynamics(self.plant, declared, system.actuation if own else None)
         space = self.plant.model.space
-        fewer = own and 0 < system.actuation.motor_sizes(space)[0] < space.nv
+        fewer = own and reads_motors(system.actuation, space)
         self.motors = not own or reads == "motors" or (reads is None and fewer)
         if not own and self.dynamics.n_u != self.compiled.n_motors[1]:
             raise ValueError(
@@ -101,8 +102,9 @@ class Builder:
         else:
             out = compiled.fast(self._at_motors(q, v, z, p, t))
             u, zdot = out[: compiled.n_u], out[compiled.n_u :]
-        for stage in self.stages:
-            u = stage.symbolic(u)
+        u = apply_symbolic(
+            self.stages, u, lambda: plant_state(self.dynamics, q, v, self._plant_p(), t)
+        )
         return u, zdot
 
     def stored(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
@@ -119,10 +121,14 @@ class Builder:
 
     def _at_motors(self, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The controller's packed inputs [θ, θ̇, z, p, t] at the plant's state."""
+        theta, rate = self.dynamics.motors(q, v, self._plant_p())
+        return ca.vertcat(theta, rate, z, p, t)
+
+    def _plant_p(self) -> Any:
+        """The plant's live Params, packed, as the plan sees them."""
         if self._p_plant is None:
             self._p_plant = self.pack(self.dynamics.params, self.dynamics.live)
-        theta, rate = self.dynamics.motors(q, v, self._p_plant)
-        return ca.vertcat(theta, rate, z, p, t)
+        return self._p_plant
 
     def value(self, param: Param) -> Any:
         """The Param as a column: a decision variable, an input or a constant."""

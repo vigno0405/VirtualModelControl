@@ -11,7 +11,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..compiler import compile as compile_system
-from ..dynamics import compile_dynamics
+from ..control.output import apply_symbolic, plant_state
+from ..dynamics import compile_dynamics, reads_motors
 from ..system import VirtualMechanismSystem
 
 INTEGRATORS = ("implicit", "rk4", "cvodes")
@@ -43,7 +44,8 @@ def rollout(
     differentiate. With ``u``, motor torques [N·m] with one row per step, the robot gets them
     instead of the controller's command (open loop, as in a logged run). ``output`` lists output
     stages with a ``symbolic`` form (``control.StaticFrictionCompensation``), applied to the
-    controller's command as ``VMCController(output=)`` applies them.
+    controller's command as ``VMCController(output=)`` applies them. A robot with fewer motors
+    than coordinates is controlled from its motors, as ``VMCController`` does.
     """
     if integrator not in INTEGRATORS:
         raise ValueError(f"integrator takes one of {INTEGRATORS}, got {integrator!r}")
@@ -61,9 +63,8 @@ def rollout(
     x, tw = ca.MX.sym("x", nx + 2 * nz), ca.MX.sym("tw", 2 + (0 if given is None else nu))
     pp = ca.MX.sym("p", compiled.live_values().size)
     q, v, z, t, w = x[:nq], x[nq:nx], x[nx:], tw[0], tw[1]
-    command, zdot = compiled.law(q, v, z, pp, t)
-    for stage in output:
-        command = stage.symbolic(command)
+    command, zdot = _law(compiled, dynamics, system, where, q, v, z, pp, t)
+    command = apply_symbolic(output, command, lambda: plant_state(dynamics, q, v, pp[where], t))
     if given is not None:
         command = tw[2:]
     zvel = z[nz:] + w * zdot[nz:]  # the virtual state moves over the time since the last step
@@ -104,7 +105,7 @@ def ode(
     nx = nq + nv
     t, x = ca.MX.sym("t"), ca.MX.sym("x", nx + 2 * nz)
     p = ca.DM(compiled.live_values())
-    u, zdot = compiled.law(x[:nq], x[nq:nx], x[nx:], p, t)
+    u, zdot = _law(compiled, dynamics, system, where, x[:nq], x[nq:nx], x[nx:], p, t)
     xdot = ca.vertcat(_rhs(space, dynamics)(x[:nx], u, p[where], t), zdot)
     f = ca.Function("ode", [t, x], [xdot])
     return lambda t, x: np.array(f(t, x)).ravel()
@@ -119,6 +120,20 @@ def _compile(system: VirtualMechanismSystem, runtime: Iterable[str]) -> tuple[An
     slices = compiled.live_slices()
     where = [i for name in dynamics.live for i in range(slices[name].start, slices[name].stop)]
     return compiled, dynamics, where
+
+
+def _law(
+    compiled: Any, dynamics: Any, system: VirtualMechanismSystem, where: list[int], *state: Any
+) -> tuple[Any, Any]:
+    """The controller's torques and the rates of its virtual states at (q, v, z, p, t): it reads
+    the motors the robot reports, as ``VMCController`` does, when the robot has fewer motors than
+    coordinates, and the state otherwise (the same thing)."""
+    q, v, z, p, t = state
+    if not reads_motors(system.actuation, system.robot.model.space):
+        return compiled.law(q, v, z, p, t)
+    theta, rate = dynamics.motors(q, v, p[where])
+    out = compiled.fast(ca.vertcat(theta, rate, z, p, t))
+    return out[: compiled.n_u], out[compiled.n_u :]
 
 
 def _rhs(space: Any, dynamics: Any) -> ca.Function:

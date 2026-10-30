@@ -392,3 +392,28 @@ def test_gravity_is_a_flag_or_the_motor_angles_of_a_pose():
         assert type(ua.controller(compiled, "frozen", gravity=off)) is vmc.VMCController
     for on in (True, 1, np.True_, [0.5, 0.2], np.array([0.5, 0.2])):
         assert isinstance(ua.controller(compiled, "frozen", gravity=on), StateController)
+
+
+def test_the_passive_correction_as_expressions_is_the_one_the_controller_applies():
+    from virtualmodelcontrol.control.output import plant_state
+
+    robot, _ = arm_with_law()
+    dynamics = vmc.compile_dynamics(robot)
+    stage = ua.Passivation(dynamics, width=0.05)
+    rng = np.random.default_rng(5)
+    for _ in range(20):
+        q, v = rng.uniform(-1.0, 1.0, 3), rng.uniform(-3.0, 3.0, 3)
+        u = rng.uniform(-30.0, 30.0, 2)
+        meas = measurement(robot, q, v)
+        plant = plant_state(dynamics, q, v, dynamics.live_values(), 0.0)
+        np.testing.assert_allclose(
+            np.array(stage.symbolic(u, plant)).ravel(), stage(u, meas), rtol=1e-9, atol=1e-9
+        )
+    assert abs(stage(u, meas) - u).max() > 1e-3  # the last state is one where it corrects
+
+
+def test_the_tank_correction_cannot_be_planned_and_says_why():
+    robot, _ = arm_with_law()
+    stage = ua.Passivation(vmc.compile_dynamics(robot), tank=1.0)
+    with pytest.raises(ValueError, match=r"state.*plan the passive correction"):
+        stage.symbolic(np.zeros(2), None)

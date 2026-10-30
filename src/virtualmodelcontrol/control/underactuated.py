@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -117,7 +118,13 @@ class Passivation:
     V̇ − θ̇ᵀu (what the dampers took, less what the motors injected). The command passes through
     unchanged while the tank holds energy. ``reset`` refills it. ``level``, ``alpha``, ``gate``
     and ``dissipation`` (V̇) hold the last step's.
+
+    ``symbolic`` is the passive correction for a plan (``Problem(output=)``) and a rollout, from
+    the plant's own state (``needs_plant``); the tank has a state of its own, which a plan does
+    not carry, so it has none.
     """
+
+    needs_plant = True
 
     def __init__(
         self,
@@ -156,6 +163,18 @@ class Passivation:
         command = u - self.gate * self.alpha * rate
         self._t, self._rate = meas.t, self.dissipation - float(rate @ command)
         return command
+
+    def symbolic(self, u: Any, plant: Any) -> Any:
+        """The passive correction as CasADi expressions, from the plant's rates and dissipation."""
+        if self.tank is not None:
+            raise ValueError(
+                "the tank correction has a state (the level of the tank), which a plan does not "
+                "carry: plan the passive correction, Passivation(dynamics) without a tank"
+            )
+        w, rate = self.width, plant.rates
+        x = (ca.dot(rate, u) - plant.dissipation) / w
+        softplus = ca.fmax(x, 0.0) + ca.log1p(ca.exp(-ca.fabs(x)))
+        return u - w * softplus / (ca.dot(rate, rate) + self.regularizer) * rate
 
 
 def direction_gain(

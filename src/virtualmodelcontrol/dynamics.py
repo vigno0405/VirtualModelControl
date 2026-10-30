@@ -22,6 +22,7 @@ __all__ = [
     "Dynamics",
     "compile_dynamics",
     "needs_energy",
+    "reads_motors",
 ]
 
 OPTS = {"cse": True}
@@ -64,6 +65,12 @@ class Dynamics:
         does not have (without an energy) are ``None``."""
         names = ("forward", "residual", "mass", "energy", "power", "motors", "step", "elements")
         return export({name: getattr(self, name) for name in names}, backend)
+
+
+def reads_motors(actuation: Any, space: Any) -> bool:
+    """True if the robot has fewer motor angles than velocity coordinates: a controller then reads
+    the motors (it cannot read the whole state), and the passive coordinates are at their rest."""
+    return 0 < actuation.motor_sizes(space)[0] < space.nv
 
 
 def needs_energy(dynamics: Dynamics, what: str) -> tuple[ca.Function, ca.Function]:

@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [1.4.0] - 2026-10-30
+
+A minor release: a plan or a rollout can include the passive correction of a robot with fewer motors than
+coordinates, and a rollout of such a robot reads the motors as the controller does.
+
+### Added
+
+- The passive correction (`control.underactuated.Passivation`) can be planned: `Problem(output=[stage])`
+  and `vmc.sim.rollout(output=[stage])` apply it from the plant's own state, so that a plan is the closed
+  loop of the corrected controller (a plan without the stage was another controller: a violation of 13 in the
+  tutorial's test). The tank correction cannot, since the level of the tank is a state that a plan does not
+  carry, and says so. An output stage opts in to the plant with `needs_plant = True` and
+  `symbolic(u, plant)` (`control.output.PlantState`: the motor rates and the power the robot's dampers
+  take); a stage with `symbolic(u)` works as before.
+
+### Changed
+
+- `vmc.sim.rollout` and `vmc.sim.ode` of a robot with fewer motors than coordinates read the motors, as
+  `VMCController` and the plans of 1.3.0 do. They used to read the whole state, so that a rollout of the
+  frozen controller was the naive one (a gap of 0.01 rad or more against `run`).
+
 ## [1.3.0] - 2026-10-30
 
 A minor release. A plan of a robot with fewer motors than coordinates now reads the motors, as the controller that
@@ -928,7 +949,8 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.0...v1.2.1

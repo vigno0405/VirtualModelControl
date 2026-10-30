@@ -113,11 +113,11 @@ builds it, and `base` chooses how its torques are rendered:
   angles of a pose it finds the balance once, there.
 
 ```{code-cell} python
-def reach(robot, compensate=True, stiffness=150.0):
+def reach(robot, compensate=True, stiffness=150.0, damping=25.0):
     tip = robot.point("tip")
     ctrl = vmc.Mechanism("ctrl")
     ctrl.add("reach", vmc.LinearSpring(tip - [0.45, 0.15, 0.0], stiffness))
-    ctrl.add("damp", vmc.LinearDamper(tip, 25.0))
+    ctrl.add("damp", vmc.LinearDamper(tip, damping))
     if compensate:
         ctrl.add("gravity", vmc.GravityCompensation(robot))
     return vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
@@ -447,8 +447,50 @@ glue("planned_frozen", float(planned["frozen"]), display=False)
 The plans end {glue:text}`planned_naive:.1f` mm and {glue:text}`planned_frozen:.1f` mm from the
 goal, where the simulations above end. The frozen controller's rest is the `q_rest` Param of the
 actuation, so a plan can optimize it (`problem.free("arm.q_rest")`), and set it to a balanced
-rest as in the section above. The corrections have no symbolic form yet: `Problem(output=...)`
-refuses them. Plan the controller and add the correction when you run it.
+rest as in the section above.
+
+The passive correction can be in the plan too: `Problem(system, output=[stage])` with
+`stage = ua.Passivation(dynamics)`, the same stage that the controller runs with, so that the plan
+is the closed loop of the corrected controller. It reads the plant's motor rates and the power
+its own dampers take from the plan's state. The tank correction cannot: the level of the tank is
+a state that a plan does not carry (`TankBudget` is the tank of the plan's own changes of the
+Params). To see that the plan has the correction, we simulate a corrected, underdamped arm
+(10 ms control period), start the plan from that simulation and let the solver stop there. What it
+reports is the largest violation of the plan's dynamics at the simulation: nothing, if the plan is
+the simulation's closed loop.
+
+```{code-cell} python
+# underdamped, so that the arm gains energy
+light = reach(arm, stiffness=150.0, damping=3.0)
+stage = ua.Passivation(dynamics, width=1e-2)
+corrected = ua.controller(light, "frozen", "passive", width=1e-2)
+T, nodes, sub = 0.5, 6, 10
+h = T / (nodes - 1) / sub  # [s] the control period
+
+plant = vmc.sim.ModelPlant(arm, q0=[0.3, 0.3, 0.3], max_step=h)
+clock = vmc.sim.SimClock(h)
+log = vmc.sim.run(plant, corrected, clock, T=T + 2 * h).arrays()
+start = {"q": log["q"][::sub][:nodes], "v": log["v"][::sub][:nodes]}
+
+def violation(output):
+    stop = {"ipopt.max_iter": 0}  # the solver stops at the start
+    problem = opt.Problem(light.system, output=output, options=stop)
+    problem.add(opt.Shooting([0.3, 0.3, 0.3], T, nodes, substeps=sub))
+    return problem.solve(warm_start=start).violation
+
+gaps = {"with the stage": violation([stage]), "without": violation([])}
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert gaps["with the stage"] < 1e-4 < 1e-2 < gaps["without"], gaps
+glue("gap_with", float(gaps["with the stage"]), display=False)
+glue("gap_without", float(gaps["without"]), display=False)
+```
+
+With the stage the plan's dynamics are violated by {glue:text}`gap_with:.0e` at the simulation of
+the corrected controller, which is rounding; without it by {glue:text}`gap_without:.2f`, because
+that plan is the closed loop of another controller.
 
 ## When the passive joint is not measured
 

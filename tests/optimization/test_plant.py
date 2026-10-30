@@ -320,3 +320,63 @@ def test_a_term_can_use_a_site_of_the_plant_when_the_plant_is_another_robot():
     problem.add(opt.Cost(plant.point("tip") - [0.45, 0.15, 0.0], 1.0, name="reach"))
     result = problem.solve()
     assert result.converged and np.isfinite(result.costs["reach"])
+
+
+def test_a_plan_can_include_the_passive_correction_and_matches_the_controller_that_has_it():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = _arm_reach()
+    ctrl = vmc.Mechanism("ctrl")  # underdamped, so that the arm gets more than its dampers take
+    ctrl.add("reach", vmc.LinearSpring(arm.point("tip") - [0.45, 0.15, 0.0], 150.0))
+    ctrl.add("damp", vmc.LinearDamper(arm.point("tip"), 3.0))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    system = vmc.VirtualMechanismSystem(arm, ctrl)
+    stage = ua.Passivation(vmc.compile_dynamics(arm, actuation=system.actuation), width=1e-2)
+    q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 10
+    h = 0.5 / (nodes - 1) / sub
+
+    def violation(reads, output, controller):
+        plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
+        log = vmc.sim.run(plant, controller, vmc.sim.SimClock(h), T=0.5 + 2 * h).arrays()
+        start = {"q": np.asarray(log["q"])[::sub][:nodes], "v": np.asarray(log["v"])[::sub][:nodes]}
+        problem = opt.Problem(system, reads=reads, output=output, options={"ipopt.max_iter": 0})
+        problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
+        return problem.solve(warm_start=start).violation
+
+    compiled = vmc.compile(system)
+    corrected = ua.controller(compiled, "frozen", "passive", width=1e-2)
+    assert violation(None, [stage], corrected) < 1e-4  # the plan has what the controller has
+    assert violation(None, [], corrected) > 1e-3  # and without it the plan is another one
+    naive = ua.controller(compiled, "naive", "passive", width=1e-2)
+    assert violation("state", [stage], naive) < 1e-4  # the whole-state controller too
+
+
+def test_the_correction_in_a_plan_uses_the_dampers_of_the_plan_not_the_ones_stored():
+    from virtualmodelcontrol.control import underactuated as ua
+    from virtualmodelcontrol.robots import planar
+
+    def build(damping):
+        arm = planar.add_dynamics(planar.arm("three-link"), damping=damping)
+        ctrl = vmc.Mechanism("ctrl")
+        ctrl.add("reach", vmc.LinearSpring(arm.point("tip") - [0.45, 0.15, 0.0], 150.0))
+        ctrl.add("damp", vmc.LinearDamper(arm.point("tip"), 3.0))
+        ctrl.add("gravity", vmc.GravityCompensation(arm))
+        return arm, vmc.VirtualMechanismSystem(arm, ctrl)
+
+    stored, real = build(0.4), build(2.0)  # the plan is made for 0.4 and told 2.0 at the solve
+    q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 10
+    h = 0.5 / (nodes - 1) / sub
+    stage = ua.Passivation(
+        vmc.compile_dynamics(stored[0], actuation=stored[1].actuation), width=1e-2
+    )
+    controller = ua.controller(vmc.compile(real[1]), "frozen", "passive", width=1e-2)
+    plant = vmc.sim.ModelPlant(real[0], q0=q0, max_step=h)
+    log = vmc.sim.run(plant, controller, vmc.sim.SimClock(h), T=0.5 + 2 * h).arrays()
+    start = {"q": np.asarray(log["q"])[::sub][:nodes], "v": np.asarray(log["v"])[::sub][:nodes]}
+    problem = opt.Problem(stored[1], output=[stage], options={"ipopt.max_iter": 0})
+    problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
+    problem.parameter("arm.damper.damping")
+    told = problem.solve({"arm.damper.damping": 2.0}, warm_start=start)
+    assert told.violation < 1e-4
+    unknowing = problem.solve({"arm.damper.damping": 0.4}, warm_start=start)
+    assert unknowing.violation > 1e-3  # the dampers are part of what the plan computes

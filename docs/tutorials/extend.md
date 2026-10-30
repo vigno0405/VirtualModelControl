@@ -381,3 +381,11 @@ template as `"controller"` and a component as `"component"`. Register a coordina
 `"coordinate"`: a function `(args, scope, path)` that builds the coordinate. Register a model as
 `"model"` and a transmission as `"actuation"`, each with `to_dict` and `from_dict`, so that
 `vmc.models.from_dict` can rebuild it from a saved description.
+
+An output stage is a callable `stage(u, meas)` that returns the corrected motor torques. Give it a
+`symbolic(u)` method, the same map on CasADi expressions, and a plan (`Problem(output=...)`) and a
+rollout (`vmc.sim.rollout(output=...)`) can use it. A stage whose correction depends on the
+robot, as the passive correction of [robots with fewer motors than joints](underactuated.md)
+does, sets `needs_plant = True` and takes a second argument, `symbolic(u, plant)`: `plant.rates`
+are the motor rates [rad/s] and `plant.dissipation` the power [W] that the robot's own dampers
+take, both at the state of the plan.

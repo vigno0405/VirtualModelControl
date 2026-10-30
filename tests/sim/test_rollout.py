@@ -191,3 +191,47 @@ def test_the_rollout_is_faster_than_run_on_the_soft_arm():
     compiled = time.perf_counter()
     print(f"soft arm, 5 s: run {ran - built:.2f} s, plus {built - start:.2f} s to compile")
     print(f"soft arm, 5 s: rollout {rolled - ran:.2f} s, {compiled - rolled:.2f} s of it compiling")
+
+
+def arm_reach(stiffness=30.0, damping=6.0):
+    """The three-link arm, one passive joint, pulled to a point by a spring on its tip."""
+    from virtualmodelcontrol.robots import planar
+
+    arm = planar.add_dynamics(planar.arm("three-link"))
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("reach", vmc.LinearSpring(arm.point("tip") - [0.45, 0.15, 0.0], stiffness))
+    ctrl.add("damp", vmc.LinearDamper(arm.point("tip"), damping))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    return arm, vmc.VirtualMechanismSystem(arm, ctrl)
+
+
+def test_the_rollout_of_a_robot_with_fewer_motors_reads_the_motors_as_run_does():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = arm_reach()
+    q0, T, dt = np.array([0.3, 0.3, 0.3]), 0.5, 1 / 200
+
+    def followed(controller):
+        plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=1e-3)
+        return vmc.sim.run(plant, controller, vmc.sim.SimClock(dt), T=T).arrays()["q"]
+
+    r = vmc.sim.rollout(system, q0, T, dt)["q"]
+    frozen = followed(vmc.VMCController(vmc.compile(system)))
+    naive = followed(ua.controller(vmc.compile(system), "naive"))
+    np.testing.assert_allclose(r, frozen, atol=1e-8)  # what VMCController does
+    assert np.abs(r - naive).max() > 0.01  # and not the whole-state controller
+
+
+def test_the_rollout_applies_the_passive_correction_as_the_controller_does():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = arm_reach(150.0, 3.0)  # underdamped: the arm gets more than its dampers take
+    q0, T, dt = np.array([0.3, 0.3, 0.3]), 0.5, 1 / 200
+    compiled = vmc.compile(system)
+    stage = ua.Passivation(vmc.compile_dynamics(arm, actuation=system.actuation), width=1e-2)
+    plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=1e-3)
+    ran = vmc.sim.run(plant, vmc.VMCController(compiled, [stage]), vmc.sim.SimClock(dt), T=T)
+    rolled = vmc.sim.rollout(system, q0, T, dt, output=[stage])
+    plain = vmc.sim.rollout(system, q0, T, dt)
+    np.testing.assert_allclose(rolled["q"], ran.arrays()["q"], atol=1e-6)
+    assert np.abs(rolled["q"] - plain["q"]).max() > 1e-3  # the correction does something here
