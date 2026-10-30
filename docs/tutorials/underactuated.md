@@ -108,7 +108,9 @@ builds it, and `base` chooses how its torques are rendered:
 - `"frozen"` evaluates the same law with the passive joint held at its rest angle, whatever it
   does. It needs the motors only, and its torque is the exact gradient of a potential. With
   `gravity=True` it holds the passive joint where its spring balances the arm's own weight
-  instead of at the rest angle.
+  instead of at the rest angle, found again at every reading ([a passive joint under
+  weight](#a-passive-joint-under-weight) says what that costs); with `gravity=` the motor
+  angles of a pose it finds the balance once, there.
 
 ```{code-cell} python
 def reach(robot, compensate=True, stiffness=150.0):
@@ -120,8 +122,9 @@ def reach(robot, compensate=True, stiffness=150.0):
         ctrl.add("gravity", vmc.GravityCompensation(robot))
     return vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
 
-def run(compiled, base, correction=None, gravity=False, T=4.0):
-    controller = ua.controller(compiled, base, correction, gravity=gravity)
+def run(compiled, base, correction=None, gravity=False, T=4.0, **stage):
+    controller = ua.controller(compiled, base, correction, gravity=gravity,
+                               **stage)
     plant = vmc.sim.ModelPlant(arm, q0=[0.3, 0.3, 0.3], max_step=1e-4)
     log = vmc.sim.run(plant, controller, vmc.sim.SimClock(5e-4), T=T)
     return log.arrays()
@@ -173,6 +176,58 @@ weight pulls the tip away, and the controllers end {glue:text}`bare_naive:.0f` m
 goal (naive, and frozen with `gravity=True`) and {glue:text}`bare_frozen:.0f` mm (plain
 frozen). Where the passive joint is at rest and carries nothing, naive and frozen send the
 same torques.
+
+## A passive joint under weight
+
+The frozen controller keeps the arm passive because its torque is the gradient of a potential:
+the field of motor angles $\theta \mapsto u(\theta)$ has no curl, so the motors cannot gain
+energy by going around a loop. That holds while the rest of the passive joint is a constant. With
+`gravity=True` the rest is the joint's balance at the current motor angles, and it moves as they
+do, which puts a small curl into the field. We measure the curl as the asymmetry of the Jacobian
+of $u$ with respect to $\theta$, relative to its size, for the plain frozen controller, for
+`gravity=True`, and for `gravity=` the motor angles of a pose, where the balance is solved once:
+
+```{code-cell} python
+def curl(gravity, theta, h=1e-6):
+    controller = ua.controller(compiled, "frozen", gravity=gravity)
+
+    def torque(theta):
+        reading = vmc.Signals(0.0, motor_position=theta, q=[0.0] * 3,
+                              motor_velocity=[0.0, 0.0], v=[0.0] * 3)
+        controller.reset(0.0, reading)
+        return np.asarray(controller.step(0.0, reading)["law_torque"])
+
+    jac = np.column_stack([(torque(theta + h * e) - torque(theta - h * e))
+                           / (2 * h) for e in np.eye(2)])
+    return abs(jac - jac.T).max() / abs(jac).max()
+
+pose = B.T @ runs["naive"]["q"][-1]  # the motor angles where the reach ends
+curls = {"plain": curl(False, pose), "moving": curl(True, pose),
+         "fixed": curl(pose, pose)}
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert curls["plain"] < 1e-8 and curls["fixed"] < 1e-8
+assert 1e-3 < curls["moving"] < 0.2
+settled = run(compiled, "frozen", gravity=pose)
+final_fixed = 1000 * float(tip_error(settled)[-1])
+assert final_fixed < 1.0, final_fixed
+glue("curl_plain", float(curls["plain"]), display=False)
+glue("curl_fixed", float(curls["fixed"]), display=False)
+glue("curl_moving", float(curls["moving"]), display=False)
+glue("final_fixed", final_fixed, display=False)
+```
+
+The plain frozen torque has no curl ({glue:text}`curl_plain:.0e`), and neither has the one whose
+balance is solved once ({glue:text}`curl_fixed:.0e`). The torque that follows the balance has a
+curl of {glue:text}`curl_moving:.1%` here: a few percent of the field, but not a gradient, so the
+guarantee does not cover it. Give `gravity=` the motor angles of the pose the arm works around, such as where the
+reach ends. With the balance solved there, the frozen controller ends
+{glue:text}`final_fixed:.1e` mm from the goal, as it does with `gravity=True`, and its torque is
+a gradient again. The rest it found is `ua.Frozen(arm.actuation, dynamics, at=pose).rest`, which
+can be set as the `q_rest` of the actuation, the way [a plan](#planning-with-these-controllers)
+reads it.
 
 ## Keeping the arm passive
 
@@ -227,8 +282,57 @@ Without a correction the arm gains up to {glue:text}`peak_none:.2f` J from the c
 the passive correction it gains {glue:text}`peak_passive:.3f` J at most, the rounding of the
 control period (the guarantee holds in continuous time and the gain falls with the period). With
 the tank it gains {glue:text}`peak_tank:.2f` J, the budget it started with (the default
-`tank=1.0` J of `ua.controller`). The frozen controller needs no correction for its own
-torque, which is a gradient.
+`tank=1.0` J of `ua.controller`).
+
+The `width` of a correction, in W, smooths the point where it starts. Its default, 1 W, is as
+large as the power of this arm, so the correction also slows the reach when little needs
+correcting: after 4 s the passive correction is still {glue:text}`slow_default:.0f` mm from the
+goal, and with `width=1e-2` it is {glue:text}`slow_narrow:.1f` mm. Take the smallest power that
+matters in your loop.
+
+```{code-cell} python
+:tags: [remove-cell]
+narrow = run(compiled, "naive", "passive", width=1e-2)
+slow_default = 1000 * float(tip_error(corrected["passive"])[-1])
+slow_narrow = 1000 * float(tip_error(narrow)[-1])
+assert slow_default > 10.0 and slow_narrow < 1.0, (slow_default, slow_narrow)
+glue("slow_default", slow_default, display=False)
+glue("slow_narrow", slow_narrow, display=False)
+```
+
+The frozen controller needs no correction to keep the energy of its own virtual spring from
+growing, since its torque is a gradient (with `gravity=True`, only up to the small curl above).
+Do not stack them. A correction compares the power the motors inject with what the arm's own
+dampers dissipate, and a virtual spring that is releasing its energy injects power, so it also
+cuts the torque of the frozen controller:
+
+```{code-cell} python
+def removed(base, T=4.0, dt=5e-4):
+    """The torque [N·m s] that the passive correction takes off the law."""
+    controller = ua.controller(compiled, base, "passive", width=1e-4)
+    plant = vmc.sim.ModelPlant(arm, q0=[0.3, 0.3, 0.3], max_step=1e-4)
+    controller.reset(0.0, plant.read())
+    total = 0.0
+    for _ in range(round(T / dt)):
+        command = controller.step(plant.t, plant.read())
+        total += dt * float(np.abs(command["law_torque"]
+                                   - command["motor_torque"]).sum())
+        plant.write(command)
+        plant.advance(dt)
+    return total
+
+cut = {base: removed(base) for base in ("naive", "frozen")}
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert cut["frozen"] > 0.1 and cut["naive"] > 0.1, cut
+glue("cut_frozen", float(cut["frozen"]), display=False)
+glue("cut_naive", float(cut["naive"]), display=False)
+```
+
+Over this reach the correction takes {glue:text}`cut_frozen:.1f` N·m·s off the frozen torque and
+{glue:text}`cut_naive:.1f` N·m·s off the naive one. Use the corrections on the naive controller.
 
 ## A force along a direction
 
@@ -308,6 +412,44 @@ for ax, (name, robot) in zip(axes, robots.items()):
 axes[0].set_ylabel("height [m]");
 ```
 
+## Planning with these controllers
+
+A plan of the [optimization layer](optimize.md) is the closed loop, so it has to read what the
+controller on the robot reads. For a robot with fewer motors than joints, `Problem(system)`
+plans the controller that reads the motors, as `VMCController` does: the frozen one, with the
+passive joints at their rest angles. `Problem(system, reads="state")` plans the whole-state
+controller of `"naive"` instead, and `reads="motors"` asks for the first one outright. Here is
+where each plan puts the arm at rest, started near where the matching simulation of the reach
+ended:
+
+```{code-cell} python
+from virtualmodelcontrol import optimization as opt
+
+def planned_end(reads, base):
+    start = runs[base]["q"][-1] + 0.05  # a guess near where it ends
+    problem = opt.Problem(compiled.system, reads=reads)
+    problem.add(opt.Equilibrium(start))
+    q = problem.solve().q[0]
+    return 1000 * np.linalg.norm(kin.position(q, "tip")[:2] - [0.45, 0.15])
+
+planned = {"naive": planned_end("state", "naive"),
+           "frozen": planned_end("motors", "frozen")}
+```
+
+```{code-cell} python
+:tags: [remove-cell]
+assert abs(planned["naive"] - 1000 * final["naive"]) < 0.1
+assert abs(planned["frozen"] - 1000 * final["frozen"]) < 0.1
+glue("planned_naive", float(planned["naive"]), display=False)
+glue("planned_frozen", float(planned["frozen"]), display=False)
+```
+
+The plans end {glue:text}`planned_naive:.1f` mm and {glue:text}`planned_frozen:.1f` mm from the
+goal, where the simulations above end. The frozen controller's rest is the `q_rest` Param of the
+actuation, so a plan can optimize it (`problem.free("arm.q_rest")`), and set it to a balanced
+rest as in the section above. The corrections have no symbolic form yet: `Problem(output=...)`
+refuses them. Plan the controller and add the correction when you run it.
+
 ## When the passive joint is not measured
 
 The naive controller needs the angle and the rate of every joint, and the encoders give the
@@ -317,7 +459,7 @@ joint moves the other two through the coupling, and the filter reads it from the
 see, $\theta = B^\top q$, as combinations of $q$ (the measurement's `matrix`), not as a reading
 of $q$, so the passive joint is left to the model. Each period the loop updates the filter with
 the encoders, hands the estimate to the controller as the signals `q` and `v`, and predicts
-the next period from the torques it sent.
+the next period from the torques it sent. A `MovingHorizon` estimator takes the same `encoder`.
 
 ```{code-cell} python
 from virtualmodelcontrol.estimation import Encoders, KalmanFilter
@@ -440,21 +582,26 @@ assert torque.shape == (2,) and np.isfinite(torque).all()
 
 ## Choosing
 
-- Start with `"frozen"`, with `gravity=True` if the arm carries weight: it needs only the
-  motors, its torque is a gradient, and it agrees with the naive one where the passive joints
-  rest.
+- Start with `"frozen"`, with `gravity=` the motor angles of the pose it works around if the
+  arm carries weight: it needs only the motors, its torque is a gradient, and it agrees with
+  the naive one where the passive joints rest. `gravity=True` follows the balance at every
+  reading instead, which is closer to the naive controller far from one pose, but its torque
+  is not a gradient.
 - Take `"naive"` when the whole state is measured or estimated well and you want the force the
   spring asks for even away from the passive joints' rest.
-- Add `"passive"` when the arm must never gain energy, and `"tank"` to allow short bursts up
-  to a budget. A correction removes torque, so it can slow the reach; set `tank` to what the
-  task needs.
+- Add `"passive"` to the naive controller when the arm must never gain energy, and `"tank"` to
+  allow short bursts up to a budget. A correction removes torque, so it can slow the reach: set
+  `tank` to what the task needs and `width` to the smallest power that matters. They also cut
+  the frozen torque, which needs no correction.
 - The laws and estimators that read a controller's motors (`ForceTracking`, `StiffnessTracking`,
   `PositionRegulation`, `HoldingGoals`, `ContactForce`, `TaskStiffness`) refuse a
   `StateController`, which is what `"naive"` and `"frozen"` with `gravity=True` give, with a
   `ValueError`. Plain `"frozen"` is a `VMCController` and works with them; for a force on
   an underactuated arm use `DirectionalForce`.
-- `gravity=True` holds the passive joints where their springs balance the arm's weight, not at
+- `gravity=` holds the passive joints where their springs balance the arm's weight, not at
   the rest angle: the right reference for an arm that hangs or reaches out. The weight itself
   is compensated by a `GravityCompensation` in the controller, as for any robot.
-- `planar.arm(rest=...)` sets the passive joints' rest angles; the frozen controller and the
-  passive spring read them from the same place.
+- `planar.arm(rest=...)` sets the passive joints' rest angles, one for all, one per passive
+  joint or one per joint. The frozen controller reads them as the `q_rest` of the actuation,
+  and `add_dynamics` copies them into the passive springs' rest: the two do not follow each
+  other after that.

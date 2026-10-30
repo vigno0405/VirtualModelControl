@@ -38,6 +38,24 @@ def test_paramset_names_and_dedup_by_identity():
     assert ps.name_of(b) == "k2" and ps.has(b) and len(ps) == 2
 
 
+def test_one_param_under_several_names_is_found_under_each():
+    d = Param("d", 0.03)
+    ps = ParamSet()
+    ps.add(d, "seg1.d")
+    assert ps.add(d, "seg2.d") == "seg1.d"
+    assert list(ps) == ["seg1.d"] and ps["seg2.d"] is d and "seg2.d" in ps
+    np.testing.assert_array_equal(ps.vector(), [0.03])  # one value
+    assert set(Binding(ps, live=["seg1.d"]).view(ps)) == {"seg1.d", "seg2.d"}
+    assert set(constants(ps)) == {"seg1.d", "seg2.d"}
+    outer = ParamSet()
+    outer.merge(ps, "arm")
+    assert list(outer) == ["arm.seg1.d"] and outer["arm.seg2.d"] is d
+    ps.update({"seg2.d": 0.05})
+    assert float(d.value) == 0.05
+    with pytest.raises(ValueError, match="duplicate"):
+        ps.add(Param("e", 1.0), "seg2.d")
+
+
 def test_paramset_merge_and_select():
     inner = ParamSet([Param("stiffness", 1.0, scope="stage"), Param("s", 0.5, scope="episode")])
     outer = ParamSet()

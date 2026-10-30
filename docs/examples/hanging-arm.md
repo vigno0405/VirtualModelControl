@@ -76,7 +76,8 @@ size, are held out: the fit never sees them.
 `Steps` is this experiment as a controller. It runs on any plant, here the simulated arm, and
 its log goes straight to `identification.fit_stiffness_damping`. The fit knows the arm's
 masses and gravity, and fits its diagonal stiffness and damping by least squares, relative to
-the resting baseline. The masses are never fitted. Here the simulator plays the arm, so the
+the resting baseline. A stiffness or damping that the run does not determine, say of a motor that
+never pulls, comes back as NaN with a warning, not as a zero. The masses are never fitted. Here the simulator plays the arm, so the
 result can be checked against the values it was given.
 
 ```{code-cell} python

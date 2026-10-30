@@ -34,15 +34,15 @@ class _Searcher:
         """Add the candidates to the history; returns their costs as kept (all finite)."""
         if len(candidates) != len(costs):
             raise ValueError(f"{len(candidates)} candidates but {len(costs)} costs")
-        costs = np.array(costs, dtype=float)
-        failed = ~np.isfinite(costs)
-        known = [c for _, c in self.history] + list(costs[~failed])
-        costs[failed] = max(known, default=0.0)
-        for x, cost, bad in zip(candidates, costs, failed, strict=True):
+        kept = np.array(costs, dtype=float)
+        failed = ~np.isfinite(kept)
+        known = [c for _, c in self.history] + list(kept[~failed])
+        kept[failed] = max(known, default=0.0)
+        for x, cost, bad in zip(candidates, kept, failed, strict=True):
             self.history.append((np.array(x, dtype=float), float(cost)))
             if cost < self.best_cost and not bad:
                 self.best, self.best_cost = self.history[-1][0], float(cost)
-        return costs
+        return kept
 
 
 class Grid(_Searcher):
@@ -119,10 +119,10 @@ class CMAES(_Searcher):
 
     def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
         """Record the costs, then move the mean, the step size and the covariance."""
-        costs = self._record(candidates, costs)
+        kept = self._record(candidates, costs)
         n, w = self.mean.size, self._w
         B, D = self._axes()
-        best = np.argsort(costs)[: w.size]
+        best = np.argsort(kept)[: w.size]
         y = (np.asarray(candidates, dtype=float)[best] - self.mean) / self.sigma
         ybar = w @ y
         self.mean = self.mean + self.sigma * ybar
@@ -180,10 +180,10 @@ class ExtremumSeeking(_Searcher):
 
     def tell(self, candidates: Sequence[ArrayLike], costs: Sequence[float]) -> None:
         """Record the two costs, then step against the slope between them."""
-        costs = self._record(candidates, costs)
+        kept = self._record(candidates, costs)
         up, down = (np.asarray(c, dtype=float) for c in candidates)
         spread = up - down  # the perturbation, shortened where a bound clipped it
-        slope = (costs[0] - costs[1]) / np.where(spread != 0.0, spread, np.inf)
+        slope = (kept[0] - kept[1]) / np.where(spread != 0.0, spread, np.inf)
         self.x = np.clip(self.x - self.gain * slope, self.lower, self.upper)
 
 

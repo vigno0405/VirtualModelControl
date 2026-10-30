@@ -37,13 +37,13 @@ def rollout(
     in steps of at most ``max_step`` of ``integrator`` (``implicit``, ``rk4``, ``cvodes``).
 
     Row k of ``t``, ``q``, ``v``, ``z`` (if the controller has virtual states) and ``u`` (motor
-    torques) is the state at the start of step k and the command computed from it, like
-    ``run``. ``p`` replaces the live Params (as ``compiled.live_values()``); a CasADi MX symbol
-    gives the results as MX expressions to differentiate. With ``u``, motor torques [N·m] with one
-    row per step, the robot gets them instead of the controller's command (open loop, as in a
-    logged run). ``output`` lists output stages with a ``symbolic`` form
-    (``control.StaticFrictionCompensation``), applied to the controller's command as
-    ``VMCController(output=)`` applies them.
+    torques) is the state at the start of step k and the command computed from it, like ``run``
+    except for ``z``, which ``run`` logs after the step's update. ``p`` replaces the live Params
+    (as ``compiled.live_values()``); a CasADi MX symbol gives the results as MX expressions to
+    differentiate. With ``u``, motor torques [N·m] with one row per step, the robot gets them
+    instead of the controller's command (open loop, as in a logged run). ``output`` lists output
+    stages with a ``symbolic`` form (``control.StaticFrictionCompensation``), applied to the
+    controller's command as ``VMCController(output=)`` applies them.
     """
     if integrator not in INTEGRATORS:
         raise ValueError(f"integrator takes one of {INTEGRATORS}, got {integrator!r}")

@@ -122,8 +122,9 @@ bottom.set_ylabel("stiffness [N/m]");
 
 `MPC` wraps the problem. It builds the program once, and every `step` solves it from the
 measured state, starting from the previous plan moved one interval on. It sets the Params of the
-plan on the controller through `controller.set`, and returns the jump this gave the controller's
-energy, as the [adaptation laws](stiffness.md) do:
+plan on the controller through `controller.set`, if the solve converged (a failed one leaves the
+Params as they are, and `mpc.result.converged` says), and returns the jump this gave the
+controller's energy, as the [adaptation laws](stiffness.md) do:
 
 ```{code-cell} python
 mpc = opt.MPC(problem)  # the start and the Params that step become inputs
@@ -211,8 +212,9 @@ while running:
 ```
 
 A solve lets the other threads run, so the loop keeps its rate. `start` does nothing while a
-plan is being made, and an error in the thread is raised by the next `poll`. Create the `MPC`
-after setting the problem's solver and options, since it creates the solver then.
+plan is being made or has not been polled yet, `reset` drops a plan that is being made, and an
+error in the thread is raised by the next `poll`. Create the `MPC` after setting the problem's
+solver and options, since it creates the solver then.
 
 ## A tank pays for the changes
 
@@ -282,7 +284,9 @@ glue("rti", 1e3 * float(abs(fast[-1, 1] - 1.0)), display=False)
 ```
 
 Every plan is one iteration, and the mass ends {glue:text}`rti:.1f` mm from the goal. A plan
-then is not an optimum, only a step towards it; `plan.converged` is false for it by design.
+then is not an optimum, only a step towards it; `plan.converged` is false for it by design, and
+it is applied all the same. `rti=True` sets the problem's solver to `"rti"`, and an `MPC` of the
+same problem without it puts the previous solver back.
 
 ## Solvers
 

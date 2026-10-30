@@ -90,25 +90,27 @@ class VMCController:
     def live_params(self) -> dict[str, np.ndarray]:
         """The controller's own values of its live Params, each in the Param's shape."""
         return {
-            name: np.reshape(self.params[where], self.compiled.params[name].shape, order="F")
+            name: np.reshape(self.params[where], self.compiled.params[name].shape, order="F").copy()
             for name, where in self.compiled.live_slices().items()
         }
 
     def balance(self) -> dict[str, float]:
         """The controller's energies [J] and powers [W] at the last step: ``stored`` (V),
         ``kinetic`` (T), ``port`` (τᵀv), ``dissipation`` and ``source``."""
-        if self._x is None:
+        x = self.inputs()
+        if x is None:
             return {}
-        values = self._fast_power.call([self._x])
+        values = self._fast_power.call([x])
         names = ("stored", "kinetic", "port", "dissipation", "source")
         return {name: float(value) for name, value in zip(names, values, strict=True)}
 
     def elements(self) -> dict[str, dict[str, np.ndarray]]:
         """Each element at the last step: its coordinate ``y``, rate ``ydot``, ``force`` and
         ``torque``, its share of the motor torques before any output stage."""
-        if self._x is None:
+        x = self.inputs()
+        if x is None:
             return {}
-        values = [np.array(v).ravel() for v in self._fast_elements.call([self._x])]
+        values = [np.array(v).ravel() for v in self._fast_elements.call([x])]
         quantities = ("y", "ydot", "force", "torque")
         return {
             name: dict(zip(quantities, values[4 * k : 4 * k + 4], strict=True))
@@ -122,6 +124,12 @@ class VMCController:
                 raise KeyError(
                     f"{name!r} is not a live Param here; compile with runtime=[{name!r}] to change "
                     "it while running"
+                )
+            param = self.compiled.params[name]
+            if np.size(value) != param.size:
+                raise ValueError(
+                    f"Param {name!r} has shape {param.shape}, got a value of shape "
+                    f"{np.shape(value)}"
                 )
             new[self._slices[name]] = np.ravel(value, order="F")
         return new

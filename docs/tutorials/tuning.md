@@ -125,7 +125,8 @@ A searcher is made from the bounds of the Params: `Grid(lower, upper, points)`,
 `Bayes(lower, upper, initial=...)` and `Random(lower, upper, size=...)`. `CMAES(start, step, lower,
 upper, size=...)` also takes a starting point and the size of its first steps, and
 `ExtremumSeeking(start, amplitude, gain, ...)` the size of its test moves and a gain. The CMA-ES
-loop below is the same as `tune`, written out:
+loop below is the same as `tune`, written out. An episode that failed, with a cost that is `inf`
+or NaN, counts as the worst cost so far and is never the best:
 
 ```{code-cell} python
 from virtualmodelcontrol import optimization as opt

@@ -1,5 +1,9 @@
 """The energy tank: a change of a running controller, paid for with exact energy."""
 
+import copy
+import pickle
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -150,3 +154,9 @@ def test_a_reset_keeps_the_level_and_the_first_step_after_it_adds_nothing():
     assert tank.level == level
     tank.step(0.0, meas)
     assert tank.level == level
+
+
+def test_a_tank_can_be_copied_and_pickled():
+    tank = Tank(SimpleNamespace(gain=3.0), level=1.0)
+    for clone in (copy.copy(tank), copy.deepcopy(tank), pickle.loads(pickle.dumps(tank))):
+        assert clone.level == 1.0 and clone.gain == 3.0  # the controller's attributes still pass

@@ -1,5 +1,9 @@
 """Smooth element swaps: the quintic blend of the lab's controller, and swaps in a run."""
 
+import copy
+import pickle
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -66,3 +70,9 @@ def test_a_swap_blends_the_two_controllers_then_hands_over():
     assert swap.controller is c and not swap.blending
     jumps = np.abs(np.diff(np.array(sent), axis=0)).max(axis=1)
     assert jumps[49:52].max() < 5 * np.median(jumps[:49]) + 1e-9  # no jump when the swap starts
+
+
+def test_a_swap_controller_can_be_copied_and_pickled():
+    swap = SwapController(SimpleNamespace(gain=3.0))
+    for clone in (copy.copy(swap), copy.deepcopy(swap), pickle.loads(pickle.dumps(swap))):
+        assert clone.gain == 3.0 and not clone.blending

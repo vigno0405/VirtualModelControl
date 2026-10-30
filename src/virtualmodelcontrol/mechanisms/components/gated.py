@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...core.params import Param
-from ..coordinates.base import Context
+from ..coordinates.base import Context, Coordinate
 from .base import Component
 
 
@@ -27,6 +27,10 @@ class Gated(Component):
     def params(self) -> dict[str, Param]:
         """The element's Params, and the gate."""
         return {**self.component.params(), **super().params()}
+
+    def reads(self) -> tuple[Coordinate, ...]:
+        """What the element reads."""
+        return self.component.reads()
 
     def force(self, ctx: Context, y: Any, yd: Any) -> Any:
         """The gate times the element's force."""

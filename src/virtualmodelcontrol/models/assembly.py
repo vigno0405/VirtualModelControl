@@ -8,7 +8,7 @@ from typing import Any
 import casadi as ca
 import numpy as np
 
-from ..core.params import Param, ParamSet, as_param
+from ..core.params import Param, ParamSet, as_param, named
 from ..core.registry import get, register
 from ..core.space import Product
 from ..math import exp_so3
@@ -37,7 +37,9 @@ class Assembly:
         for name, spec in parts.items():
             model, position, rotation = spec[0], spec[1], spec[2]
             self.params.merge(model.params, name)
-            self._local[name] = {loc: self.params.name_of(par) for loc, par in model.params.items()}
+            self._local[name] = {
+                loc: self.params.name_of(par) for loc, par in named(model.params).items()
+            }
             pos = as_param(
                 position, f"{name}.mount.position", unit="m", scope="design", bounds=free
             )
@@ -126,7 +128,7 @@ class StackedActuation:
 
     def _view(self, i: int, p: dict[str, Any]) -> dict[str, Any]:
         name, actuation = self.parts[i][2], self.parts[i][1]
-        return {loc: p[f"{name}.{loc}"] for loc in actuation.params}
+        return {loc: p[f"{name}.{loc}"] for loc in named(actuation.params)}
 
     def _split(self, x: Any, which: int) -> list[Any]:
         out, offset = [], 0

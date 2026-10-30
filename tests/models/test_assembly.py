@@ -4,7 +4,7 @@ import casadi as ca
 import numpy as np
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.core import constants
+from virtualmodelcontrol.core import Euclidean, Param, ParamSet, constants
 from virtualmodelcontrol.models import (
     Assembly,
     LinearCoupling,
@@ -15,6 +15,10 @@ from virtualmodelcontrol.models import (
 from virtualmodelcontrol.robots import adapt, helyx
 
 rng = np.random.default_rng(13)
+
+
+def num(x):
+    return np.array(ca.evalf(x)).squeeze()
 
 
 def two_arms():
@@ -93,3 +97,55 @@ def test_shared_part_model_keeps_one_set_of_params():
     np.testing.assert_allclose(
         evaluate_frame(body, [0.0, np.pi / 2], "b/tip")[1], [0, 0.3, 0], atol=1e-15
     )
+
+
+class TwoPart:
+    """A user's own model: a rod of two parts along z, q the base position; one Param for both."""
+
+    q_unit = "m"
+    sites = ()
+
+    def __init__(self, length, as_dict=False):
+        self.space = Euclidean(3)
+        if as_dict:
+            self.params = {"first": length, "second": length}
+        else:
+            self.params = ParamSet()
+            self.params.add(length, "first")
+            self.params.add(length, "second")
+
+    def frame(self, q, at, p):
+        return ca.DM.eye(3), q[0:3] + ca.vertcat(0, 0, at * (p["first"] + p["second"]))
+
+
+def test_a_users_own_model_can_share_a_param_like_the_built_in_ones():
+    length = Param("L", 0.3, unit="m", scope="design")
+    for as_dict in (False, True):
+        part = TwoPart(length, as_dict)
+        np.testing.assert_allclose(evaluate_frame(part, [0, 0, 0.1], 0.5)[1], [0, 0, 0.4])
+        body = Assembly({"a": (part, [0, 0, 0], [0, 0, 0]), "b": (part, [1, 0, 0], [0, 0, 0])})
+        np.testing.assert_allclose(
+            evaluate_frame(body, [0, 0, 0, 0, 0, 0.2], ("b", 1.0))[1], [1, 0, 0.8]
+        )
+    robot = vmc.Mechanism("rod", model=TwoPart(length))
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("k", vmc.LinearSpring(robot.point(s=1.0) - [0.0, 0.0, 1.0], 50.0))
+    system = vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
+    assert list(system.params).count("rod.first") == 1 and system.params["rod.second"] is length
+
+
+def test_one_transmission_and_one_mount_param_shared_by_two_parts():
+    arm = helyx.model("145-145-145")
+    pos = Param("pos", [0.0, 0.2, 0.0], unit="m", scope="design")
+    body = Assembly({"left": (arm, pos, [0, 0, 0]), "right": (arm, pos, [0, 0, 0])})
+    tendons = helyx.tendons()
+    act = body.stacked_actuation({"left": tendons, "right": tendons})
+    q = ca.DM(np.tile(rng.uniform(-0.01, 0.01, 9), 2))
+    assert num(act.motor_angles(q, constants(act.params))).shape == (18,)
+    np.testing.assert_allclose(
+        evaluate_frame(body, q, ("right", 1.0))[1], evaluate_frame(body, q, ("left", 1.0))[1]
+    )
+    robot = vmc.Mechanism("duo", model=body, actuation=act)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("k", vmc.LinearSpring(robot.point("left", s=1.0) - [0.0, 0.2, 0.4], 50.0))
+    vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))

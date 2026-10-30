@@ -1,5 +1,9 @@
 """Schedules: Params that follow values over time, swaps at given times, and a fresh start."""
 
+import copy
+import pickle
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -99,3 +103,13 @@ def test_a_param_that_is_not_live_is_refused():
     _, controller = arm_controller()
     with pytest.raises(KeyError, match="runtime"):
         ScheduledController(controller, [Schedule("ctrl.reach.s", [(0.0, 0.5)])])
+
+
+def test_a_scheduled_controller_can_be_copied_and_pickled():
+    scheduled = ScheduledController(SimpleNamespace(gain=3.0))
+    for clone in (
+        copy.copy(scheduled),
+        copy.deepcopy(scheduled),
+        pickle.loads(pickle.dumps(scheduled)),
+    ):
+        assert clone.gain == 3.0 and clone.swaps == []

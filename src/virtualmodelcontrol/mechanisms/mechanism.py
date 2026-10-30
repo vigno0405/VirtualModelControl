@@ -12,7 +12,7 @@ from .components.base import Component
 from .components.inertance import PointMass
 from .coordinates.base import walk
 from .coordinates.frames import FramePoint
-from .coordinates.joints import Joint, MotorAngle, State
+from .coordinates.joints import Joint, MotorAngle, State, as_indices, select_indices
 
 
 class Mechanism:
@@ -72,8 +72,11 @@ class Mechanism:
         return names
 
     def joint(self, index: Any) -> Joint:
-        """Entries of the robot's generalized coordinates."""
-        return Joint(index, getattr(self.model, "q_unit", ""))
+        """Entries of the robot's generalized coordinates: an index, a slice or a list of indices,
+        negative ones counting from the end."""
+        unit = getattr(self.model, "q_unit", "")
+        n = getattr(getattr(self.model, "space", None), "nq", None)
+        return Joint(index if n is None else select_indices(index, n), unit)
 
     def motor(self, index: Any) -> MotorAngle:
         """Entries of the robot's motor angles (positive when a motor pulls a tendon), from its
@@ -83,7 +86,7 @@ class Mechanism:
         every = range(self.actuation.motor_sizes(self.space)[0])
         if isinstance(index, slice):
             return MotorAngle(self.actuation, list(every[index]))
-        return MotorAngle(self.actuation, [index] if isinstance(index, int) else list(index))
+        return MotorAngle(self.actuation, as_indices(index))
 
     @property
     def space(self) -> Any:

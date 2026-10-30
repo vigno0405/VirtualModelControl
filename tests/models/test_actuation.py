@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from virtualmodelcontrol.core import Euclidean, Product, Quaternion, constants
+from virtualmodelcontrol.core import Euclidean, Param, Product, Quaternion, constants
 from virtualmodelcontrol.models import (
     Direct,
     Efficiency,
@@ -153,3 +153,13 @@ def test_a_controller_cannot_be_compiled_against_a_robot_with_a_passive_part():
     ctrl.add("spring", vmc.LinearSpring(robot.joint(7), 1.0))
     with pytest.raises(NotImplementedError, match="passive"):
         vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
+
+
+def test_one_spool_radius_param_shared_by_every_segment():
+    r = Param("r", helyx.SPOOL_RADIUS, unit="m", scope="design", bounds=(0.0, np.inf))
+    shared = TendonTransmission(list(helyx.TENDON_ANGLES), r)
+    q = ca.DM(rng.uniform(-0.01, 0.01, 9))
+    np.testing.assert_allclose(
+        num(shared.motor_angles(q, constants(shared.params))), num(TENDONS.motor_angles(q, P))
+    )
+    assert sum(name.endswith(".r") for name in shared.params) == 1

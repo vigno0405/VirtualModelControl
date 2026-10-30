@@ -40,6 +40,16 @@ def test_the_force_of_a_gated_spring_is_minus_the_gradient_of_its_energy():
         np.testing.assert_allclose(f, -grad, rtol=1e-6, atol=1e-8)
 
 
+def test_a_gated_component_reads_what_the_wrapped_one_reads():
+    robot = vmc.Mechanism("robot", model=JointSpace(3, unit="m"))
+    plane = vmc.PlaneDistance(robot.joint(slice(0, 3)), (0, 0, 1), (0, 0, 0.1))
+    friction = Gated(vmc.ContactFriction(plane, 1000.0, 0.5))
+    assert friction.reads() == (plane,)
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("friction", friction)  # alone: the plane's Params are found through reads
+    vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
+
+
 def test_the_gate_is_a_live_param_between_zero_and_one():
     robot = vmc.Mechanism("robot", model=JointSpace(1, unit="m"))
     robot.add("mass", vmc.Inertance(robot.joint(0), 1.0))

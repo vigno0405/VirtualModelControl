@@ -94,12 +94,14 @@ def as_param(
 class ParamSet(Mapping[str, Param]):
     """Ordered, named collection of Params; packs their values into one flat vector.
 
-    A Param object appears once: adding it again under another name keeps the first name.
-    Matrices are packed column by column, as CasADi stores them.
+    A Param object appears once: adding it again under another name keeps the first name, and
+    the other name finds the same Param (``by_name``). Matrices are packed column by column, as
+    CasADi stores them.
     """
 
     def __init__(self, params: Iterable[Param] = ()) -> None:
         self._params: dict[str, Param] = {}
+        self._aliases: dict[str, Param] = {}
         self._names: dict[int, str] = {}
         for param in params:
             self.add(param)
@@ -107,16 +109,23 @@ class ParamSet(Mapping[str, Param]):
     def add(self, param: Param, name: str | None = None, *, rename: bool = False) -> str:
         """Add ``param`` under ``name`` (default: its own name) and return the name used.
 
-        With ``rename``, a name already taken gets a numeric suffix instead of raising.
+        With ``rename``, a name already taken gets a numeric suffix instead of raising. A Param
+        already in the set stays one entry: a ``name`` given for it becomes another way to find it.
         """
         if id(param) in self._names:
+            if name is not None and not rename:
+                owner = self._params.get(name, self._aliases.get(name))
+                if owner is None:
+                    self._aliases[name] = param
+                elif owner is not param:
+                    raise ValueError(f"duplicate parameter name {name!r}")
             return self._names[id(param)]
         name = param.name if name is None else name
-        if name in self._params:
+        if name in self._params or name in self._aliases:
             if not rename:
                 raise ValueError(f"duplicate parameter name {name!r}")
             k = 2
-            while f"{name}{k}" in self._params:
+            while f"{name}{k}" in self._params or f"{name}{k}" in self._aliases:
                 k += 1
             name = f"{name}{k}"
         self._params[name] = param
@@ -125,13 +134,19 @@ class ParamSet(Mapping[str, Param]):
 
     def merge(self, other: ParamSet, prefix: str = "") -> None:
         """Add every Param of ``other``, with names prefixed by ``prefix.``."""
-        for name, param in other.items():
+        for name, param in named(other).items():
             self.add(param, f"{prefix}.{name}" if prefix else name)
+
+    def by_name(self) -> dict[str, Param]:
+        """Every name, the extra names of a shared Param included, to its Param."""
+        return {**self._params, **self._aliases}
 
     def __getitem__(self, name: str) -> Param:
         try:
             return self._params[name]
         except KeyError:
+            if name in self._aliases:
+                return self._aliases[name]
             raise KeyError(f"no parameter {name!r}; known: {list(self._params)}") from None
 
     def __iter__(self) -> Iterator[str]:
@@ -194,6 +209,13 @@ class ParamSet(Mapping[str, Param]):
         return list(self._params) if names is None else list(names)
 
 
+def named(params: Mapping[str, Param]) -> Mapping[str, Param]:
+    """Every name to its Param: a ParamSet also gives the extra names of a Param it holds under
+    several; any other mapping of Params is returned as it is."""
+    by_name = getattr(params, "by_name", None)
+    return params if by_name is None else by_name()
+
+
 def _shaped(block: Any, shape: tuple[int, ...]) -> Any:
     return ca.reshape(block, shape[0], shape[1]) if len(shape) == 2 else block
 
@@ -232,7 +254,7 @@ class Binding:
 
     def view(self, params: Mapping[str, Param]) -> dict[str, Any]:
         """Expressions of a model's Params, keyed by the model's own names."""
-        return {name: self(param) for name, param in params.items()}
+        return {name: self(param) for name, param in named(params).items()}
 
     def values(self) -> np.ndarray:
         """Current values of the live Params, packed like ``p``."""
@@ -241,4 +263,6 @@ class Binding:
 
 def constants(params: Mapping[str, Param]) -> dict[str, Any]:
     """Current values of Params as CasADi constants, keyed by name (a numeric view)."""
-    return {name: _shaped(ca.DM(p.value.ravel(order="F")), p.shape) for name, p in params.items()}
+    return {
+        name: _shaped(ca.DM(p.value.ravel(order="F")), p.shape) for name, p in named(params).items()
+    }

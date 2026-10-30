@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from virtualmodelcontrol.core import constants
+from virtualmodelcontrol.core import Param, constants
 from virtualmodelcontrol.models import SerialChain, evaluate_frame, from_dict
 
 rng = np.random.default_rng(6)
@@ -163,3 +163,18 @@ def test_the_new_joint_types_survive_a_dict_round_trip_in_json():
     for a, b in zip(evaluate_frame(copy, q, "tip"), evaluate_frame(screw, q, "tip"), strict=True):
         np.testing.assert_allclose(a, b, atol=1e-15)
     assert copy.joints == screw.joints and copy.q_unit == "rad"
+
+
+def test_one_axis_param_shared_by_two_joints():
+    z = Param("axis", [0.0, 0.0, 1.0], scope="design")
+    arm = SerialChain(
+        ["revolute", "revolute"],
+        axes=[z, z],
+        points=[[0.0, 0.0, 0.0], [L1, 0.0, 0.0]],
+        sites={"tip": (2, [L1 + L2, 0.0, 0.0])},
+    )
+    q = rng.uniform(-np.pi, np.pi, 2)
+    np.testing.assert_allclose(
+        evaluate_frame(arm, q, "tip")[1], evaluate_frame(two_link(), q, "tip")[1], atol=1e-15
+    )
+    assert from_dict(arm.to_dict()).to_dict()["axes"] == [[0.0, 0.0, 1.0]] * 2

@@ -57,7 +57,9 @@ class QuarticSpring(Component):
         return 0.25 * ctx.param(self.stiffness) * ca.sumsqr(y) ** 2
 ```
 
-It acts on any coordinate, and `compile` treats it like the built-in springs:
+Run the cell again, in a notebook or after an edit, and the new class replaces the old one
+under the name. Another class under a taken name is refused. It acts on any coordinate, and
+`compile` treats it like the built-in springs:
 
 ```{code-cell} python
 from virtualmodelcontrol.robots import helyx
@@ -370,7 +372,9 @@ my_project = "my_project.vmc_plugins"
 ```
 
 Importing `my_project.vmc_plugins` must run its `register(...)` decorators. The library loads
-the plugins the first time a name is looked up and not found. So configuration files can use
+the plugins the first time a name is looked up and not found. A plugin that fails to import does
+not keep the others from loading: its error is raised, and a name that is not there says that a
+plugin is broken. So configuration files can use
 the plugins' names ([Experiments in files](configurations.md)). Register a robot template as
 `"robot"`, a simulation's dynamics as `"dynamics"`, an output stage as `"output"`, a controller
 template as `"controller"` and a component as `"component"`. Register a coordinate kind as

@@ -18,6 +18,56 @@ All notable changes to this project are documented here. The format follows
 - `helyx.tension_stage`, `helyx.unwind_limit` and their numbers `TENSION_FLOOR`,
   `UNWIND_LIMIT` and `UNWIND_STIFFNESS`: the tension floor, and a limit on how far a motor may
   unwind (pulling is free). Both are optional, and `helyx.output_stage` is unchanged.
+- `control.underactuated.Frozen(at=)` and `controller(gravity=<motor angles>)`: the rest of the
+  passive joints balanced once at a pose. The frozen torque stays the gradient of a potential,
+  which `gravity=True` (the balance found again at every reading, as before) does not: its torque
+  has a curl of a few percent in the test. `Frozen.rest` can be set as the `q_rest` of the
+  actuation.
+- A `Param` can be shared by several sections or joints (`PCC([0.2, 0.2], radius)`, one axis for two
+  joints): it keeps one value, and `ParamSet.by_name()` lists every name it has.
+- `MovingHorizon.encoder` of a robot with fewer motors than coordinates measures the motors, as the
+  Kalman filter's does (it pinned the passive joint at its rest angle: an error of 0.37 rad in the
+  test, 0.001 now). `MovingHorizon.P` is defined from `reset` on.
+- A term of a plan can use a site of a `plant` that is another robot.
+
+### Changed
+
+- A plan of a robot with fewer motors than coordinates now reads the motors, as `VMCController`
+  does (the frozen controller of `control.underactuated`). It used to read the whole state, so
+  that `Problem(system)` and the simulation of `VMCController(compile(system))` were different
+  controllers (a gap of 0.36 rad in the test). `Problem(reads="state")` plans the whole-state
+  controller (`StateController`, `"naive"`), and `reads="motors"` asks for the default outright.
+  For a robot with a motor on every coordinate nothing changes.
+- `MPC` applies a plan only if its solve converged (a real-time iteration is applied as it is):
+  a failed solve used to jump the controller's Params. `rti=True` is undone by a later `MPC` of
+  the same problem without it, `reset` drops a plan that is being made, and `start` waits until
+  the last plan was polled.
+- `Result.params` and `Result.steps` are held inside the Params' bounds (the solver relaxes a
+  bound by about 1e-8).
+- `fit_params` and `fit_stiffness_damping` refuse an even `smoothing` (it shifted the derivative by
+  half a sample: a damping of 1.5 came out as 1.88), and a run whose `train` mask is off everywhere.
+  `fit_stiffness_damping` returns NaN, with a warning that names it, for a stiffness or damping
+  that the runs do not determine (it returned 0). `fit_params` takes one name as a string.
+- `VMCController.set` refuses a value whose size is not the Param's (a scalar was broadcast into a
+  matrix), and `live_params()` returns copies. `balance()` and `elements()` use the Params as
+  `set` left them.
+- `register` replaces a class defined again (a script or a notebook cell run twice) and still
+  refuses another object under a taken name. A plugin that fails to import no longer keeps the
+  others from loading, and its error is raised every time.
+- `robot.joint` counts from the end (`slice(0, -1)`) and takes numpy integers; an index out of
+  range is a `ValueError` that says how many coordinates there are.
+- `TensionFloor` needs a positive `width` (zero gave NaN).
+- In `ask` and `tell`, a cost that is not finite (an episode that failed) counts as the worst cost
+  so far and is never the best; `Bayes` used to fail for good after one.
+- `planar.arm(rest=)` takes one angle per passive joint as well as one per joint.
+- The messages that named `Collocation` and `Equilibrium` name `Shooting` too.
+
+### Fixed
+
+- `Tank`, `SwapController` and `ScheduledController` can be copied and pickled.
+- `Gated` forwards what the wrapped component reads.
+- The docstring of `rollout` says that its `z` rows are the state the law used, one step behind
+  `run`'s.
 
 ## [1.2.2] - 2026-10-11
 

@@ -118,7 +118,7 @@ assert abs(float(tanh_fit.values["damper.damping"]) - 1.5) < 0.1
 
 The true values are 2 kg, 40 N/m and 1.5 N·s/m. The log holds no accelerations, so the fit
 gets them by smoothing the velocity and differentiating it, which is where its error comes from
-(`smoothing` is the number of samples of the smoothing). A run that has an `a` of its own, as a
+(`smoothing` is the number of samples of the smoothing: an odd number, at least 5). A run that has an `a` of its own, as a
 simulation can give, is used as it is. After the fit, {glue:text}`fit_rms:.4f` N is left over
 per sample. The numbers after ± are the standard errors: how far the values may be off if what is
 left over is noise. Here it is not noise, it is the smoothing, so the errors are much larger than

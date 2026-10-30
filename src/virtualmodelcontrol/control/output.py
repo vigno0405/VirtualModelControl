@@ -133,6 +133,15 @@ class TensionFloor:
     width: float = 0.001
     group: int = 3
 
+    def __post_init__(self) -> None:
+        if not self.width > 0.0:
+            raise ValueError(
+                f"width must be positive, got {self.width} (a small width, such as 1e-4, makes "
+                "the floor nearly exact)"
+            )
+        if self.group < 1:
+            raise ValueError(f"group must be at least 1, got {self.group}")
+
     def _lift(self, u: list[Any], fmin: Any, exp: Any, log: Any, fmax: Any, fabs: Any) -> Any:
         """The lift of one group's torques ``u``: a soft max(0, floor - min(u))."""
         w, lowest = self.width, u[0]

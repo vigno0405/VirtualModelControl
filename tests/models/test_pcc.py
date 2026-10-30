@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from virtualmodelcontrol.core import constants
+import virtualmodelcontrol as vmc
+from virtualmodelcontrol.core import Param, constants
 from virtualmodelcontrol.models import PCC, evaluate_frame, from_dict
 from virtualmodelcontrol.robots import helyx
 
@@ -161,3 +162,18 @@ def test_dict_round_trip():
     assert isinstance(copy, PCC) and copy.to_dict() == model.to_dict()
     q = random_config(6)
     np.testing.assert_allclose(evaluate_frame(copy, q, 0.7)[1], evaluate_frame(model, q, 0.7)[1])
+
+
+def test_one_radius_param_shared_by_every_segment():
+    d = Param("d", 0.03, unit="m", scope="design", bounds=(0.0, np.inf))
+    shared, own = PCC([0.1, 0.1, 0.1], d), PCC([0.1, 0.1, 0.1], 0.03)
+    q = random_config()
+    np.testing.assert_allclose(
+        evaluate_frame(shared, q, "tip")[1], evaluate_frame(own, q, "tip")[1]
+    )
+    assert len(shared.params) == 4 and shared.to_dict()["d"] == [0.03] * 3
+    robot = helyx.add_dynamics(helyx.arm(section_radius=d))
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("k", vmc.LinearSpring(robot.point(s=1.0) - [0, 0, 0.3], 50.0))
+    system = vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl))
+    assert sum(1 for name in system.params if name.endswith(".d")) == 1

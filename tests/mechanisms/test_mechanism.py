@@ -42,6 +42,21 @@ def test_joint_uses_the_model_unit():
     assert Mechanism("arm", model=Rod()).joint(slice(0, 2)).unit == "m"
 
 
+def test_joint_counts_from_the_end_and_refuses_what_is_out_of_range():
+    robot = Mechanism("arm", model=vmc.models.JointSpace(4))
+    assert robot.joint(slice(0, -1)).indices == [0, 1, 2]
+    assert robot.joint(slice(1, -1)).indices == [1, 2] and robot.joint(slice(None)).dim == 4
+    assert robot.joint(-1).indices == [3] and robot.joint(np.int64(1)).indices == [1]
+    assert robot.joint(np.array([0, 2])).indices == [0, 2]
+    for bad in (slice(0, 10), slice(-5, 2), 4, -5, [0, 4]):
+        with pytest.raises(ValueError, match="4 coordinates"):
+            robot.joint(bad)
+
+
+def test_motor_takes_a_numpy_integer():
+    assert helyx.arm().motor(np.int64(2)).indices == [2]
+
+
 def test_motor_angle_reads_the_actuations_angles():
     arm = helyx.arm()
     assert arm.motor(slice(None)).dim == 9 and arm.motor(3).indices == [3]

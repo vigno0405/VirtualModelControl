@@ -67,4 +67,6 @@ class Tank:
         return applied
 
     def __getattr__(self, name: str) -> Any:
+        if name.startswith("__") or "controller" not in self.__dict__:  # copy and pickle ask early
+            raise AttributeError(name)
         return getattr(self.controller, name)

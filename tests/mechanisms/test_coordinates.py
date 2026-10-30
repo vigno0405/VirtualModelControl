@@ -72,6 +72,13 @@ def test_joint_indices():
         Joint(slice(1, None))
 
 
+def test_a_joint_slice_needs_a_non_negative_stop_and_an_index_may_be_a_numpy_integer():
+    for bad in (slice(0, -1), slice(-2, 3)):  # a bare Joint cannot count from the end
+        with pytest.raises(ValueError, match="non-negative stop"):
+            Joint(bad)
+    assert Joint(np.int64(2)).indices == [2] and Joint(slice(np.int64(1), np.int64(3))).dim == 2
+
+
 def test_frame_point_on_a_rod():
     rod = Rod(length=2.0)
     p = FramePoint(rod, s=0.25, offset=[0.1, 0.0, 0.0])

@@ -37,6 +37,15 @@ soft = vmc.Mechanism(
 soft.actuation.motor_sizes(soft.space)  # motor angles, motor rates
 ```
 
+A number is a `Param`, and one `Param` can stand for several: give the same one to both sections
+and they share its value, so that `Problem.free` and `set` change it once.
+
+```{code-cell} python
+radius = vmc.Param("radius", 0.03, unit="m", scope="design")
+shared = PCC([0.2, 0.2], radius)  # one radius for both sections
+shared.params["seg1.d"] is shared.params["seg2.d"]
+```
+
 The arm's mass is not lumped by itself. `soft.add_mass_along(name, mass, s0, s1, n)` spreads a mass
 evenly between two arc parameters as $n$ point masses at the nodes of Gauss-Legendre quadrature,
 which is exact for any polynomial of degree $2n - 1$ in the arc length. Here the height of the

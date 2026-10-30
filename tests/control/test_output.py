@@ -106,6 +106,19 @@ def test_tension_floor_symbolic_is_the_same_map():
     assert np.isfinite(np.array(slope(rng.uniform(-0.5, 0.5, 9)))).all()
 
 
+def test_tension_floor_refuses_a_width_that_gives_nan_and_a_group_that_is_not_a_group():
+    for width in (0.0, -0.001):
+        with pytest.raises(ValueError, match=r"width must be positive.*1e-4"):
+            output.TensionFloor(0.03, width=width)
+    for group in (0, -3):
+        with pytest.raises(ValueError, match="group must be at least 1"):
+            output.TensionFloor(0.03, group=group)
+    nearly_exact = output.TensionFloor(0.03, width=1e-4)(
+        np.array([0.1, -0.2, 0.0]), meas(np.zeros(3))
+    )
+    assert np.isfinite(nearly_exact).all() and nearly_exact.min() == pytest.approx(0.03, abs=1e-3)
+
+
 def test_tension_floor_groups_and_registry():
     with pytest.raises(ValueError, match="groups of 3"):
         output.TensionFloor(0.03)(np.zeros(8), meas(np.zeros(8)))
