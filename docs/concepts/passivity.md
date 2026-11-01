@@ -66,6 +66,34 @@ the robot's masses: its power is minus the power of gravity on them. Added to th
 removes gravity's potential energy from the robot's. The robot then behaves as if it had no
 weight.
 
+## Dampers and the Rayleigh function
+
+A damper gives a force $f(y, \dot y)$ on its coordinate with $f \cdot \dot y \le 0$. Every damper of
+the library is the gradient of a *Rayleigh dissipation function* $R(\dot y)$:
+
+$$
+f = -\frac{\partial R}{\partial \dot y}, \qquad \dot y \cdot \frac{\partial R}{\partial \dot y} \ge 0 .
+$$
+
+For a linear damper $R = \tfrac12\,\dot y^\top D\,\dot y$ and $f = -D\dot y$. The tanh damper has
+$R = (F^2/d)\ln\cosh(d\dot y/F)$, and the diode, contact and friction dampers are of the same kind.
+The robot receives $\tau = J^\top f$. Since $\dot y = J v$, that is also
+$\tau = -\partial R/\partial v$: the dissipation function of the whole robot is the sum of its
+dampers', and the damping matrix $C = J^\top D J$ is symmetric and positive semidefinite. The power
+the dampers take is $f\cdot\dot y = -\dot y^\top \partial R/\partial \dot y$, which is $-2R$ for a
+linear damper and never positive for any of them. That is the $P_D \le 0$ of the balance above.
+
+The library never builds $R$. It builds the force $f$ and the power $f \cdot \dot y$ directly, which
+are the same numbers. A test checks it for every damper it ships: the Jacobian
+$\partial f/\partial \dot y$ is symmetric (the force is the gradient of something), and negative
+semidefinite for all but the smooth diode, whose $R$ is slightly bent where its gate opens and
+which dissipates all the same. A damper of your own is a Rayleigh damper when that Jacobian is
+symmetric; for passivity it is enough that $f \cdot \dot y \le 0$.
+
+The same function explains the damping of a controller on a robot with fewer motors than joints.
+Evaluated on the frozen velocity, $R = \tfrac12\,\dot d^\top C\,\dot d$ gives a torque on the
+motors that always dissipates ([the theory](underactuated.md)).
+
 ## What weakens it
 
 - **Sampling and delay.** A digital controller holds each torque for a control period, so it
@@ -82,9 +110,9 @@ weight.
   $\eta P$, and the balance holds with $\eta E_c$. Different efficiencies on motors that one
   element couples make its forces non-conservative, as the [finger example](../examples/finger.md)
   explains.
-- **Joints that no motor drives.** Torques that the motors alone can give, $B^+\tau$, are not
-  the gradient of a potential, so the controller may not be passive any more. [Robots with
-  fewer motors than joints](../tutorials/underactuated.md) shows the controllers that keep it
-  passive.
+- **Joints that no motor drives.** Torques that the motors alone can give, $B^+\tau$ at the
+  measured state, are not the gradient of a potential, so the controller may not be passive any
+  more. The frozen controller of [robots with fewer motors than joints](underactuated.md) is
+  passive by construction, and [the tutorial](../tutorials/underactuated.md) runs it.
 - **Output stages.** Friction compensation, pretension and torque limits change the torques the
   motors receive, so the robot's input is no longer the controller's port.

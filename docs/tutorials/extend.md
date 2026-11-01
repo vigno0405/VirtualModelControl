@@ -97,7 +97,10 @@ by_name = experiment.controller.step(0.0, meas)["motor_torque"]
 assert np.array_equal(by_name, controller.step(0.0, meas)["motor_torque"])
 ```
 
-A dissipation component defines `force(ctx, y, yd)` with $f \cdot \dot y \le 0$. A source
+A dissipation component defines `force(ctx, y, yd)` with $f \cdot \dot y \le 0$, and that is all
+that passivity needs. The shipped dampers also have a symmetric Jacobian $\partial f/\partial \dot y$:
+the force is the gradient of a [Rayleigh function](../concepts/passivity.md#dampers-and-the-rayleigh-function),
+which a damper of your own has too unless it couples its axes with a skew part. A source
 defines `force`, and its power is metered.
 
 ## A new coordinate
@@ -389,3 +392,10 @@ robot, as the passive correction of [robots with fewer motors than joints](under
 does, sets `needs_plant = True` and takes a second argument, `symbolic(u, plant)`: `plant.rates`
 are the motor rates [rad/s] and `plant.dissipation` the power [W] that the robot's own dampers
 take, both at the state of the plan.
+
+A `StateController` takes a `read(meas)` that returns the (q, v) the law is evaluated at; the
+default reads the measurement's `q` and `v`. A read of your own can also give `pullback(meas)`,
+which returns (q, v, P) with $P = \partial q/\partial\theta$, and `law` and `torque`, to pull the
+springs and dampers back through $P$ as the moving rest of [robots with fewer
+motors than joints](underactuated.md) does (`control.underactuated.Moving` is the model). A plan
+and a rollout have `rest="moving"` for that one.

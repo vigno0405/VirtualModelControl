@@ -196,10 +196,10 @@ def test_the_controller_resets_its_output_stages():
 def test_gravity_moves_the_frozen_point_to_the_passive_joints_balance():
     robot = arm_with_law()[0]
     dynamics = vmc.compile_dynamics(robot)
-    plain, loaded = ua.Frozen(robot.actuation), ua.Frozen(robot.actuation, dynamics)
+    plain, loaded = ua.Frozen(robot.actuation), ua.Moving(robot.actuation, dynamics)
     theta = [0.4, -0.3]
     assert plain.point(theta)[1] == 0.0
-    point = loaded.point(theta)
+    point = loaded(vmc.Signals(0.0, motor_position=theta, motor_velocity=np.zeros(2)))[0]
     gradient = np.array(dynamics.residual(point, np.zeros(3), np.zeros(3), np.zeros(2),
                                           dynamics.live_values(), 0.0)).ravel()  # fmt: skip
     assert abs(gradient[1]) < 1e-8 and abs(point[1]) > 1e-2  # sagging under its own weight
@@ -359,16 +359,15 @@ def _asymmetry(torque, theta, h=1e-6):
     return abs(jac - jac.T).max() / abs(jac).max()
 
 
-def test_a_rest_balanced_once_keeps_the_frozen_torque_a_gradient_and_one_per_reading_does_not():
+def test_a_rest_balanced_once_and_a_moving_rest_are_both_gradients():
     _, compiled = arm_with_law()
     pose = np.array([0.5, 0.2])
-    fixed = _frozen_on_the_motors(compiled, gravity=pose)
-    moving = _frozen_on_the_motors(compiled, gravity=True)
-    assert _asymmetry(fixed, pose) < 1e-6  # the field of a potential
-    assert _asymmetry(moving, pose) > 1e-3  # the rest moves with the motors: a curl
-    np.testing.assert_allclose(fixed(pose), moving(pose), atol=1e-9)  # the same where it was solved
-    off = pose + np.array([0.3, -0.2])
-    assert abs(fixed(off) - moving(off)).max() > 1e-3  # and not off it
+    fixed = _frozen_on_the_motors(compiled, at=pose)
+    moving = _frozen_on_the_motors(compiled, rest="moving")
+    for torque in (fixed, moving):
+        assert _asymmetry(torque, pose) < 1e-6  # the field of a potential
+        assert _asymmetry(torque, pose + np.array([0.3, -0.2])) < 1e-6
+    assert abs(fixed(pose) - moving(pose)).max() > 1e-3  # two laws: the moving one pulls back
 
 
 def test_the_fixed_rest_is_the_q_rest_a_plan_can_read_and_it_needs_the_dynamics():
@@ -380,18 +379,22 @@ def test_the_fixed_rest_is_the_q_rest_a_plan_can_read_and_it_needs_the_dynamics(
     robot.actuation.params["q_rest"].value = rest  # a plain frozen controller with that rest
     plain = _frozen_on_the_motors(vmc.compile(compiled.system))
     off = pose + np.array([0.1, 0.1])
-    fixed = _frozen_on_the_motors(compiled, gravity=pose)
+    fixed = _frozen_on_the_motors(compiled, at=pose)
     np.testing.assert_allclose(plain(off), fixed(off), atol=1e-9)
     with pytest.raises(ValueError, match="needs the robot's dynamics"):
         ua.Frozen(robot.actuation, at=pose)
 
 
-def test_gravity_is_a_flag_or_the_motor_angles_of_a_pose():
+def test_the_frozen_rest_is_constant_balanced_at_a_pose_or_moving():
     _, compiled = arm_with_law()
-    for off in (False, None, 0, 0.0, np.False_):
-        assert type(ua.controller(compiled, "frozen", gravity=off)) is vmc.VMCController
-    for on in (True, 1, np.True_, [0.5, 0.2], np.array([0.5, 0.2])):
-        assert isinstance(ua.controller(compiled, "frozen", gravity=on), StateController)
+    for kwargs in ({}, {"rest": "constant"}):
+        assert type(ua.controller(compiled, "frozen", **kwargs)) is vmc.VMCController
+    for kwargs in ({"rest": "moving"}, {"at": [0.5, 0.2]}, {"at": np.array([0.5, 0.2])}):
+        assert isinstance(ua.controller(compiled, "frozen", **kwargs), StateController)
+    with pytest.raises(TypeError, match="replaced by rest= and at="):
+        ua.controller(compiled, "frozen", gravity=True)
+    with pytest.raises(TypeError, match="unexpected"):
+        ua.controller(compiled, "frozen", stiffness=3.0)
 
 
 def test_the_passive_correction_as_expressions_is_the_one_the_controller_applies():

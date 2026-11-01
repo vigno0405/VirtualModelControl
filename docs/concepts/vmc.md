@@ -47,7 +47,8 @@ $J_z$ need no hand derivation.
 
 Each element gives a force $f$ on its coordinate. Springs store energy, $f = -\partial V/\partial y$
 with $V$ bounded below. A linear spring of stiffness $K$ on $y = x - x_\text{ref}$ pulls $x$ towards
-$x_\text{ref}$ with $f = -K y$. Dampers dissipate, $f \cdot \dot y \le 0$, as $f = -D \dot y$.
+$x_\text{ref}$ with $f = -K y$. Dampers dissipate, $f \cdot \dot y \le 0$, as $f = -D \dot y$; each is the gradient of a
+[Rayleigh function](passivity.md#dampers-and-the-rayleigh-function), $f = -\partial R/\partial \dot y$.
 Inertances give mass to a virtual state of the controller, or to a coordinate of the robot. Sources add forces of their own, such as gravity
 compensation, $f = -m g$ on each of the robot's masses $m$, with $g$ the gravity vector.
 
@@ -71,7 +72,7 @@ with $\theta$ the motor angles. With one motor per joint $B$ is the identity. Th
 never divides $u$ by an [efficiency](efficiency.md). A robot with fewer motors than joints has
 no $u$ that solves it for every $\tau$: the motors give the least-squares
 $u = B^+\tau$, and the part of $\tau$ outside the range of $B$, which they cannot give, is the
-torque defect of [the underactuated tutorial](../tutorials/underactuated.md).
+torque defect of [the underactuated theory](underactuated.md).
 
 ## Virtual states
 

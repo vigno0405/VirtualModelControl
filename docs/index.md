@@ -171,6 +171,7 @@ examples/turtle
 concepts/library
 concepts/vmc
 concepts/passivity
+concepts/underactuated
 concepts/pcc
 concepts/finger
 concepts/efficiency

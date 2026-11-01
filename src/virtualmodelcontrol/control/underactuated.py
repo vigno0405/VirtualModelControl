@@ -2,8 +2,9 @@
 
 The motors deliver B u, so a wanted torque τ is realized only up to its part E τ, the defect, with
 E = I − B B⁺ the projector on the null space of Bᵀ. ``controller`` builds the naive and the frozen
-controller, each with an optional passive or tank correction; ``DirectionalForce`` tracks a force
-along a direction with the stiffness the motors can realize.
+controller (its passive coordinates at a constant or a moving rest), each with an optional passive
+or tank correction; ``DirectionalForce`` tracks a force along a direction with the stiffness the
+motors can realize.
 """
 
 from __future__ import annotations
@@ -53,13 +54,12 @@ class Frozen:
     """Reads the frozen configuration from the motors, to pass to a ``StateController``.
 
     The motors give the part (I − E) q of the configuration and (I − E) v of the velocity; the
-    rest of q is put at the rest value E q̄ of the ``Underactuated`` ``actuation``. With
-    ``dynamics`` (the robot's, compiled) the rest is the passive coordinates' static balance
-    instead: the point where E ∇V = 0, with V the robot's springs and gravity, solved at every
-    reading. That rest moves with the motors, so the torque of the controller is then not the
-    gradient of a potential. With ``at`` (motor angles [rad]) the balance is solved once, there,
-    and ``rest`` holds it: a fixed rest, as ``Underactuated`` has, and the torque is a gradient
-    again. ``rest`` can be set as the ``q_rest`` Param of the actuation, which a plan reads.
+    rest of q is put at the constant rest value E q̄ of the ``Underactuated`` ``actuation``, so
+    the torque of the controller is the gradient of a potential. With ``at`` (motor angles [rad])
+    and ``dynamics`` (the robot's, compiled) the rest is the passive coordinates' static balance
+    there, E ∇V = 0 with V the static forces in the robot's model (springs, gravity, any load),
+    solved once and held in ``rest``.
+    ``rest`` can be set as the ``q_rest`` Param of the actuation, which a plan reads.
     """
 
     def __init__(self, actuation: Any, dynamics: Any = None, at: ArrayLike | None = None) -> None:
@@ -69,21 +69,15 @@ class Frozen:
         self.E = projector(self.B)
         eigenvalues, vectors = np.linalg.eigh(self.E)
         self.basis = vectors[:, eigenvalues > 0.5]  # an orthonormal basis of the range of E
-        self.dynamics = dynamics
+        if (dynamics is None) != (at is None):
+            raise ValueError("a rest balanced at a pose needs the robot's dynamics and at=")
         if at is not None:
-            if dynamics is None:
-                raise ValueError("a rest balanced at motor angles needs the robot's dynamics")
-            self.rest = self.E @ self.point(at)
-            self.dynamics = None
+            self.rest = self.E @ self._balanced(dynamics, at)
 
-    def point(self, theta: ArrayLike) -> np.ndarray:
-        """The frozen configuration for motor angles θ."""
+    def _balanced(self, d: Any, theta: ArrayLike) -> np.ndarray:
+        """The configuration whose motors read θ and whose passive part balances E ∇V = 0."""
         held = self.B @ np.linalg.solve(self.B.T @ self.B, np.asarray(theta, dtype=float))
-        if self.dynamics is None:
-            return held + self.E @ self.rest
-        d = self.dynamics
-        live, zero = d.live_values(), np.zeros(d.n_u)
-        n = self.rest.size
+        live, zero, n = d.live_values(), np.zeros(d.n_u), self.rest.size
 
         def balance(z: np.ndarray) -> np.ndarray:
             gradient = d.residual(held + self.basis @ z, np.zeros(n), np.zeros(n), zero, live, 0.0)
@@ -95,10 +89,85 @@ class Frozen:
         z = solution.x if solution.success else self.basis.T @ self.rest
         return held + self.basis @ z
 
+    def point(self, theta: ArrayLike) -> np.ndarray:
+        """The frozen configuration for motor angles θ."""
+        held = self.B @ np.linalg.solve(self.B.T @ self.B, np.asarray(theta, dtype=float))
+        return held + self.E @ self.rest
+
     def __call__(self, meas: Signals) -> tuple[np.ndarray, np.ndarray]:
         """(π(q), (I − E) v) of a measurement's motors."""
         rates = np.linalg.solve(self.B.T @ self.B, meas["motor_velocity"])
         return self.point(meas["motor_position"]), self.B @ rates
+
+
+class Moving:
+    """Reads the frozen configuration whose rest moves with the motors, for a ``StateController``.
+
+    The passive coordinates sit at their static balance for the motor angles θ, E ∇V = 0 with V
+    the static forces in the robot's model (springs, gravity, any load), found with
+    ``iterations`` Newton steps written in CasADi.
+    With P = ∂π/∂θ the torque of the springs and dampers is Pᵀ τ(π(θ), P θ̇): the gradient of the
+    virtual potential at π(θ) and the Rayleigh gradient of the frozen velocity, so they are
+    passive for any ``iterations`` and any error of the model. The sources (the weight
+    compensation) are rendered at π(θ) with B⁺, which cancels the robot's load there exactly.
+    """
+
+    def __init__(
+        self, actuation: Any, dynamics: Any, iterations: int = 8, step: float = 0.5
+    ) -> None:
+        values = constants(actuation.params)
+        if "B" not in values:
+            raise ValueError("the moving rest is for an actuation with an input matrix B")
+        self.dynamics = dynamics
+        frozen = Frozen(actuation)
+        self._pinv = ca.DM(np.linalg.pinv(frozen.B))
+        n, m, basis = actuation.n, actuation.m, frozen.basis
+        held = ca.DM(frozen.B @ np.linalg.inv(frozen.B.T @ frozen.B))
+        theta, z = ca.SX.sym("theta", m), ca.SX.sym("z", basis.shape[1])
+        p = ca.SX.sym("p", dynamics.live_values().size)
+        q = ca.mtimes(held, theta) + ca.mtimes(basis, z)
+        zero = ca.SX.zeros(n)
+        gradient = ca.mtimes(
+            basis.T, dynamics.residual(q, zero, zero, ca.SX.zeros(dynamics.n_u), p, 0.0)
+        )
+        move = ca.solve(ca.jacobian(gradient, z), gradient)
+        move *= ca.fmin(1.0, step / ca.sqrt(ca.dot(move, move) + 1e-30))  # at most ``step`` [rad]
+        newton = ca.Function("newton", [z, theta, p], [z - move])
+        z = ca.SX(basis.T @ frozen.rest)
+        for _ in range(iterations):
+            z = newton(z, theta, p)
+        q = ca.mtimes(held, theta) + ca.mtimes(basis, z)
+        self._function = ca.Function("moving", [theta, p], [q, ca.jacobian(q, theta)])
+
+    def symbolic(self, theta: Any, rate: Any, p: Any) -> tuple[Any, Any, Any]:
+        """(π(θ), P θ̇, P) as expressions of the motor angles and rates and of the robot's live
+        Params ``p``."""
+        q, P = self._function(theta, p)
+        return q, ca.mtimes(P, rate), P
+
+    def torque(self, tau: Any, P: Any, kind: str) -> Any:
+        """The motor torques of the generalized torque ``tau`` of an element of ``kind``: Pᵀ τ for
+        a spring or a damper, B⁺ τ for a source."""
+        return ca.mtimes(self._pinv, tau) if kind == "source" else ca.mtimes(P.T, tau)
+
+    def law(self, compiled: Any, q: Any, v: Any, P: Any, z: Any, p: Any, t: Any) -> Any:
+        """The motor torques of the elements of ``compiled`` at (π(θ), P θ̇)."""
+        parts = compiled.forces.call([q, v, z, p, t])
+        total = ca.DM.zeros(self._pinv.shape[0], 1)
+        for k, kind in enumerate(compiled.component_kinds):
+            total = total + self.torque(parts[4 * k + 3], P, kind)
+        return total
+
+    def pullback(self, meas: Signals) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """(π(θ), P θ̇, P) of a measurement's motors."""
+        q, P = self._function(meas["motor_position"], self.dynamics.live_values())
+        P = np.array(P)
+        return np.array(q).ravel(), P @ np.asarray(meas["motor_velocity"], dtype=float), P
+
+    def __call__(self, meas: Signals) -> tuple[np.ndarray, np.ndarray]:
+        """(π(θ), P θ̇) of a measurement's motors."""
+        q, v, _ = self.pullback(meas)
+        return q, v
 
 
 def _softplus(x: float) -> float:
@@ -264,7 +333,8 @@ def controller(
     base: str = "naive",
     correction: str | None = None,
     *,
-    gravity: bool | ArrayLike = False,
+    rest: str = "constant",
+    at: ArrayLike | None = None,
     tank: float = 1.0,
     **stage: float,
 ) -> VMCController:
@@ -272,35 +342,46 @@ def controller(
 
     ``base="naive"`` renders the wrench as it is (B⁺ τ at the measured state, which must hold
     ``q`` and ``v``); ``"frozen"`` renders it at the frozen configuration the motors give, so it
-    needs the motors only. With ``gravity=True`` the frozen configuration also balances the
-    robot's own gravity, at every reading (the torque is then not a gradient: see ``Frozen``);
-    with ``gravity`` the motor angles [rad] of a pose, the balance is solved once there, a fixed
-    rest, and the torque is a gradient. ``correction`` is ``None``, ``"passive"`` or ``"tank"``
-    (starting at ``tank`` [J]), a ``Passivation`` stage, which needs ``q`` and ``v`` in the
-    measurement; ``stage`` are its ``width``, ``regularizer`` and ``tank_width``.
+    needs the motors only, and its torque is a gradient: passive. Its passive coordinates sit at
+    a constant ``rest="constant"`` (the ``q_rest`` Param, or the balance at the motor angles
+    ``at`` [rad]) or follow the motors, ``rest="moving"``, at their static balance. ``correction``
+    is ``None``, ``"passive"`` or ``"tank"`` (starting at ``tank`` [J]), a ``Passivation`` stage,
+    which needs ``q`` and ``v`` in the measurement; ``stage`` are its ``width``, ``regularizer``
+    and ``tank_width``.
     """
+    unknown = sorted(set(stage) - {"width", "regularizer", "tank_width"})
+    if unknown:
+        hint = " (gravity= is replaced by rest= and at=)" if "gravity" in unknown else ""
+        raise TypeError(f"controller() got unexpected arguments {unknown}{hint}")
     if base not in ("naive", "frozen"):
         raise ValueError(f"base must be 'naive' or 'frozen', not {base!r}")
+    if rest not in ("constant", "moving"):
+        raise ValueError(f"rest must be 'constant' or 'moving', not {rest!r}")
     if correction not in (None, "passive", "tank"):
         raise ValueError(f"correction must be None, 'passive' or 'tank', not {correction!r}")
+    if (rest == "moving" or at is not None) and base != "frozen":
+        raise ValueError("rest and at are options of the frozen controller: base='frozen'")
+    if rest == "moving" and at is not None:
+        raise ValueError("the moving rest has no pose to balance at: give rest or at, not both")
     system = compiled.system
     dynamics = None
-    pose = None if np.ndim(gravity) == 0 else gravity  # a flag, or the motor angles of a pose
-    weighed = bool(gravity) if pose is None else True
-    if correction or weighed:
+    if correction or rest == "moving" or at is not None:
         dynamics = compile_dynamics(system.robot, actuation=system.actuation)
     level = tank if correction == "tank" else None
     stages = [] if correction is None else [Passivation(dynamics, level, **stage)]
     if base == "naive":
         return StateController(compiled, stages)
-    if weighed:
-        return StateController(compiled, stages, read=Frozen(system.actuation, dynamics, pose))
+    if rest == "moving":
+        return StateController(compiled, stages, read=Moving(system.actuation, dynamics))
+    if at is not None:
+        return StateController(compiled, stages, read=Frozen(system.actuation, dynamics, at))
     return VMCController(compiled, stages)
 
 
 __all__ = [
     "DirectionalForce",
     "Frozen",
+    "Moving",
     "Passivation",
     "controller",
     "defect",

@@ -43,7 +43,9 @@ class Problem:
     ``StateController`` does. The default is the motors when the robot has fewer motors than
     coordinates (then the controller is the frozen one of ``control.underactuated``, and the
     passive coordinates are at their rest values), and the state otherwise, where the two are the
-    same. ``"state"`` needs the system's own robot as the plant.
+    same. ``"state"`` needs the system's own robot as the plant. ``rest`` is the frozen
+    controller's: ``"constant"``, the ``q_rest`` Param (which a plan can free), or ``"moving"``,
+    the passive coordinates at their static balance for the motors (``control.underactuated``).
 
     ``output`` lists output stages with a ``symbolic`` form (``StaticFrictionCompensation``),
     applied to the controller's command in the plan as ``VMCController(output=)`` applies them in
@@ -59,12 +61,16 @@ class Problem:
         plant: Any = None,
         output: Sequence[Any] | None = None,
         reads: str | None = None,
+        rest: str = "constant",
     ):
         if reads not in (None, "state", "motors"):
             raise ValueError(f"reads is 'state' or 'motors', not {reads!r}")
+        if rest not in ("constant", "moving"):
+            raise ValueError(f"rest is 'constant' or 'moving', not {rest!r}")
         self.system = system
         self.plant = plant
         self.reads = reads
+        self.rest = rest
         self.output = list(output or [])
         for stage in self.output:
             if not hasattr(stage, "symbolic"):
@@ -147,6 +153,7 @@ class Problem:
                 self.plant,
                 self.output,
                 self.reads,
+                self.rest,
             )
             for block in self._blocks:
                 block.build(builder)

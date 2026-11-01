@@ -9,6 +9,7 @@ import numpy as np
 
 from ..compiler import compile as compile_system
 from ..control.output import apply_symbolic, plant_state
+from ..control.underactuated import Moving
 from ..core.params import Binding, Param, ParamSet
 from ..dynamics import compile_dynamics, reads_motors
 from ..mechanisms.coordinates.base import Context, Coordinate, walk
@@ -47,9 +48,12 @@ class Builder:
         plant: Any = None,
         output: Any = (),
         reads: str | None = None,
+        rest: str = "constant",
     ) -> None:
         if reads not in (None, "state", "motors"):
             raise ValueError(f"reads is 'state' or 'motors', not {reads!r}")
+        if rest not in ("constant", "moving"):
+            raise ValueError(f"rest is 'constant' or 'moving', not {rest!r}")
         self.system = system
         self.plant = system.robot if plant is None else plant
         self.stages = tuple(output)
@@ -65,6 +69,17 @@ class Builder:
         space = self.plant.model.space
         fewer = own and reads_motors(system.actuation, space)
         self.motors = not own or reads == "motors" or (reads is None and fewer)
+        self.moving: Moving | None = None
+        self._model = self.dynamics  # the controller's model of the robot, for the moving rest
+        if rest == "moving":
+            if not (self.motors and reads_motors(system.actuation, system.robot.model.space)):
+                raise ValueError(
+                    "the moving rest is for the frozen controller of a robot with fewer motors "
+                    "than coordinates, which reads the motors"
+                )
+            if not own:
+                self._model = compile_dynamics(system.robot, declared, system.actuation)
+            self.moving = Moving(system.actuation, self._model)
         if not own and self.dynamics.n_u != self.compiled.n_motors[1]:
             raise ValueError(
                 f"the controller commands {self.compiled.n_motors[1]} motors and the plant "
@@ -96,8 +111,13 @@ class Builder:
         (q, v): its law, or, if the controller reads the plant's motors (it is for other
         coordinates than the plant's, or the robot has fewer motors than coordinates), the law of
         the motors the plant reports, as a controller in a simulation reads them, then the output
-        stages."""
-        if not self.motors:
+        stages. With the moving rest the motors give the configuration π(θ) and the springs and
+        dampers are pulled back through P = ∂π/∂θ."""
+        if self.moving is not None:
+            qf, vf, P = self._moved(q, v)
+            u = self.moving.law(compiled, qf, vf, P, z, p, t)
+            zdot = compiled.law(qf, vf, z, p, t)[1]
+        elif not self.motors:
             u, zdot = compiled.law(q, v, z, p, t)
         else:
             out = compiled.fast(self._at_motors(q, v, z, p, t))
@@ -109,15 +129,31 @@ class Builder:
 
     def stored(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The energy [J] of ``compiled`` at the plant's state: stored plus virtual kinetic."""
+        if self.moving is not None:
+            qf, vf, _ = self._moved(q, v)
+            return sum(compiled.energy(qf, vf, z, p, t))
         if not self.motors:
             return sum(compiled.energy(q, v, z, p, t))
         return compiled.fast_energy(self._at_motors(q, v, z, p, t))
 
     def dissipation(self, compiled: Any, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The power [W] that the dampers of ``compiled`` take at the plant's state."""
+        if self.moving is not None:
+            qf, vf, _ = self._moved(q, v)
+            return compiled.power(qf, vf, z, p, t)[1]
         if not self.motors:
             return compiled.power(q, v, z, p, t)[1]
         return compiled.fast_power(self._at_motors(q, v, z, p, t))[3]
+
+    def _moved(self, q: Any, v: Any) -> tuple[Any, Any, Any]:
+        """(π(θ), P θ̇, P) for the motors the plant reports, at the moving rest."""
+        assert self.moving is not None
+        theta, rate = self.dynamics.motors(q, v, self._plant_p())
+        if self._model is self.dynamics:
+            model_p = self._plant_p()
+        else:
+            model_p = self.pack(self._model.params, self._model.live)
+        return self.moving.symbolic(theta, rate, model_p)
 
     def _at_motors(self, q: Any, v: Any, z: Any, p: Any, t: Any) -> Any:
         """The controller's packed inputs [θ, θ̇, z, p, t] at the plant's state."""

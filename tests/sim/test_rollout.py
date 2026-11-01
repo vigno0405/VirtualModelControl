@@ -235,3 +235,40 @@ def test_the_rollout_applies_the_passive_correction_as_the_controller_does():
     plain = vmc.sim.rollout(system, q0, T, dt)
     np.testing.assert_allclose(rolled["q"], ran.arrays()["q"], atol=1e-6)
     assert np.abs(rolled["q"] - plain["q"]).max() > 1e-3  # the correction does something here
+
+
+def test_the_rollout_has_the_three_controllers_of_an_underactuated_robot():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = arm_reach()
+    q0, T, dt = np.array([0.3, 0.3, 0.3]), 0.5, 1 / 200
+    compiled = vmc.compile(system)
+
+    def followed(controller):
+        plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=1e-3)
+        return vmc.sim.run(plant, controller, vmc.sim.SimClock(dt), T=T).arrays()["q"]
+
+    cases = {
+        "naive": ({"reads": "state"}, ua.controller(compiled, "naive")),
+        "frozen": ({}, ua.controller(compiled, "frozen")),
+        "moving": ({"rest": "moving"}, ua.controller(compiled, "frozen", rest="moving")),
+    }
+    paths = {}
+    for name, (options, controller) in cases.items():
+        paths[name] = vmc.sim.rollout(system, q0, T, dt, **options)["q"]
+        np.testing.assert_allclose(paths[name], followed(controller), atol=1e-6, err_msg=name)
+    assert np.abs(paths["moving"] - paths["frozen"]).max() > 1e-3  # a different rest
+    assert np.abs(paths["naive"] - paths["frozen"]).max() > 1e-3
+    f = vmc.sim.ode(system, rest="moving")
+    assert np.isfinite(f(0.0, np.concatenate([q0, np.zeros(3)]))).all()
+
+
+def test_the_moving_rest_is_for_the_frozen_controller_of_a_robot_with_fewer_motors():
+    _, system = arm_reach()
+    q0 = np.array([0.3, 0.3, 0.3])
+    with pytest.raises(ValueError, match="rest is"):
+        vmc.sim.rollout(system, q0, 0.1, 0.01, rest="floating")
+    with pytest.raises(ValueError, match="reads is"):
+        vmc.sim.rollout(system, q0, 0.1, 0.01, reads="both")
+    with pytest.raises(ValueError, match="fewer motors"):
+        vmc.sim.rollout(system, q0, 0.1, 0.01, reads="state", rest="moving")

@@ -264,7 +264,7 @@ def _arm_reach():
     return arm, vmc.VirtualMechanismSystem(arm, ctrl)
 
 
-def _violation(reads, make_controller):
+def _violation(reads, make_controller, rest="constant", sub=10, plant=None):
     """How far a simulation of the arm's reach is from the plan's constraints (the closed loop's
     dynamics at every step) under the reading ``reads``: the plan is not solved, since a cold
     start from rest converges on one machine and not on another, but the simulation is put in as
@@ -272,14 +272,16 @@ def _violation(reads, make_controller):
     from virtualmodelcontrol.control import underactuated as ua  # noqa: F401
 
     arm, system = _arm_reach()
-    q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 10
+    q0, nodes = np.array([0.3, 0.3, 0.3]), 6
     h = 0.5 / (nodes - 1) / sub
-    plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
+    simulated = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
     log = vmc.sim.run(
-        plant, make_controller(vmc.compile(system)), vmc.sim.SimClock(h), T=0.5 + 2 * h
+        simulated, make_controller(vmc.compile(system)), vmc.sim.SimClock(h), T=0.5 + 2 * h
     ).arrays()
     start = {"q": np.asarray(log["q"])[::sub][:nodes], "v": np.asarray(log["v"])[::sub][:nodes]}
-    problem = opt.Problem(system, reads=reads, options={"ipopt.max_iter": 0})
+    problem = opt.Problem(
+        system, plant=plant, reads=reads, rest=rest, options={"ipopt.max_iter": 0}
+    )
     problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
     return problem.solve(warm_start=start).violation
 
@@ -380,3 +382,82 @@ def test_the_correction_in_a_plan_uses_the_dampers_of_the_plan_not_the_ones_stor
     assert told.violation < 1e-4
     unknowing = problem.solve({"arm.damper.damping": 0.4}, warm_start=start)
     assert unknowing.violation > 1e-3  # the dampers are part of what the plan computes
+
+
+def test_the_moving_rest_is_planned_as_the_controller_runs_it():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    def moving(compiled):
+        return ua.controller(compiled, "frozen", rest="moving")
+
+    def frozen(compiled):
+        return ua.controller(compiled, "frozen")
+
+    # finer steps than the others: the moving rest is stiffer than the integrator's 10 ms allows
+    assert _violation(None, moving, "moving", 40) < 1e-4  # the plan is the closed loop
+    assert _violation("motors", moving, "moving", 40) < 1e-4
+    assert _violation(None, moving, "constant", 40) > 1e-3  # the constant rest is another plan
+    assert _violation(None, frozen, "moving", 40) > 1e-3
+    assert _violation(None, frozen, "constant", 40) < 1e-4
+
+
+def test_the_moving_rest_is_for_a_controller_that_reads_the_motors_of_a_robot_with_fewer_motors():
+    _, system = _arm_reach()
+    with pytest.raises(ValueError, match="rest is"):
+        opt.Problem(system, rest="floating")
+    problem = opt.Problem(system, reads="state", rest="moving")
+    problem.add(opt.Equilibrium([0.3, 0.3, 0.3]))
+    with pytest.raises(ValueError, match="fewer motors"):
+        problem.solve()
+    direct = vmc.Mechanism("r", model=JointSpace(2), actuation=Direct())
+    direct.add("m", vmc.PointMass(direct.joint(0), 1.0))
+    ctrl = vmc.Mechanism("c")
+    ctrl.add("hold", vmc.LinearSpring(direct.joint(slice(0, 2)) - [0.1, 0.2], 5.0))
+    problem = opt.Problem(vmc.VirtualMechanismSystem(direct, ctrl), rest="moving")
+    problem.add(opt.Equilibrium([0.0, 0.0]))
+    with pytest.raises(ValueError, match="fewer motors"):
+        problem.solve()
+
+
+def test_the_moving_rest_is_planned_on_a_plant_that_is_a_copy_of_the_robot():
+    """The controller balances its own model of the robot, and the plant gives it the motors."""
+    from virtualmodelcontrol.control import underactuated as ua
+
+    def moving(compiled):
+        return ua.controller(compiled, "frozen", rest="moving")
+
+    assert _violation(None, moving, "moving", 40, plant=_arm_reach()[0]) < 1e-4
+    assert _violation(None, moving, "constant", 40, plant=_arm_reach()[0]) > 1e-3
+
+
+def test_a_plan_with_the_moving_rest_has_the_command_and_the_virtual_state_of_the_controller():
+    """A virtual mass between the tip and the goal: the plan reads it at the frozen configuration,
+    as the controller does, not at the plant's state."""
+    from virtualmodelcontrol.control import underactuated as ua
+    from virtualmodelcontrol.optimization.builder import Builder
+    from virtualmodelcontrol.robots import planar
+
+    arm = planar.add_dynamics(planar.arm("three-link"))
+    tip, ctrl = arm.point("tip"), vmc.Mechanism("ctrl")
+    z = ctrl.add_state("z", 3, unit="m")
+    ctrl.add("mass", vmc.Inertance(z, 0.2))
+    ctrl.add("hand", vmc.LinearSpring(tip - z, 30.0))
+    ctrl.add("pull", vmc.LinearSpring(z - [0.45, 0.15, 0.0], 20.0))
+    ctrl.add("drag", vmc.LinearDamper(z, 1.0))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    system = vmc.VirtualMechanismSystem(arm, ctrl)
+    builder = Builder(system, opt.Problem(system).params, [], [], rest="moving")
+    compiled = builder.compiled
+    q, v = np.array([0.3, 0.2, -0.1]), np.array([0.1, -0.2, 0.3])
+    state = np.array([0.4, 0.1, 0.0, 0.2, -0.1, 0.0])
+    p = compiled.live_values()
+    u, zdot = (np.array(x).ravel() for x in builder.command(compiled, q, v, state, p, 0.0))
+    B = np.asarray(arm.actuation.params["B"].value)
+    meas = vmc.Signals(0.0, motor_position=B.T @ q, motor_velocity=B.T @ v)
+    controller = ua.controller(compiled, "frozen", rest="moving")
+    controller.reset(0.0, meas, z0=state)
+    np.testing.assert_allclose(u, controller.step(0.0, meas)["law_torque"], atol=1e-9)
+    qf, vf = controller.read(meas)
+    expected = np.array(compiled.law(qf, vf, state, p, 0.0)[1]).ravel()
+    np.testing.assert_allclose(zdot, expected, atol=1e-9)
+    assert abs(expected - np.array(compiled.law(q, v, state, p, 0.0)[1]).ravel()).max() > 1e-3

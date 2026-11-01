@@ -4,6 +4,49 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [1.5.0] - 2026-11-01
+
+A minor release: the frozen controller of a robot with fewer motors than coordinates has two rests, a
+constant one and a moving one, both passive and both usable in a plan, and the theory behind them has a
+page of its own.
+
+### Added
+
+- `ua.controller(compiled, "frozen", rest="moving")` (`control.underactuated.Moving`): the passive joints
+  sit at their static balance for the current motor angles, solved with a few Newton steps written in
+  CasADi, so there is no pose to choose and the reach is exact wherever the arm can go. The springs and
+  dampers are pulled back through P = dπ/dθ, the derivative of the frozen configuration, so their torque
+  is the gradient of the virtual potential and the Rayleigh gradient of the frozen velocity: passive for
+  any rest, also when the model that places it is wrong. The sources (the weight compensation) are
+  rendered at the balance with B⁺, which cancels the load on the motors exactly.
+- `Problem(rest="moving")`, `vmc.sim.rollout(reads=, rest=)` and `vmc.sim.ode(reads=, rest=)`: naive
+  (`reads="state"`), frozen with a constant rest and frozen with a moving rest are planned and rolled out
+  with every other option, and a plan is the closed loop of the controller that runs.
+- `StateController` accepts a read with `pullback`, `law` and `torque` (the pull-back of the moving rest),
+  and `Compiled.component_kinds`.
+- Documentation: a concepts page, "Robots with fewer motors than joints" (the two controllers, why the
+  frozen one is passive, the two rests, gravity and any known load), a section on the Rayleigh function
+  in "Passivity", and a tutorial that compares naive, frozen and moving and lets a plan find the rest
+  (`problem.free("arm.q_rest")`).
+- Tests of the theory (`tests/control/test_frozen_theory.py`, `tests/mechanisms/test_rayleigh.py`): the
+  frozen torque is the naive law at the frozen configuration, has no curl and does no work on a loop of
+  motor angles, is the gradient of the virtual potential, its damping is the Rayleigh gradient with
+  power -|ḋ|², the energy of the closed loop never rises, and every shipped damper is the gradient of a
+  dissipation function.
+
+### Changed
+
+- `ua.controller(..., at=pose)` and `ua.Frozen(actuation, dynamics, at=pose)` balance the passive joints
+  once at the motor angles of a pose (this was `gravity=<motor angles>`). `Frozen` always has a constant
+  rest now; `Frozen(actuation, dynamics)` without `at` raises.
+
+### Removed
+
+- `gravity=` of `ua.controller` (a `TypeError` says what replaced it). `gravity=True` followed the balance
+  at every reading but pulled the torque back with the constant B⁺, so it was not the gradient of
+  anything: a curl of 1.8 % in the tutorial arm, 0.067 J of work on a loop of motor angles, and it could
+  not be planned (a numeric solve at every reading). `rest="moving"` is its passive version.
+
 ## [1.4.0] - 2026-10-30
 
 A minor release: a plan or a rollout can include the passive correction of a robot with fewer motors than
@@ -949,7 +992,8 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.1...v1.2.2

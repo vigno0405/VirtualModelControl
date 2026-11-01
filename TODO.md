@@ -70,13 +70,14 @@ design is settled) and **done when** (the checks that close it). Ticked items ar
   0.5.0. What 1.0.0 adds to them is the checking: the whole suite on the oldest and the
   newest dependencies and on fresh clones, every page of the documentation read and looked at,
   the API listed in `__all__`, and a support policy.
-- **Where things stand (30 October 2026):** 1.4.0 is released: 1.1.0 added the static friction of the
+- **Where things stand (1 November 2026):** 1.5.0 is released: 1.1.0 added the static friction of the
   motors, 1.2.0 runs that go on for hours (`run(window=)`, `RunLog.crop`), 1.2.1 a Ctrl-C that waits for
   the step that is running, and 1.2.2 a fit that says when its data do not determine a Param (an infinite
   standard error) and gives the same values on every machine, with clearer errors for an unknown arm
   geometry and for a `StateController` given to a law, and 1.3.0 the result of a review of the library:
   a plan reads what the controller on the robot reads, the fixes of the review, and the tension floor, and
-  1.4.0 the passive correction in a plan and a rollout.
+  1.4.0 the passive correction in a plan and a rollout, and 1.5.0 the two rests of the frozen controller
+  (constant and moving, both passive and both plannable) with the theory page and the Rayleigh function.
 - **To update an installed copy,** see "Update" on the documentation's Installation page:
   `pip install --upgrade virtualmodelcontrol`, or the newest `main` from GitHub with
   `pip install --upgrade "git+https://github.com/vigno0405/VirtualModelControl.git"`.
@@ -115,6 +116,9 @@ Everything to do, in order. Each step is done when its items below are ticked.
     and the tension floor of a tendon arm.
 13. **1.4.0** (done, 30 October 2026): the passive correction can be planned (`Problem(output=)`) and rolled
     out, and a rollout of a robot with fewer motors than coordinates reads the motors.
+14. **1.5.0** (done, 1 November 2026): the frozen controller has a constant rest and a moving rest, both
+    passive (the torque is the gradient of the virtual potential at the frozen configuration) and both
+    plannable; `gravity=` is gone; the theory page and the Rayleigh function in the docs.
 
 ---
 
@@ -697,6 +701,14 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 - [x] **`Passivation` has a symbolic form** (the passive correction, from the plant's own state): a plan and a
   rollout include it; the tank correction does not, its level being a state a plan does not carry.
 - [x] **A rollout reads the motors** of a robot with fewer motors than coordinates, as `run` and the plans do.
+
+## 1.5.0: the two rests of the frozen controller
+
+- [x] **A moving rest** (`rest="moving"`): the passive joints at their static balance, passive by the
+  pull-back through dπ/dθ, in controllers, plans (`Problem(rest=)`) and rollouts.
+- [x] **`gravity=` is replaced** by `at=` (a rest balanced once at a pose) and `rest=`.
+- [x] **The theory** has a page ("Robots with fewer motors than joints"), the Rayleigh function a section in
+  "Passivity", and both have tests.
 
 ---
 

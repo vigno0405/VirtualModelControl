@@ -47,6 +47,7 @@ class Compiled:
     fast_power: ca.Function
     fast_elements: ca.Function
     component_names: list[str]
+    component_kinds: list[str]
     z0: np.ndarray
     n_motors: tuple[int, int]
     n_u: int
@@ -99,6 +100,7 @@ def compile(system: VirtualMechanismSystem, runtime: Iterable[str] = ()) -> Comp
     V, P_diss, P_src = ca.SX(0), ca.SX(0), ca.SX(0)
     per_component: list[Any] = []
     names: list[str] = []
+    kinds: list[str] = []
     for name, comp in system.components:
         y = ctx.value(comp.coord)
         Jq = ca.mtimes(ca.jacobian(y, q), G)
@@ -121,6 +123,7 @@ def compile(system: VirtualMechanismSystem, runtime: Iterable[str] = ()) -> Comp
             P_src += ca.dot(f, yd)
         per_component += [y, yd, f, tau_k]
         names.append(name)
+        kinds.append(comp.kind)
 
     z0 = np.concatenate([s.initial for s in states] + [np.zeros(nz)])
     T = 0.5 * ca.dot(zvel, ca.mtimes(Mz, zvel))
@@ -182,6 +185,7 @@ def compile(system: VirtualMechanismSystem, runtime: Iterable[str] = ()) -> Comp
         ),
         fast_elements=ca.Function("fast_elements", [x], elements, OPTS),
         component_names=names,
+        component_kinds=kinds,
         z0=z0,
         n_motors=(n_angles, n_rates),
         n_u=int(u.numel()),

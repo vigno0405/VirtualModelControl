@@ -23,7 +23,10 @@ class StateController(VMCController):
 
     ``read(meas)`` returns (q, v) of a measurement; by default ``meas["q"]`` and ``meas["v"]``,
     which a simulated plant reports and an estimator can supply for the coordinates no sensor
-    sees. On a robot with motors on every coordinate it is the same controller. The laws and
+    sees. A read with ``pullback(meas)``, returning (q, v, P) with P = ∂q/∂θ, and ``law`` and
+    ``torque`` (``control.underactuated.Moving``) pulls the torque of the springs and dampers back
+    through P instead of the least-squares B⁺ τ, which keeps the controller passive. On a robot
+    with motors on every coordinate it is the same controller. The laws and
     estimators that read a controller's inputs in the layout of the motors (``ForceTracking``,
     ``StiffnessTracking``, ``PositionRegulation``, ``HoldingGoals``, ``ContactForce``,
     ``TaskStiffness``) refuse it with a ``ValueError``.
@@ -36,20 +39,29 @@ class StateController(VMCController):
         read: Callable[[Signals], tuple[Any, Any]] = _from_signals,
     ) -> None:
         super().__init__(compiled, output)
-        self.read = read
+        reader: Any = read  # a read with ``pullback`` gets the pulled-back torque
+        self.read = reader
         space = compiled.system.robot.model.space
         actuation = compiled.system.actuation
-        sizes = [space.nq, space.nv, compiled.z0.size, compiled.live_values().size, 1]
+        self._pulled = hasattr(read, "pullback")
+        pull = space.nv * compiled.n_u if self._pulled else 0
+        sizes = [space.nq, space.nv, pull, compiled.z0.size, compiled.live_values().size, 1]
         x = ca.SX.sym("x", sum(sizes))
-        q, v, z, p, t = ca.vertsplit(x, np.cumsum([0, *sizes]).tolist())
+        q, v, P, z, p, t = ca.vertsplit(x, np.cumsum([0, *sizes]).tolist())
         args = [q, v, z, p, t]
         u, zdot = compiled.law(*args)
         V, T = compiled.energy(*args)
         port, dissipation, source = compiled.power(*args)
         elements = compiled.forces.call(args)
         pa = constants(actuation.params)
+        if self._pulled:  # the springs and dampers are pulled back through P = ∂q/∂θ
+            P = ca.reshape(P, space.nv, compiled.n_u)
+            u = reader.law(compiled, *args[:2], P, *args[2:])
         for k in range(3, len(elements), 4):  # each element's torque, as motor torques
-            elements[k] = actuation.allocate(elements[k], q, pa)
+            if self._pulled:
+                elements[k] = reader.torque(elements[k], P, compiled.component_kinds[k // 4])
+            else:
+                elements[k] = actuation.allocate(elements[k], q, pa)
         self._fast = ca.Function("fast", [x], [ca.vertcat(u, zdot)])
         self._fast_energy = ca.Function("fast_energy", [x], [V + T])
         self._fast_power = ca.Function("fast_power", [x], [V, T, port, dissipation, source])
@@ -57,6 +69,9 @@ class StateController(VMCController):
 
     def _pack(self, meas: Signals, t: float) -> np.ndarray:
         elapsed = t - (t if self.t0 is None else self.t0)
+        if self._pulled:
+            q, v, P = self.read.pullback(meas)
+            return np.concatenate([q, v, np.ravel(P, order="F"), self.z, self.params, [elapsed]])
         q, v = self.read(meas)
         return np.concatenate([q, v, self.z, self.params, [elapsed]])
 
@@ -70,6 +85,6 @@ def require_motor_layout(controller: Any, what: str) -> None:
         raise ValueError(
             f"{what} reads the motors of a controller, and a StateController reads the state "
             "(q, v) of the robot. For a robot with fewer motors than coordinates, use "
-            "control.underactuated.controller(compiled, 'frozen') without gravity, which "
-            "reads the motors, or control.underactuated.DirectionalForce for a force"
+            "control.underactuated.controller(compiled, 'frozen'), which reads the motors, "
+            "or control.underactuated.DirectionalForce for a force"
         )

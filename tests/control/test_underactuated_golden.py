@@ -4,7 +4,16 @@ import numpy as np
 import pytest
 
 import virtualmodelcontrol as vmc
-from underactuated_lab import COMBOS, ROBOTS, build, lab, law, measurement, to_3d
+from underactuated_lab import (
+    COMBOS,
+    ROBOTS,
+    build,
+    lab,
+    lab_controller,
+    law,
+    measurement,
+    to_3d,
+)
 from virtualmodelcontrol.control import StateController
 from virtualmodelcontrol.control import underactuated as ua
 
@@ -20,13 +29,18 @@ def reading(prefix, robot, i):
 @pytest.mark.parametrize("prefix", ROBOTS)
 def test_frozen_point(prefix, gravity):
     robot = build(prefix)
-    dynamics = vmc.compile_dynamics(robot)
-    frozen = ua.Frozen(robot.actuation, dynamics if gravity else None)
+    frozen = (
+        ua.Moving(robot.actuation, vmc.compile_dynamics(robot))
+        if gravity
+        else ua.Frozen(robot.actuation)
+    )
     for i, expected in enumerate(DATA[f"{prefix}_g{int(gravity)}_frozen_point"]):
         meas, _, v = reading(prefix, robot, i)
         point, rate = frozen(meas)
         np.testing.assert_allclose(point, expected, atol=1e-7)
-        np.testing.assert_allclose(rate, frozen.B @ np.linalg.pinv(frozen.B) @ v, atol=1e-12)
+        if not gravity:  # a moving rest has the velocity P theta_dot instead
+            B = frozen.B
+            np.testing.assert_allclose(rate, B @ np.linalg.pinv(B) @ v, atol=1e-12)
 
 
 @pytest.mark.parametrize("gravity", [False, True])
@@ -35,7 +49,7 @@ def test_frozen_point(prefix, gravity):
 def test_every_flag_against_the_lab(prefix, base, correction, gravity):
     robot = build(prefix)
     compiled = law(prefix, robot, gravity)
-    controller = ua.controller(compiled, base, correction, gravity=gravity)
+    controller = lab_controller(compiled, robot, base, correction, gravity)
     tag = f"{prefix}_g{int(gravity)}_{base}_{correction or 'none'}"
     for i in range(len(DATA[f"{prefix}_q"])):
         meas = reading(prefix, robot, i)[0]
@@ -58,7 +72,8 @@ def test_the_flags_pick_the_controller():
     compiled = law("three", robot)
     assert type(ua.controller(compiled, "frozen")) is vmc.VMCController
     assert isinstance(ua.controller(compiled, "naive"), StateController)
-    assert isinstance(ua.controller(compiled, "frozen", gravity=True), StateController)
+    assert isinstance(ua.controller(compiled, "frozen", rest="moving"), StateController)
+    assert isinstance(ua.controller(compiled, "frozen", at=[0.1, 0.2]), StateController)
     assert ua.controller(compiled, "naive").output == []
     stage = ua.controller(compiled, "naive", "tank", tank=2.5, width=0.5).output[0]
     assert (stage.level, stage.width) == (2.5, 0.5)
@@ -67,6 +82,12 @@ def test_the_flags_pick_the_controller():
         ua.controller(compiled, "projected")
     with pytest.raises(ValueError, match="correction"):
         ua.controller(compiled, "naive", "damped")
+    with pytest.raises(ValueError, match="rest must be"):
+        ua.controller(compiled, "frozen", rest="floating")
+    with pytest.raises(ValueError, match="frozen controller"):
+        ua.controller(compiled, "naive", rest="moving")
+    with pytest.raises(ValueError, match="not both"):
+        ua.controller(compiled, "frozen", rest="moving", at=[0.1, 0.2])
 
 
 @pytest.mark.parametrize("gravity", [False, True])
@@ -116,9 +137,9 @@ def test_closed_loops_follow_the_lab_simulation(prefix):
     robot = build(prefix)
     for base, correction, gravity in CLOSED_LOOPS[prefix]:
         tag = f"{prefix}_run_{base}_{correction}_g{gravity}"
-        controller = ua.controller(
-            law(prefix, robot, bool(gravity)), base, None if correction == "none" else correction,
-            gravity=bool(gravity),
+        controller = lab_controller(
+            law(prefix, robot, bool(gravity)), robot, base,
+            None if correction == "none" else correction, bool(gravity),
         )  # fmt: skip
         q0 = np.full(robot.model.space.nq, {"three": 0.3, "five": 0.2, "helyx": 0.2}[prefix])
         plant = vmc.sim.ModelPlant(robot, q0=q0, max_step=1e-4)

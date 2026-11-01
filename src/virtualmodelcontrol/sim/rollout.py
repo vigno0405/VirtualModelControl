@@ -12,6 +12,7 @@ from numpy.typing import ArrayLike
 
 from ..compiler import compile as compile_system
 from ..control.output import apply_symbolic, plant_state
+from ..control.underactuated import Moving
 from ..dynamics import compile_dynamics, reads_motors
 from ..system import VirtualMechanismSystem
 
@@ -33,6 +34,8 @@ def rollout(
     z0: ArrayLike | None = None,
     u: ArrayLike | None = None,
     output: Iterable[Any] = (),
+    reads: str | None = None,
+    rest: str = "constant",
 ) -> dict[str, Any]:
     """Simulate the closed loop for ``T`` [s]: the controller every ``dt``, held, and the robot
     in steps of at most ``max_step`` of ``integrator`` (``implicit``, ``rk4``, ``cvodes``).
@@ -45,11 +48,14 @@ def rollout(
     instead of the controller's command (open loop, as in a logged run). ``output`` lists output
     stages with a ``symbolic`` form (``control.StaticFrictionCompensation``), applied to the
     controller's command as ``VMCController(output=)`` applies them. A robot with fewer motors
-    than coordinates is controlled from its motors, as ``VMCController`` does.
+    than coordinates is controlled from its motors, as ``VMCController`` does: the frozen
+    controller, with ``rest`` ``"constant"`` or ``"moving"``; ``reads="state"`` gives it the
+    naive controller instead, and ``"motors"`` asks for the frozen one outright (see ``Problem``).
     """
     if integrator not in INTEGRATORS:
         raise ValueError(f"integrator takes one of {INTEGRATORS}, got {integrator!r}")
     compiled, dynamics, where = _compile(system, runtime)
+    mode = _mode(system, dynamics, reads, rest)
     space = system.robot.model.space
     nq, nv, nz = space.nq, space.nv, compiled.z0.size // 2
     nx, steps = nq + nv, round(T / dt)
@@ -63,7 +69,7 @@ def rollout(
     x, tw = ca.MX.sym("x", nx + 2 * nz), ca.MX.sym("tw", 2 + (0 if given is None else nu))
     pp = ca.MX.sym("p", compiled.live_values().size)
     q, v, z, t, w = x[:nq], x[nq:nx], x[nx:], tw[0], tw[1]
-    command, zdot = _law(compiled, dynamics, system, where, q, v, z, pp, t)
+    command, zdot = _law(compiled, dynamics, mode, where, q, v, z, pp, t)
     command = apply_symbolic(output, command, lambda: plant_state(dynamics, q, v, pp[where], t))
     if given is not None:
         command = tw[2:]
@@ -95,17 +101,23 @@ def rollout(
 
 
 def ode(
-    system: VirtualMechanismSystem, runtime: Iterable[str] = ()
+    system: VirtualMechanismSystem,
+    runtime: Iterable[str] = (),
+    *,
+    reads: str | None = None,
+    rest: str = "constant",
 ) -> Callable[[float, np.ndarray], np.ndarray]:
     """The closed loop in continuous time, f(t, x) with x = [q, v, z positions, z velocities],
-    for SciPy's ``solve_ivp``. The controller is evaluated continuously, not sampled."""
+    for SciPy's ``solve_ivp``. The controller is evaluated continuously, not sampled. ``reads``
+    and ``rest`` are those of ``rollout``."""
     compiled, dynamics, where = _compile(system, runtime)
+    mode = _mode(system, dynamics, reads, rest)
     space = system.robot.model.space
     nq, nv, nz = space.nq, space.nv, compiled.z0.size // 2
     nx = nq + nv
     t, x = ca.MX.sym("t"), ca.MX.sym("x", nx + 2 * nz)
     p = ca.DM(compiled.live_values())
-    u, zdot = _law(compiled, dynamics, system, where, x[:nq], x[nq:nx], x[nx:], p, t)
+    u, zdot = _law(compiled, dynamics, mode, where, x[:nq], x[nq:nx], x[nx:], p, t)
     xdot = ca.vertcat(_rhs(space, dynamics)(x[:nx], u, p[where], t), zdot)
     f = ca.Function("ode", [t, x], [xdot])
     return lambda t, x: np.array(f(t, x)).ravel()
@@ -122,16 +134,45 @@ def _compile(system: VirtualMechanismSystem, runtime: Iterable[str]) -> tuple[An
     return compiled, dynamics, where
 
 
+def _mode(
+    system: VirtualMechanismSystem, dynamics: Any, reads: str | None, rest: str
+) -> tuple[bool, Moving | None]:
+    """Whether the controller reads the motors (the frozen one), and its moving rest, if any."""
+    if reads not in (None, "state", "motors"):
+        raise ValueError(f"reads is 'state' or 'motors', not {reads!r}")
+    if rest not in ("constant", "moving"):
+        raise ValueError(f"rest is 'constant' or 'moving', not {rest!r}")
+    fewer = reads_motors(system.actuation, system.robot.model.space)
+    motors = reads == "motors" or (reads is None and fewer)
+    if rest == "moving":
+        if not (motors and fewer):
+            raise ValueError(
+                "the moving rest is for the frozen controller of a robot with fewer motors "
+                "than coordinates, which reads the motors"
+            )
+        return motors, Moving(system.actuation, dynamics)
+    return motors, None
+
+
 def _law(
-    compiled: Any, dynamics: Any, system: VirtualMechanismSystem, where: list[int], *state: Any
+    compiled: Any,
+    dynamics: Any,
+    mode: tuple[bool, Moving | None],
+    where: list[int],
+    *state: Any,
 ) -> tuple[Any, Any]:
     """The controller's torques and the rates of its virtual states at (q, v, z, p, t): it reads
     the motors the robot reports, as ``VMCController`` does, when the robot has fewer motors than
-    coordinates, and the state otherwise (the same thing)."""
+    coordinates, and the state otherwise (the same thing). With the moving rest the motors give
+    π(θ) and the springs and dampers are pulled back through P = ∂π/∂θ."""
     q, v, z, p, t = state
-    if not reads_motors(system.actuation, system.robot.model.space):
+    motors, moving = mode
+    if not motors:
         return compiled.law(q, v, z, p, t)
     theta, rate = dynamics.motors(q, v, p[where])
+    if moving is not None:
+        qf, vf, P = moving.symbolic(theta, rate, p[where])
+        return moving.law(compiled, qf, vf, P, z, p, t), compiled.law(qf, vf, z, p, t)[1]
     out = compiled.fast(ca.vertcat(theta, rate, z, p, t))
     return out[: compiled.n_u], out[compiled.n_u :]
 
