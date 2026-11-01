@@ -21,7 +21,9 @@ page of its own.
   rendered at the balance with B⁺, which cancels the load on the motors exactly.
 - `Problem(rest="moving")`, `vmc.sim.rollout(reads=, rest=)` and `vmc.sim.ode(reads=, rest=)`: naive
   (`reads="state"`), frozen with a constant rest and frozen with a moving rest are planned and rolled out
-  with every other option, and a plan is the closed loop of the controller that runs.
+  with every other option (the passive correction, a separate plant, `Collocation`, `MPC`, Params set at
+  the solve), and a plan is the closed loop of the controller that runs. The balance makes each step of a
+  plan heavier: about twice the memory and build time on the three-link arm, three times on the five-link.
 - `StateController` accepts a read with `pullback`, `law` and `torque` (the pull-back of the moving rest),
   and `Compiled.component_kinds`.
 - Documentation: a concepts page, "Robots with fewer motors than joints" (the two controllers, why the

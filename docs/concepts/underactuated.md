@@ -67,15 +67,24 @@ $P\,\mathrm{d}\theta$, so the work of $\tau$ is $\tau^\top P\,\mathrm{d}\theta$ 
 torque is $P^\top\tau$. Two facts follow.
 
 1. **Springs.** The spring part of $\tau$ is $-\nabla V(\pi)$, with $V$ the virtual potential.
-   Then $u = -P^\top\nabla V(\pi) = -\nabla_\theta\, V(\pi(\theta))$, the gradient of a function of
-   the motor angles alone. The motors only store and give back the energy $V(\pi(\theta))$. They
-   cannot gain energy by going around a loop.
+   Then
+
+   $$
+   u = -P^\top\nabla V(\pi) = -\nabla_\theta\, V(\pi(\theta)) ,
+   $$
+
+   the gradient of a function of the motor angles alone. The motors only store and give back the
+   energy $V(\pi(\theta))$. They cannot gain energy by going around a loop.
 2. **Dampers.** A damper has a dissipation function $R$, the
    [Rayleigh function](passivity.md#dampers-and-the-rayleigh-function). Here
    $R = \tfrac12\,\dot d^\top C\,\dot d$, with $\dot d = J_\pi P\dot\theta$ the task velocity of the
    frozen configuration and $C$ the damping. The pulled-back damper is
-   $u_d = -\partial R/\partial\dot\theta = -P^\top J_\pi^\top C J_\pi P\dot\theta$, so the power the
-   motors give it is $\dot\theta^\top u_d = -\dot d^\top C\,\dot d \le 0$.
+
+   $$
+   u_d = -\frac{\partial R}{\partial\dot\theta} = -P^\top J_\pi^\top C J_\pi P\dot\theta ,
+   $$
+
+   so the power the motors give it is $\dot\theta^\top u_d = -\dot d^\top C\,\dot d \le 0$.
 
 Together, the controller stores a function of $\theta$ and dissipates. With a robot that is passive
 too, the total energy never rises. None of this uses what $\pi$ is, only that it is a smooth
@@ -113,8 +122,13 @@ P = (B^+)^\top - e\,(e^\top H e)^{-1} e^\top H\,(B^+)^\top ,
 $$
 
 with $e$ a basis of the passive directions and $H = \nabla^2 V_r$ the stiffness of the robot. The
-library solves the balance with a few Newton steps written in CasADi, so it can differentiate it
-and a plan can include it. The passivity above holds for any number of steps and any error in
+library solves the balance with Newton steps written in CasADi, so it can differentiate it and a
+plan can include it: eight steps from the constant rest, each at most 0.5 rad long, which is
+plenty for the passive joints of the robot templates. `ua.Moving(actuation, dynamics,
+iterations=, step=)` builds the read with other values, for a `StateController(compiled,
+read=...)`; a plan and a rollout use the default ones. The balance makes every step of a plan heavier: a
+shooting plan of the three-link arm takes about twice the memory and time to build with the
+moving rest, one of the five-link arm (three passive joints) about three times. The passivity above holds for any number of steps and any error in
 $V_r$; a good model only makes the reach more exact. Everything the robot's model holds at rest
 is in $V_r$: its springs, its weight, and any constant load it carries, a payload or a pretension
 for instance. A load that is not in the model, or one that changes with time (which acts like a
@@ -125,13 +139,23 @@ parameter changed while running, and wants a [tank](../tutorials/energy.md)), is
 Weight compensation is a source: it pushes each mass with $-mg$, so its torque is $\nabla V_g$,
 the gradient of the gravitational potential.
 
-- With a **constant rest**, $B^+\nabla V_g(\pi(\theta)) = \nabla_\theta\,V_g(\pi(\theta))$: the
-  gradient of the gravitational potential *projected* on the frozen configuration. It is as passive
+- With a **constant rest**,
+
+  $$
+  B^+\nabla V_g(\pi(\theta)) = \nabla_\theta\,V_g(\pi(\theta)) :
+  $$
+
+  the gradient of the gravitational potential *projected* on the frozen configuration. It is as passive
   as a spring, and it cancels the weight on the motors exactly when the passive joints really are
   at $\bar q$.
 - With a **moving rest**, the compensation is rendered at the balance with $B^+$, without the pull-back.
-  There $B^+\nabla V_g(\pi) = B^+\nabla V_r(\pi) = \nabla_\theta V_r(\pi(\theta))$ is the gradient of
-  the robot's own potential on its balance manifold, so it cancels the load on the motors at every
+  There
+
+  $$
+  B^+\nabla V_g(\pi) = B^+\nabla V_r(\pi) = \nabla_\theta V_r(\pi(\theta))
+  $$
+
+  is the gradient of the robot's own potential on its balance manifold, so it cancels the load on the motors at every
   pose, the passive joint's spring included. Pulling it back through $P$ as well would leave the
   passive spring's own pull uncompensated, and the tip would end a few millimetres short. Sources
   are the one part of a virtual mechanism not covered by the passivity argument, as for any

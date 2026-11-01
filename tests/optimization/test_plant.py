@@ -461,3 +461,82 @@ def test_a_plan_with_the_moving_rest_has_the_command_and_the_virtual_state_of_th
     expected = np.array(compiled.law(qf, vf, state, p, 0.0)[1]).ravel()
     np.testing.assert_allclose(zdot, expected, atol=1e-9)
     assert abs(expected - np.array(compiled.law(q, v, state, p, 0.0)[1]).ravel()).max() > 1e-3
+
+
+def _underdamped_reach():
+    """The arm under a spring that releases more energy than the dampers take."""
+    arm, _ = _arm_reach()
+    ctrl = vmc.Mechanism("ctrl")
+    ctrl.add("reach", vmc.LinearSpring(arm.point("tip") - [0.45, 0.15, 0.0], 150.0))
+    ctrl.add("damp", vmc.LinearDamper(arm.point("tip"), 3.0))
+    ctrl.add("gravity", vmc.GravityCompensation(arm))
+    return arm, vmc.VirtualMechanismSystem(arm, ctrl)
+
+
+def test_the_passive_correction_is_planned_with_the_moving_rest():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = _underdamped_reach()
+    stage = ua.Passivation(vmc.compile_dynamics(arm, actuation=system.actuation), width=1e-2)
+    q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 40
+    h = 0.5 / (nodes - 1) / sub
+
+    def violation(output):
+        compiled = vmc.compile(system)
+        controller = ua.controller(compiled, "frozen", "passive", rest="moving", width=1e-2)
+        plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
+        log = vmc.sim.run(plant, controller, vmc.sim.SimClock(h), T=0.5 + 2 * h).arrays()
+        start = {"q": np.asarray(log["q"])[::sub][:nodes], "v": np.asarray(log["v"])[::sub][:nodes]}
+        problem = opt.Problem(system, rest="moving", output=output, options={"ipopt.max_iter": 0})
+        problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
+        return problem.solve(warm_start=start).violation
+
+    assert violation([stage]) < 1e-4  # the plan has what the controller has
+    assert violation([]) > 1e-3  # and without the stage it is another controller
+
+
+def test_a_collocation_and_an_mpc_plan_the_moving_rest():
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = _arm_reach()
+    tip, q0 = arm.point("tip"), np.array([0.3, 0.3, 0.3])
+    problem = opt.Problem(system, rest="moving")
+    problem.add(opt.Collocation(q0, 0.5, 11))
+    problem.add(opt.Cost(tip - [0.45, 0.15, 0.0], 1.0, name="reach"))
+    result = problem.solve()
+    assert result.converged and np.isfinite(result.q).all()
+    # an MPC that plans the stiffness of the spring, applied to the controller that runs
+    problem = opt.Problem(system, rest="moving")
+    # 2.5 ms steps: with 10 ms ones the plan of either rest does not converge
+    problem.add(opt.Shooting(q0, 0.5, 6, steps=["ctrl.reach.stiffness"], substeps=40))
+    problem.add(opt.Cost(tip - [0.45, 0.15, 0.0], 1.0, name="reach"))
+    problem.add(opt.Effort(0.01))
+    mpc = opt.MPC(problem)
+    controller = ua.controller(vmc.compile(system, runtime=["ctrl.reach.stiffness"]), "frozen",
+                               rest="moving")  # fmt: skip
+    B = np.asarray(arm.actuation.params["B"].value)
+    meas = vmc.Signals(0.0, motor_position=B.T @ q0, motor_velocity=np.zeros(2))
+    controller.reset(0.0, meas)
+    controller.step(0.0, meas)
+    jump = mpc.step(controller, q0, np.zeros(3), latency=0.0)
+    assert mpc.applied and np.isfinite(jump)
+
+
+def test_the_moving_rest_of_a_plan_balances_with_the_robot_params_of_the_solve():
+    """The passive spring's stiffness set at the solve, not at the build, places the balance."""
+    from virtualmodelcontrol.control import underactuated as ua
+
+    arm, system = _arm_reach()
+    q0, nodes, sub = np.array([0.3, 0.3, 0.3]), 6, 40
+    h = 0.5 / (nodes - 1) / sub
+    problem = opt.Problem(system, rest="moving", options={"ipopt.max_iter": 0})
+    problem.add(opt.Shooting(q0, 0.5, nodes, substeps=sub))
+    problem.parameter("arm.spring.stiffness")
+    problem.build()  # at the stiffness it has now
+    stiffness = system.params["arm.spring.stiffness"]
+    stiffness.value = 0.7 * np.asarray(stiffness.value)  # a softer passive joint, after the build
+    controller = ua.controller(vmc.compile(system), "frozen", rest="moving")
+    plant = vmc.sim.ModelPlant(arm, q0=q0, max_step=h)
+    log = vmc.sim.run(plant, controller, vmc.sim.SimClock(h), T=0.5 + 2 * h).arrays()
+    start = {"q": np.asarray(log["q"])[::sub][:nodes], "v": np.asarray(log["v"])[::sub][:nodes]}
+    assert problem.solve(warm_start=start).violation < 1e-4
