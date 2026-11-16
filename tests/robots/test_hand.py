@@ -42,7 +42,8 @@ def test_gravity_and_limit_torques_match_the_recorded_controller():
     ctrl.add("gravity", vmc.GravityCompensation(robot))
     gravity = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl)))
     ctrl2 = vmc.Mechanism("ctrl")
-    ctrl2.add("limits", adapt.hand_joint_limit_spring(robot))
+    recorded = {"thumb_CMC2": (-0.5, 0.5)}  # [rad] the recorded controller's CMC2 range
+    ctrl2.add("limits", adapt.hand_joint_limit_spring(robot, limits=recorded))
     limits = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl2)))
     for i, q in enumerate(DATA["q"]):
         meas = vmc.Signals(0.0, motor_position=q, motor_velocity=np.zeros(13))
@@ -55,6 +56,13 @@ def test_gravity_and_limit_torques_match_the_recorded_controller():
         np.testing.assert_allclose(
             limits.step(0.0, meas)["motor_torque"], DATA["limit_torque"][i], rtol=1e-10, atol=1e-15
         )
+
+
+def test_the_thumb_cmc2_range_is_minus_70_to_30_degrees():
+    np.testing.assert_allclose(np.degrees(adapt.HAND_JOINT_LIMITS["thumb_CMC2"]), (-70.0, 30.0))
+    spring = adapt.hand_joint_limit_spring(adapt.hand())
+    lower, upper = (np.degrees(np.ravel(p.value)) for p in (spring.lower, spring.upper))
+    np.testing.assert_allclose((lower[1], upper[1]), (-70.0, 30.0))  # the thumb's second joint
 
 
 def test_joint_frame_rotations_match_the_recorded_hand():

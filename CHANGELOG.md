@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [Unreleased]
+
+### Changed
+
+- `adapt.HAND_JOINT_LIMITS["thumb_CMC2"]` is -70° to 30° (it was ±0.5 rad, about ±29°), so the hand's
+  joint-limit springs let the thumb's CMC2 joint further down. `hand_joint_limit_spring(limits=)` still
+  takes another range.
+
 ## [1.5.0] - 2026-11-01
 
 A minor release: the frozen controller of a robot with fewer motors than coordinates has two rests, a
