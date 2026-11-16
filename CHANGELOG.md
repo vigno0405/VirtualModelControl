@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format follows
 - `adapt.HAND_JOINT_LIMITS["thumb_CMC2"]` is -70° to 30° (it was ±0.5 rad, about ±29°), so the hand's
   joint-limit springs let the thumb's CMC2 joint further down. `hand_joint_limit_spring(limits=)` still
   takes another range.
+- `adapt.HAND_JOINT_LIMITS["thumb_IP"]` is 0° to 90° (it was 1.2 rad, about 69°), so the hand's
+  joint-limit springs let the thumb's IP joint bend further.
 
 ## [1.5.0] - 2026-11-01
 

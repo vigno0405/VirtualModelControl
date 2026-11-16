@@ -332,7 +332,7 @@ HAND_JOINT_LIMITS = {
     "thumb_CMC1": (0.0, 1.5),
     "thumb_CMC2": (np.radians(-70.0), np.radians(30.0)),
     "thumb_MCP": (0.0, 1.5),
-    "thumb_IP": (0.0, 1.2),
+    "thumb_IP": (0.0, np.radians(90.0)),
     "index_spread": (-0.3, 0.0),
     "index_MCP": (0.0, 1.5),
     "index_PIP": (0.0, 1.2),
