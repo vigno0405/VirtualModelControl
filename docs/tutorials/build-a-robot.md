@@ -59,9 +59,9 @@ A robot is a mechanism around its model. Its physical components are point masse
 gravity, and here a little viscous friction in the joints. `Gravity` and `GravityCompensation`
 read the robot's `gravity` Param, the vector $g$ in the base frame, so we add it first. The
 simulator needs all of these components; the controller needs only the point masses and the
-`gravity` Param, for `GravityCompensation`. The static friction of the
-motors, which holds a joint until the command passes a breakaway torque, is a part of the
-transmission: see [static friction of the motors](friction.md).
+`gravity` Param, for `GravityCompensation`. The friction of the motors, a
+Coulomb and a viscous torque against their speed, is a pair of dampers on the motor angles: see
+[friction of the motors](friction.md).
 
 ```{code-cell} python
 arm = vmc.Mechanism("arm", model=chain)

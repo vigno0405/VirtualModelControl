@@ -55,7 +55,7 @@ def fit_stiffness_damping(
 
     with A the allocation of generalized forces to motors. v is smoothed (Savitzky-Golay,
     ``smoothing`` samples); ``stride`` keeps every stride-th sample. With ``friction``, each motor
-    also loses a static friction torque F ≥ 0 against its motion, F sign(θ̇), and ``F`` [N·m] is
+    also loses a Coulomb friction torque F ≥ 0 against its motion, F sign(θ̇), and ``F`` [N·m] is
     returned after K and D. A motor that stands still has none: step and settle runs hardly show
     friction, which then hides in K. A stiffness or damping that the runs do not determine (a
     coordinate that never moves, or one that moves only together with another) is NaN, with a

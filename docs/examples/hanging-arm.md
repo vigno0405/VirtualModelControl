@@ -177,7 +177,7 @@ three, all but {glue:text}`left:.3f` % of it.
 
 ### Friction
 
-Static friction in the motors passes for damping. With `friction=True` the fit finds it too,
+Coulomb friction in the motors passes for damping. With `friction=True` the fit finds it too,
 one torque per motor that opposes its motion, and returns it after `K` and `D`:
 
 ```{code-cell} python
