@@ -175,24 +175,6 @@ lines the identified arm's. Over the three held-out steps the arm stays within
 `check["vaf"]` is the share of each coordinate's variance that the model explains; for these
 three, all but {glue:text}`left:.3f` % of it.
 
-### Friction
-
-Coulomb friction in the motors passes for damping. With `friction=True` the fit finds it too,
-one torque per motor that opposes its motion, and returns it after `K` and `D`:
-
-```{code-cell} python
-K, D, F = fit_stiffness_damping(known, [log], smoothing=11, friction=True)
-```
-
-```{code-cell} python
-:tags: [remove-cell]
-glue("friction", float(F.max()), display=False)
-```
-
-The simulated arm has no friction, and the fit finds at most {glue:text}`friction:.1e` N·m.
-A motor that stands still has no friction in the model, so a run that stops after every step
-shows it little. On a real arm, add a run that keeps the motors moving.
-
 ## Reach around an obstacle
 
 A tanh spring pulls the tip towards a target with at most 2 N, and a damper slows the tip

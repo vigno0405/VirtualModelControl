@@ -33,15 +33,15 @@ def fit_efficiency(
     torque of a ``StaticFriction`` (``width`` [N·m] is its smoothing, which static points do not
     determine): the points must then span the dead band, commands from well below to well above
     the breakaway torque, in both directions. It needs each motor's delivered torque: no
-    ``weights``. Deprecated with ``StaticFriction``, removed in 2.0.0: ``fit_params`` fits the
-    Coulomb and viscous friction of the motors from a run.
+    ``weights``. Deprecated with ``StaticFriction``, removed in 2.0.0: the library no longer
+    models motor friction.
     """
     u = np.asarray(commanded, dtype=float)
     u = u.reshape(len(u), -1)
     if friction:
         warnings.warn(
             "fit_efficiency(friction=True) is deprecated and is removed in 2.0.0, with "
-            "StaticFriction: fit the motors' Coulomb and viscous friction with fit_params",
+            "StaticFriction: the library no longer models motor friction",
             DeprecationWarning,
             stacklevel=2,
         )

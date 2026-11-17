@@ -47,9 +47,9 @@ class Problem:
     controller's: ``"constant"``, the ``q_rest`` Param (which a plan can free), or ``"moving"``,
     the passive coordinates at their static balance for the motors (``control.underactuated``).
 
-    ``output`` lists output stages with a ``symbolic`` form (``FrictionCompensation`` with a width),
-    applied to the controller's command in the plan as ``VMCController(output=)`` applies them in
-    a simulation. The robot's own friction (its dampers on the motors) is in its dynamics already.
+    ``output`` lists output stages with a ``symbolic`` form (``TensionFloor``, the passive
+    correction), applied to the controller's command in the plan as ``VMCController(output=)``
+    applies them in a simulation.
     """
 
     def __init__(

@@ -1,10 +1,13 @@
 import casadi as ca
 import numpy as np
+import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol.core import ParamSet
 from virtualmodelcontrol.identification import Steps, fit_stiffness_damping
 from virtualmodelcontrol.models import JointSpace
+
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")  # until 2.0.0
 
 MASS, K, D = np.array([0.5, 1.0]), np.array([40.0, 25.0]), np.array([2.0, 1.5])
 F = np.array([0.2, 0.1])  # static friction of the two motors [N·m]

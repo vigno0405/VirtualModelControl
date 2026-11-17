@@ -46,8 +46,8 @@ def rollout(
     (as ``compiled.live_values()``); a CasADi MX symbol gives the results as MX expressions to
     differentiate. With ``u``, motor torques [N·m] with one row per step, the robot gets them
     instead of the controller's command (open loop, as in a logged run). ``output`` lists output
-    stages with a ``symbolic`` form (``control.FrictionCompensation`` with a width), applied to the
-    controller's command as ``VMCController(output=)`` applies them. A robot with fewer motors
+    stages with a ``symbolic`` form (``control.TensionFloor``, the passive correction), applied to
+    the controller's command as ``VMCController(output=)`` applies them. A robot with fewer motors
     than coordinates is controlled from its motors, as ``VMCController`` does: the frozen
     controller, with ``rest`` ``"constant"`` or ``"moving"``; ``reads="state"`` gives it the
     naive controller instead, and ``"motors"`` asks for the frozen one outright (see ``Problem``).

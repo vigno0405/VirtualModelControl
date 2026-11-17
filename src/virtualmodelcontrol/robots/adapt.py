@@ -11,17 +11,7 @@ from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
 from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
-from ..mechanisms import (
-    Custom,
-    Gravity,
-    Inertance,
-    Joint,
-    LimitSpring,
-    LinearDamper,
-    Mechanism,
-    PointMass,
-    TanhDamper,
-)
+from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
 from ..models import Assembly, Direct, LinearCoupling, SerialChain, StaticFriction
 
 LINK_LENGTHS = (0.040, 0.030, 0.0175)
@@ -98,20 +88,11 @@ COMPENSATION = (0.20, 0.03)
 """The lab's friction compensation of the finger (``output_stage``): the torque F̂ [N·m] added at
 rest in the direction of the command, and the speed v [rad/s] past which it fades."""
 
-MOTOR_FRICTION = (0.049, 0.044)
-"""Coulomb friction of the two motors (MCP, PIP) [N·m], fitted together with ``MOTOR_DAMPING``
-and ``ROTOR_INERTIA`` to step and ramp runs of the finger held by a joint spring, at the default
-efficiency (1). ``add_dynamics`` puts them on the motors."""
-
-MOTOR_DAMPING = (0.015, 0.030)  # [N·m·s/rad] viscous friction of the two motors (fitted)
-ROTOR_INERTIA = 0.00086  # [kg·m²] of each motor, as seen by its angle (fitted)
-FRICTION_SMOOTHING = 0.005  # [rad/s] the speed over which the Coulomb friction turns (fitted)
-
 
 def finger_friction(width: float = 0.02) -> StaticFriction:
     """The static friction of the finger's motors, from the lab's friction compensation: the
     breakaway torque is ``COMPENSATION[0]`` and none is left once they move.
-    Deprecated, removed in 2.0.0: ``add_dynamics(robot, coulomb=MOTOR_FRICTION)``."""
+    Deprecated, removed in 2.0.0: the library no longer models motor friction."""
     warnings.warn(_DEPRECATED_FRICTION, DeprecationWarning, stacklevel=2)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
@@ -174,35 +155,16 @@ def finger(
 
 
 @register("dynamics", "adapt.add_dynamics")
-def add_dynamics(
-    robot: Mechanism,
-    damping: Any = None,
-    coulomb: Any = None,
-    inertia: Any = None,
-    smoothing: float = FRICTION_SMOOTHING,
-) -> Mechanism:
-    """Give the finger or the hand its gravity, for simulation, and its motors' friction if asked.
+def add_dynamics(robot: Mechanism, damping: Any = None) -> Mechanism:
+    """Give the finger or the hand its gravity, for simulation.
 
-    On the motors, each one value or one per motor: ``damping`` [N·m·s/rad] a viscous damper,
-    ``coulomb`` [N·m] the Coulomb friction −F tanh(θ̇ / ``smoothing``), and ``inertia`` [kg·m²]
-    the rotors. The finger's fitted values are ``MOTOR_DAMPING``, ``MOTOR_FRICTION`` and
-    ``ROTOR_INERTIA``.
+    ``damping`` [N·m·s/rad], per motor or one value, adds a viscous damper on the motors.
     """
     robot.add("gravity", Gravity(robot))
-    motors = robot.joint(slice(0, robot.model.space.nv))
     if damping is not None:
+        motors = robot.joint(slice(0, robot.model.space.nv))
         damping = Param("damping", damping, unit="N*m*s/rad", scope="design")
         robot.add("damping", LinearDamper(motors, damping))
-    if coulomb is not None:
-        force = np.asarray(coulomb, dtype=float)
-        slope = Param("damping", force / smoothing, unit="N*m*s/rad", scope="design")
-        robot.add(
-            "coulomb",
-            TanhDamper(motors, slope, Param("max_force", force, unit="N*m", scope="design")),
-        )
-    if inertia is not None:
-        rotor = Param("inertance", inertia, unit="kg*m^2", scope="design")
-        robot.add("rotor", Inertance(motors, rotor))
     return robot
 
 
@@ -677,7 +639,8 @@ def hand_joint_limit_spring(
 
 _DEPRECATED_FRICTION = (
     "finger_friction and hand_friction are deprecated and are removed in 2.0.0, with "
-    "StaticFriction: add_dynamics(robot, coulomb=MOTOR_FRICTION) gives the motors their friction"
+    "StaticFriction: the library has no model of motor friction (identified damping takes it in); "
+    "FrictionCompensation compensates it on a robot"
 )
 _RENAMED = {"FRICTION": "COMPENSATION", "HAND_FRICTION": "HAND_COMPENSATION"}
 

@@ -6,36 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.6.0] - 2026-11-17
 
-A minor release: the friction of the motors is Coulomb and viscous friction on their speed, built from
-dampers the library already has, with values for the finger fitted to its runs; the friction
-compensation gets a smooth sign and goes into plans. The old static friction, a function of the command
-alone, is deprecated and goes in 2.0.0.
+A minor release: the library has no model of the motors' friction, and compensates it on the robot only.
+Identified damping and stiffness take the friction in, since a fit cannot tell friction from damping
+without runs over many speeds; a simulation and a plan have no friction, and no compensation. The old
+static friction, a function of the command alone, is deprecated and goes in 2.0.0.
 
 ### Added
 
-- `adapt.add_dynamics(robot, damping=, coulomb=, inertia=, smoothing=)`: on the motors, Coulomb friction
-  -F tanh(θ̇/ε) (a `TanhDamper` named `coulomb`), viscous friction and the rotors' inertia, each opt-in.
-  The finger's values, fitted to step and ramp runs of the real finger held by a joint spring:
-  `adapt.MOTOR_FRICTION` (0.049 and 0.044 N·m), `adapt.MOTOR_DAMPING` (0.015 and 0.030 N·m·s/rad),
-  `adapt.ROTOR_INERTIA` (0.00086 kg·m²) and `adapt.FRICTION_SMOOTHING` (0.005 rad/s). Any robot gets the
-  same with a `TanhDamper` and a `LinearDamper` on `robot.motor(...)`.
 - `control.FrictionCompensation(max_torque, velocity, width=0)`: with a `width` w the sign of the command
-  becomes the smooth sign u / √(u² + w²), and the stage has a symbolic form, so it goes into a plan, a
-  rollout and an MPC (`Problem(output=)`, `sim.rollout(output=)`). Without a width it is the formula
-  it was.
+  becomes the smooth sign u / √(u² + w²), which adds only part of the torque to small commands, so the
+  motors flip less around a goal. Without a width it is the formula it was. It has no form for a plan:
+  `Problem(output=)` refuses it.
 - `adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`: the compensation the lab runs on the finger and the
   hand, the new names of `adapt.FRICTION` and `adapt.HAND_FRICTION`.
-- The tutorial "Friction of the motors" replaces "Static friction of the motors".
+- The tutorial "Friction compensation" replaces "Static friction of the motors": the stage, why there is
+  no friction model, and how to choose its numbers (the torque about 0.6 times each motor's breakaway
+  torque, measured on the robot; the speed from the speed reading; the width from the error accepted).
 
 ### Deprecated
 
 - `StaticFriction`, `Efficiency(friction=)`, `fit_efficiency(..., friction=True)`,
   `control.StaticFrictionCompensation`, `adapt.finger_friction()`, `adapt.hand_friction()`,
-  `adapt.FRICTION` and `adapt.HAND_FRICTION` warn with a `DeprecationWarning`, and 2.0.0 removes them.
-  They work as before. The old model took the friction from the command alone, not from the speed: a
-  motor moving with a small command lost all of it, and a braking command could create power. To move
-  over, put its breakaway torque as the Coulomb torque on the motors, and use `FrictionCompensation`
-  with a `width` in place of `StaticFrictionCompensation`.
+  `adapt.FRICTION`, `adapt.HAND_FRICTION` and `fit_stiffness_damping(..., friction=True)` warn with a
+  `DeprecationWarning`, and 2.0.0 removes them. They work as before. To move over, drop the friction
+  model, fit the damping without it, and compensate on the robot with `FrictionCompensation`, with a
+  `width` in place of `StaticFrictionCompensation`.
 
 ### Changed
 

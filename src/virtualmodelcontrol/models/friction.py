@@ -14,8 +14,9 @@ from ..core.registry import register
 from ..core.units import NM
 
 _DEPRECATED = (
-    "StaticFriction (and Efficiency(friction=)) is deprecated and is removed in 2.0.0: model a "
-    "motor's friction with a TanhDamper (Coulomb) and a LinearDamper (viscous) on robot.motor(...)"
+    "StaticFriction (and Efficiency(friction=)) is deprecated and is removed in 2.0.0: "
+    "the library has no model of motor friction (identified damping takes it in); "
+    "FrictionCompensation compensates it on a robot"
 )
 
 
@@ -36,8 +37,8 @@ class StaticFriction:
     on the torque only, not on the speed. With F = Fc = 0, the default, τ_f = 0: no friction. The
     parameters are ``design`` Params, to tune or to identify.
 
-    Deprecated, removed in 2.0.0: model a motor's friction with a ``TanhDamper`` (Coulomb) and a
-    ``LinearDamper`` (viscous) on ``robot.motor(...)``.
+    Deprecated, removed in 2.0.0: the library no longer models motor friction (identified damping
+    takes it in), and ``FrictionCompensation`` compensates it on a robot.
     """
 
     def __init__(self, breakaway: Any = 0.0, kinetic: Any = 0.0, width: Any = 0.01) -> None:

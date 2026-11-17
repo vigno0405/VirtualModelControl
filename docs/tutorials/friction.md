@@ -4,13 +4,14 @@ kernelspec:
   name: python3
 ---
 
-# Friction of the motors
+# Friction compensation
 
-A motor's friction resists its motion: a constant torque against the direction it turns, the
-Coulomb friction, and a torque that grows with its speed, the viscous friction. A virtual spring
-that pulls with less than the Coulomb torque barely moves the joint, and the robot stops short
-of its goal. In this tutorial we model that friction, see what it does to a controller,
-compensate it, identify it and plan with it. Everything here is off unless we ask for it.
+A motor's friction holds it until the command passes a breakaway torque, and then takes part of
+the torque while it moves. A virtual spring that pulls with less than that does not move the joint,
+and the robot stops short of its goal. The library has no model of this friction. On the robot an
+output stage compensates it: it adds a torque in the direction of the command while the motor is
+at rest. This tutorial shows the stage, says why there is no model, and how to choose its numbers.
+Nothing here is on unless we ask for it.
 
 ```{code-cell} python
 :tags: [remove-cell]
@@ -18,282 +19,177 @@ import docs_setup
 from myst_nb import glue
 ```
 
-## The model
+## The stage
 
-On each motor, turning at the speed $\dot\theta$ [rad/s], friction gives the torque
+`FrictionCompensation(max_torque, velocity, width=0)` turns the command $u$ of each motor into
 
 $$
-\tau_f = -F_c \tanh(\dot\theta / \varepsilon) - D \dot\theta ,
+u + \hat F \, e^{-(\dot\theta / v)^2} \, \sigma(u),
 $$
 
-with $F_c$ the Coulomb torque [N·m], $D$ the viscous friction [N·m·s/rad], and $\varepsilon$
-[rad/s] the speed over which the Coulomb torque turns from one direction to the other. It is
-smooth, so a solver can differentiate it, and it only takes energy: $\tau_f \dot\theta \le 0$ at
-every speed. It is made of two components the library already has, put on the motor angles
-`robot.motor(...)`: a `TanhDamper(motors, F_c / eps, F_c)`, whose slope at rest is
-$F_c / \varepsilon$ and which never pushes harder than $F_c$, and a `LinearDamper(motors, D)`.
+with $\hat F$ the `max_torque` [N·m], $\dot\theta$ the motor's speed and $v$ the `velocity`
+[rad/s] past which the stage fades. $\sigma$ is the sign of $u$, or with a `width` $w$ [N·m] the
+smooth sign $u / \sqrt{u^2 + w^2}$. Here is what it sends for each command, at rest and moving:
 
 ```{code-cell} python
 import numpy as np
 import matplotlib.pyplot as plt
 import virtualmodelcontrol as vmc
+from virtualmodelcontrol.control import FrictionCompensation
 
-Fc, D = 0.3, 0.05  # Coulomb [N·m], viscous [N·m·s/rad]
-rate = np.linspace(-0.1, 0.1, 401)  # motor speed [rad/s]
+F_hat, v, w = 0.03, 0.03, 0.01  # [N·m], [rad/s], [N·m]
+u = np.linspace(-0.06, 0.06, 601)  # commands of one motor [N·m]
+
+def sent(stage, rate):
+    meas = vmc.Signals(0.0, motor_position=np.zeros_like(u),
+                       motor_velocity=np.full_like(u, rate))
+    return stage(u, meas)
+
+sign = FrictionCompensation(F_hat, v)
+smooth = FrictionCompensation(F_hat, v, width=w)
 
 fig, ax = plt.subplots()
-for eps, style in ((0.005, "-"), (0.02, "--")):
-    tau = -Fc * np.tanh(rate / eps) - D * rate
-    ax.plot(rate, tau, style, label=rf"$\varepsilon$ = {eps}")
-ax.set_xlabel(r"motor speed $\dot\theta$ [rad/s]")
-ax.set_ylabel(r"friction $\tau_f$ [N$\cdot$m]")
-ax.legend(loc="upper right", fontsize=18);
+ax.plot(u, sent(sign, 0.0), label="sign, at rest")
+ax.plot(u, sent(smooth, 0.0), "--", label="smooth, at rest")
+ax.plot(u, sent(sign, 3 * v), ":", label=r"moving at $3v$")
+ax.set_xlabel(r"command $u$ [N$\cdot$m]")
+ax.set_ylabel(r"sent [N$\cdot$m]")
+ax.legend(loc="upper left", fontsize=18);
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-for eps in (0.005, 0.02):
-    tau = -Fc * np.tanh(rate / eps) - D * rate
-    assert (tau * rate <= 0).all()  # it only takes energy
-    coulomb = tau + D * rate
-    assert abs(coulomb).max() <= Fc
-    assert abs(abs(coulomb[abs(rate) > 4 * eps]) - Fc).max() < 1e-3 * Fc
+at_rest = sent(sign, 0.0) - u
+assert np.allclose(at_rest[u > 1e-9], F_hat) and np.allclose(at_rest[u < -1e-9], -F_hat)
+assert (abs(sent(smooth, 0.0) - u) < F_hat).all()  # the smooth sign: never all of it
+left = float(abs(sent(sign, 3 * v) - u).max())
+assert np.isclose(left, F_hat * np.exp(-9))
+glue("F_hat", F_hat, display=False)
+glue("w", w, display=False)
+glue("left", left, display=False)
 ```
 
-Near rest the Coulomb torque is a steep damper, of slope $F_c / \varepsilon$. A load below
-$F_c$ then turns the motor only at the slow speed
-$\varepsilon \operatorname{artanh}(\text{load} / F_c)$, so the motor nearly holds: that is its
-static friction. A real motor holds exactly, and this model creeps. A smaller $\varepsilon$
-creeps slower and is harder for a solver. There is no separate static torque: on the motors we
-measured, the torque at which a motor broke away from rest was about its Coulomb torque.
+At rest the sign adds all of $\hat F$ = {glue:text}`F_hat:.2f` N·m to any command, however small:
+the output jumps at $u = 0$. The smooth sign adds only part of it to commands smaller than
+$w$ = {glue:text}`w:.2f` N·m, so a command that changes sign near a goal does not flip the
+motor between $\pm\hat F$. Once the motor turns at three times $v$, the stage adds less than
+{glue:text}`left:.0e` N·m: it helps a motor break away and leaves a moving one alone. It is an
+output stage, a correction that `VMCController(output=...)` applies to the command after the
+controller's law ([the loop](first-controller.md#the-loop)). It adds energy, so nothing turns it
+on but us.
 
-## In a robot
+## Why there is no friction model
 
-Here is a joint with an inertia, friction on its motor, and a virtual spring of 1 N·m/rad that
-pulls it to 1 rad:
+In a robot's runs friction and damping look alike: both take torque against the motion. A fit
+tells them apart only with runs over many speeds, slow ones and the start of a motion, and the
+runs of an identification rarely have them. So the library models neither apart: what the robot
+loses to friction ends up in the damping and the stiffness identified from its runs
+([Fit Params to a run](fit.md)), and a simulation or a plan has no friction. Nor does a plan
+take the compensation, which would push against a friction the plan does not have:
 
 ```{code-cell} python
+from virtualmodelcontrol import optimization as opt
 from virtualmodelcontrol.models import Direct, JointSpace
 
-def system_of(coulomb=0.0, viscous=0.0, eps=0.005):
-    robot = vmc.Mechanism("robot", model=JointSpace(1, unit="rad"),
-                          actuation=Direct())
-    q, motor = robot.joint(0), robot.motor(0)
-    robot.add("inertia", vmc.Inertance(q, 0.05))  # [kg·m²]
-    if coulomb:
-        robot.add("coulomb",
-                  vmc.TanhDamper(motor, coulomb / eps, coulomb))
-    robot.add("viscous", vmc.LinearDamper(motor, viscous))
-    ctrl = vmc.Mechanism("ctrl")
-    goal = vmc.Ref("goal", 1, [1.0])  # [rad]
-    ctrl.add("spring", vmc.LinearSpring(q - goal, 1.0))
-    ctrl.add("damper", vmc.LinearDamper(q, 0.2))
-    return vmc.VirtualMechanismSystem(robot, ctrl)
-
-def run(system, output=(), T=20.0):
-    plant = vmc.sim.ModelPlant(system.robot)
-    controller = vmc.VMCController(vmc.compile(system),
-                                   output=list(output))
-    clock = vmc.sim.SimClock(dt=1 / 100)
-    return vmc.sim.run(plant, controller, clock, T=T).arrays()
-```
-
-We run it without friction, and with the friction above:
-
-```{code-cell} python
-free, held = run(system_of()), run(system_of(Fc, D))
-
-fig, ax = plt.subplots()
-ax.plot(free["t"], free["q"][:, 0], label="no friction")
-ax.plot(held["t"], held["q"][:, 0], "--", label="friction")
-ax.set_xlabel("time [s]")
-ax.set_ylabel("angle [rad]")
-ax.legend(loc="lower right", fontsize=18);
+robot = vmc.Mechanism("robot", model=JointSpace(1, unit="rad"),
+                      actuation=Direct())
+q = robot.joint(0)
+robot.add("inertia", vmc.Inertance(q, 1.0))  # [kg·m²]
+ctrl = vmc.Mechanism("ctrl")
+ctrl.add("spring", vmc.LinearSpring(q - vmc.Ref("goal", 1, [1.0]), 1.0))
+system = vmc.VirtualMechanismSystem(robot, ctrl)
+try:
+    opt.Problem(system, output=[smooth])
+except ValueError as error:
+    print(error)
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-t = np.ravel(held["t"])
-early = 1.0 - held["q"][np.searchsorted(t, 2.0), 0]
-short = 1.0 - held["q"][-1, 0]
-creep = float(held["v"][-1, 0])
-assert abs(1.0 - free["q"][-1, 0]) < 1e-3
-assert 0.15 < early < Fc and 0.1 < short < early and 0 < creep < 0.01
-glue("early", float(early), display=False)
-glue("short", float(short), display=False)
-glue("creep", creep, display=False)
+try:
+    opt.Problem(system, output=[smooth])
+    raise AssertionError("a plan took the compensation")
+except ValueError as error:
+    assert "FrictionCompensation has no symbolic form" in str(error)
 ```
 
-The joint without friction arrives. With friction, it stops {glue:text}`early:.2f` rad short
-within two seconds: the spring pulls with $K e$, which is less than $F_c$ while
-$e < F_c / K$. Then it only creeps, at {glue:text}`creep:.3f` rad/s after 20 s, when it is
-still {glue:text}`short:.2f` rad short. A stiffer spring narrows the gap.
+Friction only takes energy, so a controller that is passive on the model stays passive on the
+robot. What we give up is a simulation that stops short of the goal as the robot does.
 
-## The finger's motors
+## Choosing the numbers
 
-`adapt.add_dynamics` gives the finger its gravity and, when we ask, its motors' friction and
-rotor inertia, with the values fitted to step and ramp runs of the real finger held by a joint
-spring:
+- **$\hat F$, under the breakaway torque.** Measure the breakaway $F_b$ of each motor on the
+  robot: from rest, raise its command slowly and note the torque at the first motion of the
+  encoder, both ways, and keep the smaller; do it at a pose with little static load. Start with
+  $\hat F = 0.6\,F_b$. With more than $F_b$ a motor jitters around its goal: the speed it reads
+  is coarse and late, so the stage keeps pushing a motor that has already broken away. If the
+  robot still stops short and does not jitter, raise it toward $0.8\,F_b$.
+- **$v$, from the speed reading:** one or two of its steps, so that a motor at rest reads as at
+  rest. A Dynamixel reads speed in steps of 0.229 rpm, which is {glue:text}`step:.3f` rad/s.
+- **$w$, from the error we accept:** about the stiffness $K$ of the virtual spring at the motor
+  times the position error we accept. A spring of 0.6 N·m/rad and 1° give
+  {glue:text}`w_example:.3f` N·m. A larger width jitters less and leaves a slightly larger error.
+
+```{code-cell} python
+:tags: [remove-cell]
+step = 0.229 * 2 * np.pi / 60  # [rad/s]
+glue("step", float(step), display=False)
+glue("w_example", float(0.6 * np.radians(1.0)), display=False)
+rate = np.linspace(0.0, 5 * v, 10001)
+power = F_hat * rate * np.exp(-((rate / v) ** 2))  # what the stage adds at each speed [W]
+bound = F_hat * v / np.sqrt(2 * np.e)
+assert abs(power.max() - bound) < 1e-9
+glue("power_mW", float(1e3 * bound), display=False)
+```
+
+The energy it adds is small: at most $\hat F v / \sqrt{2e}$ per motor, the most of
+$\hat F |\dot\theta| e^{-(\dot\theta/v)^2}$ over the speed, which is {glue:text}`power_mW:.2f` mW
+with the numbers above.
+
+## On the robot
+
+The finger and the hand have the stage in their output stages, `adapt.output_stage()` and
+`adapt.hand_output_stage()`, with their values in `adapt.COMPENSATION` and
+`adapt.HAND_COMPENSATION`; a torque clip follows it. A controller takes them with `output=`:
 
 ```{code-cell} python
 from virtualmodelcontrol.robots import adapt
 
-finger = adapt.add_dynamics(adapt.finger(),
-                            coulomb=adapt.MOTOR_FRICTION,
-                            damping=adapt.MOTOR_DAMPING,
-                            inertia=adapt.ROTOR_INERTIA)
-finger.params["coulomb.max_force"].value
+finger = adapt.finger()
+ctrl = vmc.Mechanism("ctrl")
+goal = vmc.Ref("theta_ref", 3, [0.4, 0.4, 0.4])  # [rad]
+angles = adapt.joint_angles(finger)
+ctrl.add("hold", vmc.LinearSpring(angles - goal, 0.6 * np.eye(3)))
+compiled = vmc.compile(vmc.VirtualMechanismSystem(finger, ctrl))
+controller = vmc.VMCController(compiled, output=adapt.output_stage())
+
+meas = vmc.Signals(0.0, motor_position=np.zeros(2),
+                   motor_velocity=np.zeros(2))
+controller.reset(0.0, meas)
+command = controller.step(0.0, meas)
+command["law_torque"], command["motor_torque"]
 ```
 
 ```{code-cell} python
 :tags: [remove-cell]
-glue("mcp", adapt.MOTOR_FRICTION[0], display=False)
-glue("pip", adapt.MOTOR_FRICTION[1], display=False)
-glue("eps", adapt.FRICTION_SMOOTHING, display=False)
-found = finger.params["coulomb.max_force"].value
-assert found.tolist() == list(adapt.MOTOR_FRICTION)
+law, motor = (np.asarray(command[k], dtype=float) for k in ("law_torque", "motor_torque"))
+F_finger = adapt.COMPENSATION[0]
+assert np.allclose(motor - law, F_finger * np.sign(law))
+glue("F_finger", float(F_finger), display=False)
+glue("F_hand", float(adapt.HAND_COMPENSATION[0]), display=False)
 ```
 
-The Coulomb torques are {glue:text}`mcp:.3f` N·m on the MCP motor and {glue:text}`pip:.3f` N·m
-on the PIP motor, turning over {glue:text}`eps:.3f` rad/s. With them the simulated runs follow
-the measured ones closely, and without the Coulomb term no choice of damping and inertia does.
-Two things the model leaves out: the real motors stick where the model creeps, and at slow
-speeds the MCP motor moves in jerks (stick-slip), which a friction that does not drop with speed
-cannot produce. The efficiency of the motors is a separate thing, in their transmission
-([Efficiency](../concepts/efficiency.md)); the fit used the default, 1.
+At rest each motor gets {glue:text}`F_finger:.2f` N·m more than the law asks, in the direction
+of the law. The hand's stage adds {glue:text}`F_hand:.1f` N·m. On a robot, read `motor_torque`
+and send it to the motors.
 
-## Compensation
+## Before 1.6.0
 
-`FrictionCompensation(max_torque, velocity, width=0)` adds a torque $\hat F$ in the direction
-of the command while the motor is at rest, and fades it once the motor turns:
-
-$$
-u + \hat F e^{-(\dot\theta / v)^2} \sigma(u),
-$$
-
-with $\sigma$ the sign of $u$, or with a `width` $w$ the smooth sign $u / \sqrt{u^2 + w^2}$. It
-helps a motor break away, and it leaves the friction of a moving motor alone. It is an output
-stage: a correction that `VMCController(output=...)` applies to the command after the
-controller's law ([the loop](first-controller.md#the-loop)). It adds energy, so nothing turns it
-on but us:
-
-```{code-cell} python
-from virtualmodelcontrol.control import FrictionCompensation
-
-stages = {f"{share:.0%}": FrictionCompensation(share * Fc, 0.03, width=0.01)
-          for share in (0.5, 0.8)}
-errors = {name: 1.0 - run(system_of(Fc, D), [stage])["q"][-1, 0]
-          for name, stage in stages.items()}
-errors
-```
-
-```{code-cell} python
-:tags: [remove-cell]
-assert 0 < errors["80%"] < errors["50%"] < 0.5 * short
-glue("half", float(errors["50%"]), display=False)
-glue("most", float(errors["80%"]), display=False)
-```
-
-Compensating half of the Coulomb torque leaves {glue:text}`half:.3f` rad after 20 s, and 80 %
-leaves {glue:text}`most:.3f` rad. How to choose the three numbers:
-
-- **$\hat F$**, from the friction: a fraction of $F_c$, fitted as below. On a robot, more than
-  $F_c$ makes a motor jitter around its goal, because the speed it reads is coarse and late. A
-  simulation reads the speed exactly, so it does not show that.
-- **$v$**, from the speed reading: one or two of its steps, so that a motor at rest reads as at
-  rest.
-- **$w$**, a choice: commands smaller than $w$ get only part of $\hat F$, so a larger width
-  jitters less, responds less, and is easier for a solver. A plan needs one.
-
-## Identification
-
-The friction torques are Params of the robot, so `fit_params` finds them from a run with its
-motor torques ([Fit Params to a run](fit.md)). Their names say where they sit:
-`coulomb.max_force` is $F_c$, `coulomb.damping` the slope $F_c / \varepsilon$ and
-`viscous.damping` is $D$. We drive the joint, held by a spring, with a slow sine of torque, and
-fit from a rough guess:
-
-```{code-cell} python
-from virtualmodelcontrol.identification import fit_params
-
-dt = 1 / 330
-t = np.arange(0.0, 6.0, dt)
-command = 0.6 * np.sin(np.pi * t)[:, None]  # [N·m]
-
-def bench(coulomb, viscous):
-    robot = system_of(coulomb, viscous).robot
-    robot.add("spring", vmc.LinearSpring(robot.joint(0), 2.0))
-    return robot
-
-none = vmc.Mechanism("none")  # no controller: the torques are given
-system = vmc.VirtualMechanismSystem(bench(Fc, D), none)
-log = vmc.sim.rollout(system, [0.0], len(t) * dt, dt, max_step=dt,
-                      u=command)
-
-names = ["coulomb.max_force", "coulomb.damping", "viscous.damping"]
-fit = fit_params(bench(0.2, 0.02), names, [log], smoothing=11)
-{name: fit.values[name].round(3) for name in names}
-```
-
-```{code-cell} python
-:tags: [remove-cell]
-found = {name: float(np.ravel(fit.values[name])[0]) for name in names}
-assert abs(found[names[0]] - Fc) < 0.01 and abs(found[names[2]] - D) < 0.01
-assert abs(found[names[0]] / found[names[1]] - 0.005) < 5e-4
-glue("Fc_fit", found[names[0]], display=False)
-glue("D_fit", found[names[2]], display=False)
-```
-
-The fit gives {glue:text}`Fc_fit:.3f` N·m for the Coulomb torque and {glue:text}`D_fit:.3f`
-N·m·s/rad for the viscous friction, against 0.3 and 0.05 in the simulated robot. The fit is
-local: it starts from the robot's values. Without the motor torques, as for the finger, the
-friction can still be fitted to runs of the closed loop by simulating them, which is slower.
-`fit_stiffness_damping(..., friction=True)` fits a Coulomb torque per motor together with the
-stiffness and the damping, from torque steps ([Hanging soft arm](../examples/hanging-arm.md)).
-
-## Planning with it
-
-The friction is in the robot's dynamics, so a plan ([Optimize](optimize.md)), an optimization
-and an MPC ([Model predictive control](mpc.md)) see it. A compensation with a width joins them
-through `Problem(output=...)`, which applies it to the controller's command as
-`VMCController(output=...)` does in a simulation:
-
-```{code-cell} python
-from virtualmodelcontrol import optimization as opt
-
-stage = FrictionCompensation(0.8 * Fc, 0.03, width=0.02)
-system = system_of(Fc, D, eps=0.02)  # wider: easier for a solver
-
-problem = opt.Problem(system, output=[stage])
-problem.add(opt.Shooting([0.0], 3.0, 31, v0=[0.0], substeps=5))
-plan = problem.solve()
-sim = vmc.sim.rollout(system, [0.0], 3.0, 0.02, v0=[0.0], max_step=0.02,
-                      output=[stage])
-gap = abs(plan.q[:-1] - sim["q"][::5]).max()
-```
-
-```{code-cell} python
-:tags: [remove-cell]
-assert plan.converged and gap < 1e-8
-assert np.isclose(3.0 / (len(plan.q) - 1), 5 * 0.02)  # a point every fifth step
-glue("gap", float(gap), display=False)
-```
-
-The plan follows the simulation within {glue:text}`gap:.0e` rad: it is the same closed loop,
-with the motor's friction and the compensation in it. The plan has a point every 0.1 s, which is
-every fifth step of the simulation. `MPC(problem)` takes the same problem, so it plans with
-friction too.
-
-## Good to know
-
-- **Off by default.** `adapt.add_dynamics` adds friction only when given `coulomb=`, and no
-  template turns a compensation on. `adapt.output_stage()` is the compensation the lab runs on
-  the finger, `adapt.COMPENSATION`.
-- **The smoothing** $\varepsilon$: smaller is closer to a motor that sticks and harder for a
-  solver. A plan may want a wider one than a simulation.
-- **Deprecated in 1.6.0, removed in 2.0.0:** `StaticFriction`, `Efficiency(friction=)`,
-  `fit_efficiency(..., friction=True)`, `StaticFrictionCompensation`, `adapt.finger_friction()`,
-  `adapt.hand_friction()`, and the names `adapt.FRICTION` and `adapt.HAND_FRICTION` (now
-  `adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`). The old model took the friction from the
-  command, without the speed. To move over, take its breakaway torque as $F_c$ on the motors,
-  and replace `StaticFrictionCompensation` by `FrictionCompensation` with a `width`.
+The library had a model of the motors' static friction, a function of the command alone:
+`StaticFriction`, in `Efficiency(friction=)`, with `fit_efficiency(..., friction=True)`,
+`StaticFrictionCompensation`, `adapt.finger_friction()` and `adapt.hand_friction()`, and a
+Coulomb column in `fit_stiffness_damping(..., friction=True)`. Version 1.6.0 deprecates them
+with a warning and 2.0.0 removes them; `adapt.FRICTION` and `adapt.HAND_FRICTION` are now
+`adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`. To move over, drop the friction model, fit
+the damping without it, and compensate on the robot with `FrictionCompensation`; a
+`StaticFrictionCompensation` becomes a `FrictionCompensation` with a `width`.

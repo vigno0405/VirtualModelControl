@@ -27,8 +27,7 @@ class Efficiency:
     ``friction`` (a ``StaticFriction``, none by default) is the actuator's static friction: the
     polynomial then takes the torque that friction leaves, with u − τ_f(u) in place of u. Its
     Params are ``friction.breakaway``, ``friction.kinetic`` and ``friction.width``. Deprecated
-    with ``StaticFriction``, removed in 2.0.0: a motor's friction is a ``TanhDamper`` and a
-    ``LinearDamper`` on ``robot.motor(...)``.
+    with ``StaticFriction``, removed in 2.0.0: the library no longer models motor friction.
     """
 
     def __init__(self, *coefficients: Any, friction: Any = None) -> None:

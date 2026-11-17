@@ -712,24 +712,22 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 
 ---
 
-## 1.6.0: friction of the motors on their speed
+## 1.6.0: no friction model, compensation on the robot
 
-- [x] **The model:** Coulomb and viscous friction on the motor speed, a `TanhDamper` and a `LinearDamper` on
-  `robot.motor(...)`; `adapt.add_dynamics(coulomb=, damping=, inertia=)` with the finger's values fitted to its
-  step and ramp runs (`MOTOR_FRICTION`, `MOTOR_DAMPING`, `ROTOR_INERTIA`, `FRICTION_SMOOTHING`).
-- [x] **The compensation:** `FrictionCompensation(..., width=)`, the smooth sign, with a symbolic form for
-  plans, rollouts and MPC.
+- [x] **No friction model:** identified damping and stiffness take the motors' friction in; simulations and
+  plans have none.
+- [x] **The compensation:** `FrictionCompensation(..., width=)`, the smooth sign, on the robot only (no plan
+  form); `adapt.COMPENSATION`, `adapt.HAND_COMPENSATION`.
 - [x] **Deprecated, with a warning:** `StaticFriction`, `Efficiency(friction=)`,
   `fit_efficiency(friction=True)`, `StaticFrictionCompensation`, `adapt.finger_friction()`,
-  `adapt.hand_friction()`, `adapt.FRICTION` and `adapt.HAND_FRICTION` (now `COMPENSATION`,
-  `HAND_COMPENSATION`).
-- [x] **Docs:** the tutorial "Friction of the motors".
+  `adapt.hand_friction()`, `adapt.FRICTION`, `adapt.HAND_FRICTION`, `fit_stiffness_damping(friction=True)`.
+- [x] **Docs:** the tutorial "Friction compensation".
 
 ## 2.0.0: the old friction removed
 
 - [ ] **Removed:** the names deprecated in 1.6.0.
-- [ ] **The finger's compensation** (`adapt.COMPENSATION`) is 0.04 N·m, 0.8 times the fitted Coulomb
-  friction, in place of the 0.20 N·m the lab ran.
+- [ ] **The finger's compensation** (`adapt.COMPENSATION`) is 0.04 N·m, under the motors' breakaway, in place
+  of the 0.20 N·m the lab ran.
 
 ---
 

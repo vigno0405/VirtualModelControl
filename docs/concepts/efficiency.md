@@ -54,10 +54,9 @@ $$
 $$
 
 with each coefficient one value for every motor or one per motor. A number passed as
-`efficiency=` is the linear coefficient $c_1$. `vmc.Efficiency(1.0)` is the default. The friction of the
-motors is not part of the efficiency: it acts on their speed, as dampers on the motors
-([Friction of the motors](../tutorials/friction.md)). The coefficients are Params, to change,
-tune or identify:
+`efficiency=` is the linear coefficient $c_1$. `vmc.Efficiency(1.0)` is the default. The
+friction of the motors is not modelled ([Friction compensation](../tutorials/friction.md)). The
+coefficients are Params, to change, tune or identify:
 
 ```{code-cell} python
 import numpy as np

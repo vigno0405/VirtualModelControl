@@ -56,12 +56,12 @@ np.abs(a - b).max()  # [m], the two descriptions agree
 ## Masses, gravity, simulation
 
 A robot is a mechanism around its model. Its physical components are point masses at sites,
-gravity, and here a little viscous friction in the joints. `Gravity` and `GravityCompensation`
+gravity, and here a little damping in the joints. `Gravity` and `GravityCompensation`
 read the robot's `gravity` Param, the vector $g$ in the base frame, so we add it first. The
 simulator needs all of these components; the controller needs only the point masses and the
-`gravity` Param, for `GravityCompensation`. The friction of the motors, a
-Coulomb and a viscous torque against their speed, is a pair of dampers on the motor angles: see
-[friction of the motors](friction.md).
+`gravity` Param, for `GravityCompensation`. The library has no model of the motors' friction:
+identified damping and stiffness take it in, and on the robot an output stage compensates it
+([friction compensation](friction.md)).
 
 ```{code-cell} python
 arm = vmc.Mechanism("arm", model=chain)
@@ -70,7 +70,7 @@ arm.add("m1", vmc.PointMass(arm.point("elbow"), 1.0))  # [kg]
 arm.add("m2", vmc.PointMass(arm.point("tip"), 0.8))
 arm.add("gravity", vmc.Gravity(arm))
 joints = arm.joint([0, 1])
-arm.add("friction", vmc.LinearDamper(joints, 0.05))  # [N·m·s/rad]
+arm.add("damping", vmc.LinearDamper(joints, 0.05))  # [N·m·s/rad]
 
 goal = np.array([0.25, 0.30, 0.0])  # [m]
 ctrl = vmc.Mechanism("ctrl")

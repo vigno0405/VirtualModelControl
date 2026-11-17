@@ -56,15 +56,22 @@ def fit_stiffness_damping(
     with A the allocation of generalized forces to motors. v is smoothed (Savitzky-Golay,
     ``smoothing`` samples); ``stride`` keeps every stride-th sample. With ``friction``, each motor
     also loses a Coulomb friction torque F ≥ 0 against its motion, F sign(θ̇), and ``F`` [N·m] is
-    returned after K and D. A motor that stands still has none: step and settle runs hardly show
-    friction, which then hides in K. A stiffness or damping that the runs do not determine (a
-    coordinate that never moves, or one that moves only together with another) is NaN, with a
-    warning that names it.
+    returned after K and D. Deprecated, removed in 2.0.0: the library has no model of motor
+    friction, which the fitted damping takes in. A stiffness or damping that the runs do not
+    determine (a coordinate that never moves, or one that moves only together with another) is
+    NaN, with a warning that names it.
     """
     from scipy.optimize import lsq_linear
     from scipy.signal import savgol_filter
 
     check_smoothing(smoothing)
+    if friction:
+        warnings.warn(
+            "fit_stiffness_damping(friction=True) is deprecated and is removed in 2.0.0: the "
+            "library has no model of motor friction (the fitted damping takes it in)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     dyn = compile_dynamics(robot, runtime)
     actuation = robot.actuation if robot.actuation is not None else Direct()

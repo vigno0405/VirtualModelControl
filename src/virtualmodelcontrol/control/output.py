@@ -23,33 +23,24 @@ from ..dynamics import needs_energy
 @register("output", "friction_compensation")
 @dataclass
 class FrictionCompensation:
-    """Static-friction compensation per motor: u + F̂ exp(−(θ̇/v)²) σ(u).
+    """Friction compensation per motor, on the robot: u + F̂ exp(−(θ̇/v)²) σ(u).
 
     At rest it adds ``max_torque`` F̂ [N·m] (scalar or per motor) in the direction of the
     command, and it fades once the motor turns faster than about 2 ``velocity`` v [rad/s]. σ is
     the sign of u, or with ``width`` w [N·m] > 0 the smooth sign u / √(u² + w²), which adds only
-    part of F̂ to commands smaller than w. It adds energy, so nothing turns it on but you.
-    ``symbolic`` is the same map for a plan (``Problem(output=)``); it needs a ``width``.
+    part of F̂ to commands smaller than w. The library has no friction model, so a plan has no
+    friction and takes no compensation. It adds energy, so nothing turns it on but you.
     """
 
     max_torque: ArrayLike
     velocity: float
     width: float = 0.0
-    needs_plant = True  # a plan gives ``symbolic`` the motor rates
 
     def __call__(self, u: np.ndarray, meas: Signals) -> np.ndarray:
         """Add the friction torque in the direction of the command."""
         v = meas["motor_velocity"]
         sign = np.sign(u) if self.width == 0 else u / np.sqrt(u * u + self.width**2)
         return u + np.asarray(self.max_torque) * np.exp(-((v / self.velocity) ** 2)) * sign
-
-    def symbolic(self, u: Any, plant: PlantState) -> Any:
-        """The same map for CasADi expressions, with the motor rates of ``plant``."""
-        if not self.width > 0:
-            raise ValueError("a plan needs a smooth sign: give FrictionCompensation a width > 0")
-        sign = u / ca.sqrt(u * u + self.width**2)
-        gate = ca.exp(-((plant.rates / self.velocity) ** 2))
-        return u + ca.DM(np.asarray(self.max_torque, dtype=float)) * gate * sign
 
 
 @register("output", "static_friction_compensation")
