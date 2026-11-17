@@ -13,6 +13,8 @@ from virtualmodelcontrol.models import Direct, Efficiency, StaticFriction
 from virtualmodelcontrol.models.friction import as_friction
 from virtualmodelcontrol.robots import adapt, helyx, planar
 
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")  # until 2.0.0
+
 F, W = 0.2, 0.01
 U = np.linspace(-0.6, 0.6, 1201)
 
@@ -318,8 +320,8 @@ def test_the_finger_and_hand_have_the_labs_friction_only_when_asked_for():
     assert adapt.finger().actuation.efficiency.friction is None  # nothing by default
     assert adapt.hand().actuation.efficiency.friction is None
     finger, hand = adapt.finger_friction(), adapt.hand_friction(0.05)
-    assert finger.params["breakaway"].value == pytest.approx(adapt.FRICTION[0])
-    assert hand.params["breakaway"].value == pytest.approx(adapt.HAND_FRICTION[0])
+    assert finger.params["breakaway"].value == pytest.approx(adapt.COMPENSATION[0])
+    assert hand.params["breakaway"].value == pytest.approx(adapt.HAND_COMPENSATION[0])
     assert finger.params["kinetic"].value == 0.0 and hand.params["width"].value == 0.05
     robot = adapt.finger(efficiency=Efficiency(1.0, friction=finger))
     assert robot.actuation.efficiency.friction is finger

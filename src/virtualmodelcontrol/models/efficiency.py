@@ -3,6 +3,7 @@ after the friction of the actuator."""
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -11,7 +12,7 @@ from numpy.typing import ArrayLike
 from ..core.params import ParamSet, as_param
 from ..core.registry import register
 from ..core.units import NM
-from .friction import StaticFriction, as_friction
+from .friction import _DEPRECATED, StaticFriction, as_friction
 
 
 @register("efficiency", "polynomial")
@@ -25,7 +26,9 @@ class Efficiency:
 
     ``friction`` (a ``StaticFriction``, none by default) is the actuator's static friction: the
     polynomial then takes the torque that friction leaves, with u − τ_f(u) in place of u. Its
-    Params are ``friction.breakaway``, ``friction.kinetic`` and ``friction.width``.
+    Params are ``friction.breakaway``, ``friction.kinetic`` and ``friction.width``. Deprecated
+    with ``StaticFriction``, removed in 2.0.0: a motor's friction is a ``TanhDamper`` and a
+    ``LinearDamper`` on ``robot.motor(...)``.
     """
 
     def __init__(self, *coefficients: Any, friction: Any = None) -> None:
@@ -36,7 +39,11 @@ class Efficiency:
             unit, bounds = ("", (0.0, 1.0)) if k == 1 else (f"({NM})^{1 - k}", (-np.inf, np.inf))
             self.params.add(as_param(c, f"c{k}", unit=unit, bounds=bounds, scope="design"), f"c{k}")
         self._degree = len(coefficients)
-        self.friction: StaticFriction | None = as_friction(friction)
+        if friction is not None:
+            warnings.warn(_DEPRECATED, DeprecationWarning, stacklevel=2)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)  # warned once, above
+            self.friction: StaticFriction | None = as_friction(friction)
         if self.friction is not None:
             self.params.merge(self.friction.params, "friction")
 

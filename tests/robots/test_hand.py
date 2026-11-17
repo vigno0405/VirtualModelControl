@@ -42,7 +42,8 @@ def test_gravity_and_limit_torques_match_the_recorded_controller():
     ctrl.add("gravity", vmc.GravityCompensation(robot))
     gravity = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl)))
     ctrl2 = vmc.Mechanism("ctrl")
-    recorded = {"thumb_CMC2": (-0.5, 0.5), "thumb_IP": (0.0, 1.2)}  # [rad] the recorded controller's ranges
+    # [rad] the recorded controller's ranges
+    recorded = {"thumb_CMC2": (-0.5, 0.5), "thumb_IP": (0.0, 1.2)}
     ctrl2.add("limits", adapt.hand_joint_limit_spring(robot, limits=recorded))
     limits = vmc.VMCController(vmc.compile(vmc.VirtualMechanismSystem(robot, ctrl2)))
     for i, q in enumerate(DATA["q"]):

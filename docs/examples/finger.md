@@ -36,8 +36,8 @@ from myst_nb import glue
 from schematics import params
 from virtualmodelcontrol.robots import adapt
 
-glue("friction", adapt.FRICTION[0], display=False)
-glue("speed", adapt.FRICTION[1], display=False)
+glue("friction", adapt.COMPENSATION[0], display=False)
+glue("speed", adapt.COMPENSATION[1], display=False)
 glue("limit", adapt.TORQUE_LIMIT, display=False)
 glue("eta_mcp", 100 * adapt.MOTOR_EFFICIENCY[0], display=False)
 glue("eta_pip", 100 * adapt.MOTOR_EFFICIENCY[1], display=False)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -10,7 +11,17 @@ from ..control.output import FrictionCompensation, TorqueLimit
 from ..core.params import Param
 from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
-from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
+from ..mechanisms import (
+    Custom,
+    Gravity,
+    Inertance,
+    Joint,
+    LimitSpring,
+    LinearDamper,
+    Mechanism,
+    PointMass,
+    TanhDamper,
+)
 from ..models import Assembly, Direct, LinearCoupling, SerialChain, StaticFriction
 
 LINK_LENGTHS = (0.040, 0.030, 0.0175)
@@ -83,20 +94,34 @@ def finger_hardware() -> HardwareProfile:
     return HardwareProfile(motors, rate=FINGER_CONTROL_RATE)
 
 
-FRICTION = (0.20, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
+COMPENSATION = (0.20, 0.03)
+"""The lab's friction compensation of the finger (``output_stage``): the torque F̂ [N·m] added at
+rest in the direction of the command, and the speed v [rad/s] past which it fades."""
+
+MOTOR_FRICTION = (0.049, 0.044)
+"""Coulomb friction of the two motors (MCP, PIP) [N·m], fitted together with ``MOTOR_DAMPING``
+and ``ROTOR_INERTIA`` to step and ramp runs of the finger held by a joint spring, at the default
+efficiency (1). ``add_dynamics`` puts them on the motors."""
+
+MOTOR_DAMPING = (0.015, 0.030)  # [N·m·s/rad] viscous friction of the two motors (fitted)
+ROTOR_INERTIA = 0.00086  # [kg·m²] of each motor, as seen by its angle (fitted)
+FRICTION_SMOOTHING = 0.005  # [rad/s] the speed over which the Coulomb friction turns (fitted)
 
 
 def finger_friction(width: float = 0.02) -> StaticFriction:
-    """The static friction of the finger's motors, from the lab's friction identification: the
-    breakaway torque is ``FRICTION[0]`` and none is left once they move. Off unless you ask:
-    ``finger(efficiency=Efficiency(1.0, friction=finger_friction()))``."""
-    return StaticFriction(FRICTION[0], 0.0, width)
+    """The static friction of the finger's motors, from the lab's friction compensation: the
+    breakaway torque is ``COMPENSATION[0]`` and none is left once they move.
+    Deprecated, removed in 2.0.0: ``add_dynamics(robot, coulomb=MOTOR_FRICTION)``."""
+    warnings.warn(_DEPRECATED_FRICTION, DeprecationWarning, stacklevel=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return StaticFriction(COMPENSATION[0], 0.0, width)
 
 
 @register("output", "adapt.output_stage")
 def output_stage() -> list[Any]:
     """The finger's output stage: friction compensation, then a torque clip."""
-    return [FrictionCompensation(*FRICTION), TorqueLimit(TORQUE_LIMIT)]
+    return [FrictionCompensation(*COMPENSATION), TorqueLimit(TORQUE_LIMIT)]
 
 
 @register("robot", "adapt.finger")
@@ -149,16 +174,35 @@ def finger(
 
 
 @register("dynamics", "adapt.add_dynamics")
-def add_dynamics(robot: Mechanism, damping: Any = None) -> Mechanism:
-    """Give the finger or the hand its gravity, for simulation.
+def add_dynamics(
+    robot: Mechanism,
+    damping: Any = None,
+    coulomb: Any = None,
+    inertia: Any = None,
+    smoothing: float = FRICTION_SMOOTHING,
+) -> Mechanism:
+    """Give the finger or the hand its gravity, for simulation, and its motors' friction if asked.
 
-    ``damping`` [N·m·s/rad], per motor or one value, adds a viscous damper on the motors.
+    On the motors, each one value or one per motor: ``damping`` [N·m·s/rad] a viscous damper,
+    ``coulomb`` [N·m] the Coulomb friction −F tanh(θ̇ / ``smoothing``), and ``inertia`` [kg·m²]
+    the rotors. The finger's fitted values are ``MOTOR_DAMPING``, ``MOTOR_FRICTION`` and
+    ``ROTOR_INERTIA``.
     """
     robot.add("gravity", Gravity(robot))
+    motors = robot.joint(slice(0, robot.model.space.nv))
     if damping is not None:
-        motors = robot.joint(slice(0, robot.model.space.nv))
         damping = Param("damping", damping, unit="N*m*s/rad", scope="design")
         robot.add("damping", LinearDamper(motors, damping))
+    if coulomb is not None:
+        force = np.asarray(coulomb, dtype=float)
+        slope = Param("damping", force / smoothing, unit="N*m*s/rad", scope="design")
+        robot.add(
+            "coulomb",
+            TanhDamper(motors, slope, Param("max_force", force, unit="N*m", scope="design")),
+        )
+    if inertia is not None:
+        rotor = Param("inertance", inertia, unit="kg*m^2", scope="design")
+        robot.add("rotor", Inertance(motors, rotor))
     return robot
 
 
@@ -405,7 +449,7 @@ def hand_hardware() -> HardwareProfile:
 
 HAND_LIMIT_STIFFNESS = 0.6  # [N·m/rad]
 HAND_TORQUE_LIMIT = 0.8  # [N·m]
-HAND_FRICTION = (0.1, 0.03)  # Stribeck: max torque [N·m], velocity [rad/s]
+HAND_COMPENSATION = (0.1, 0.03)  # the lab's friction compensation: F̂ [N·m], v [rad/s]
 HAND_MASS_ON_FLANGE = 1.61  # [kg], for the arm's payload
 HAND_COG_ON_FLANGE = (-0.01, 0.004, 0.072)  # [m]
 HAND_MOUNTING_ANGLE = 0.0  # [rad], about the flange z axis
@@ -583,14 +627,17 @@ def hand(
 
 def hand_friction(width: float = 0.02) -> StaticFriction:
     """The static friction of the hand's motors, as ``finger_friction`` for the finger, with
-    ``HAND_FRICTION[0]`` as the breakaway torque."""
-    return StaticFriction(HAND_FRICTION[0], 0.0, width)
+    ``HAND_COMPENSATION[0]`` as the breakaway torque. Deprecated, removed in 2.0.0."""
+    warnings.warn(_DEPRECATED_FRICTION, DeprecationWarning, stacklevel=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return StaticFriction(HAND_COMPENSATION[0], 0.0, width)
 
 
 @register("output", "adapt.hand_output_stage")
 def hand_output_stage() -> list[Any]:
     """The hand's output stage: friction compensation, then a torque clip."""
-    return [FrictionCompensation(*HAND_FRICTION), TorqueLimit(HAND_TORQUE_LIMIT)]
+    return [FrictionCompensation(*HAND_COMPENSATION), TorqueLimit(HAND_TORQUE_LIMIT)]
 
 
 def hand_gravity(
@@ -626,3 +673,23 @@ def hand_joint_limit_spring(
     return LimitSpring(
         hand_joint_angles(robot), stiffness, [lo for lo, _ in limits], [hi for _, hi in limits]
     )
+
+
+_DEPRECATED_FRICTION = (
+    "finger_friction and hand_friction are deprecated and are removed in 2.0.0, with "
+    "StaticFriction: add_dynamics(robot, coulomb=MOTOR_FRICTION) gives the motors their friction"
+)
+_RENAMED = {"FRICTION": "COMPENSATION", "HAND_FRICTION": "HAND_COMPENSATION"}
+
+
+def __getattr__(name: str) -> Any:
+    """The old names of the compensation constants, with a warning (removed in 2.0.0)."""
+    if name in _RENAMED:
+        new = _RENAMED[name]
+        warnings.warn(
+            f"adapt.{name} is deprecated and is removed in 2.0.0: use adapt.{new}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[new]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

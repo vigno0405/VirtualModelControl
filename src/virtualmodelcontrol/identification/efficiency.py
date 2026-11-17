@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -31,11 +33,18 @@ def fit_efficiency(
     torque of a ``StaticFriction`` (``width`` [N·m] is its smoothing, which static points do not
     determine): the points must then span the dead band, commands from well below to well above
     the breakaway torque, in both directions. It needs each motor's delivered torque: no
-    ``weights``.
+    ``weights``. Deprecated with ``StaticFriction``, removed in 2.0.0: ``fit_params`` fits the
+    Coulomb and viscous friction of the motors from a run.
     """
     u = np.asarray(commanded, dtype=float)
     u = u.reshape(len(u), -1)
     if friction:
+        warnings.warn(
+            "fit_efficiency(friction=True) is deprecated and is removed in 2.0.0, with "
+            "StaticFriction: fit the motors' Coulomb and viscous friction with fit_params",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if weights is not None:
             raise ValueError("friction needs the delivered torque of each motor: leave out weights")
         return _with_friction(
@@ -86,10 +95,12 @@ def _with_friction(
         ).x
         return residual(f)[1], abs(float(f[0])), abs(float(f[1]))
 
-    if shared:
-        c, F, Fc = fit(u.T.ravel(), tau.T.ravel())  # the points of every motor, one after another
-        return Efficiency(*c, friction=StaticFriction(F, Fc, width))
-    fits = [fit(u[:, j], tau[:, j]) for j in range(u.shape[1])]
-    c = np.array([f[0] for f in fits])
-    friction = StaticFriction([f[1] for f in fits], [f[2] for f in fits], width)
-    return Efficiency(*c.T, friction=friction)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)  # warned once, by the caller
+        if shared:
+            c, F, Fc = fit(u.T.ravel(), tau.T.ravel())  # the points of every motor, in turn
+            return Efficiency(*c, friction=StaticFriction(F, Fc, width))
+        fits = [fit(u[:, j], tau[:, j]) for j in range(u.shape[1])]
+        c = np.array([f[0] for f in fits])
+        friction = StaticFriction([f[1] for f in fits], [f[2] for f in fits], width)
+        return Efficiency(*c.T, friction=friction)

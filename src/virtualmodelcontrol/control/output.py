@@ -6,6 +6,7 @@ measurement and returns new torques. Motor angles follow the library convention 
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -22,18 +23,33 @@ from ..dynamics import needs_energy
 @register("output", "friction_compensation")
 @dataclass
 class FrictionCompensation:
-    """Static-friction feed-forward per motor (Stribeck): u + τ_max exp(−(θ̇/v)²) sign(u).
+    """Static-friction compensation per motor: u + F̂ exp(−(θ̇/v)²) σ(u).
 
-    ``max_torque`` [N·m] (scalar or per motor), ``velocity`` v [rad/s].
+    At rest it adds ``max_torque`` F̂ [N·m] (scalar or per motor) in the direction of the
+    command, and it fades once the motor turns faster than about 2 ``velocity`` v [rad/s]. σ is
+    the sign of u, or with ``width`` w [N·m] > 0 the smooth sign u / √(u² + w²), which adds only
+    part of F̂ to commands smaller than w. It adds energy, so nothing turns it on but you.
+    ``symbolic`` is the same map for a plan (``Problem(output=)``); it needs a ``width``.
     """
 
     max_torque: ArrayLike
     velocity: float
+    width: float = 0.0
+    needs_plant = True  # a plan gives ``symbolic`` the motor rates
 
     def __call__(self, u: np.ndarray, meas: Signals) -> np.ndarray:
         """Add the friction torque in the direction of the command."""
         v = meas["motor_velocity"]
-        return u + np.asarray(self.max_torque) * np.exp(-((v / self.velocity) ** 2)) * np.sign(u)
+        sign = np.sign(u) if self.width == 0 else u / np.sqrt(u * u + self.width**2)
+        return u + np.asarray(self.max_torque) * np.exp(-((v / self.velocity) ** 2)) * sign
+
+    def symbolic(self, u: Any, plant: PlantState) -> Any:
+        """The same map for CasADi expressions, with the motor rates of ``plant``."""
+        if not self.width > 0:
+            raise ValueError("a plan needs a smooth sign: give FrictionCompensation a width > 0")
+        sign = u / ca.sqrt(u * u + self.width**2)
+        gate = ca.exp(-((plant.rates / self.velocity) ** 2))
+        return u + ca.DM(np.asarray(self.max_torque, dtype=float)) * gate * sign
 
 
 @register("output", "static_friction_compensation")
@@ -46,11 +62,20 @@ class StaticFrictionCompensation:
     compensated. Against an actuator with ``StaticFriction(F, Fc)`` it delivers the command once
     the actuator moves and narrows the dead band from F to F − Fc. It adds energy (up to Fc |θ̇|),
     so nothing turns it on but you. ``symbolic`` is the same map for a plan (``Problem(output=)``).
+    Deprecated, removed in 2.0.0: ``FrictionCompensation`` with a ``width`` takes its place.
     """
 
     kinetic: ArrayLike
     width: float = 0.01
     fraction: float = 1.0
+
+    def __post_init__(self) -> None:
+        warnings.warn(
+            "StaticFrictionCompensation is deprecated and is removed in 2.0.0: use "
+            "FrictionCompensation(max_torque, velocity, width=) instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
     @classmethod
     def of(cls, friction: Any, fraction: float = 1.0) -> StaticFrictionCompensation:

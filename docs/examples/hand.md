@@ -43,8 +43,8 @@ The middle finger stays in place. Every number of the template is a `Param`, for
 :tags: [remove-input]
 from myst_nb import glue
 from schematics import params
-glue("friction", adapt.HAND_FRICTION[0], display=False)
-glue("fade", adapt.HAND_FRICTION[1], display=False)
+glue("friction", adapt.HAND_COMPENSATION[0], display=False)
+glue("fade", adapt.HAND_COMPENSATION[1], display=False)
 glue("limit", adapt.HAND_TORQUE_LIMIT, display=False)
 params.table(adapt.hand(), {
     "coupling": "joint angles per motor angle",

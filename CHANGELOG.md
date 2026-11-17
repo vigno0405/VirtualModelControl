@@ -4,7 +4,38 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
-## [Unreleased]
+## [1.6.0] - 2026-11-17
+
+A minor release: the friction of the motors is Coulomb and viscous friction on their speed, built from
+dampers the library already has, with values for the finger fitted to its runs; the friction
+compensation gets a smooth sign and goes into plans. The old static friction, a function of the command
+alone, is deprecated and goes in 2.0.0.
+
+### Added
+
+- `adapt.add_dynamics(robot, damping=, coulomb=, inertia=, smoothing=)`: on the motors, Coulomb friction
+  -F tanh(θ̇/ε) (a `TanhDamper` named `coulomb`), viscous friction and the rotors' inertia, each opt-in.
+  The finger's values, fitted to step and ramp runs of the real finger held by a joint spring:
+  `adapt.MOTOR_FRICTION` (0.049 and 0.044 N·m), `adapt.MOTOR_DAMPING` (0.015 and 0.030 N·m·s/rad),
+  `adapt.ROTOR_INERTIA` (0.00086 kg·m²) and `adapt.FRICTION_SMOOTHING` (0.005 rad/s). Any robot gets the
+  same with a `TanhDamper` and a `LinearDamper` on `robot.motor(...)`.
+- `control.FrictionCompensation(max_torque, velocity, width=0)`: with a `width` w the sign of the command
+  becomes the smooth sign u / √(u² + w²), and the stage has a symbolic form, so it goes into a plan, a
+  rollout and an MPC (`Problem(output=)`, `sim.rollout(output=)`). Without a width it is the formula
+  it was.
+- `adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`: the compensation the lab runs on the finger and the
+  hand, the new names of `adapt.FRICTION` and `adapt.HAND_FRICTION`.
+- The tutorial "Friction of the motors" replaces "Static friction of the motors".
+
+### Deprecated
+
+- `StaticFriction`, `Efficiency(friction=)`, `fit_efficiency(..., friction=True)`,
+  `control.StaticFrictionCompensation`, `adapt.finger_friction()`, `adapt.hand_friction()`,
+  `adapt.FRICTION` and `adapt.HAND_FRICTION` warn with a `DeprecationWarning`, and 2.0.0 removes them.
+  They work as before. The old model took the friction from the command alone, not from the speed: a
+  motor moving with a small command lost all of it, and a braking command could create power. To move
+  over, put its breakaway torque as the Coulomb torque on the motors, and use `FrictionCompensation`
+  with a `width` in place of `StaticFrictionCompensation`.
 
 ### Changed
 
@@ -1004,7 +1035,8 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.2.2...v1.3.0

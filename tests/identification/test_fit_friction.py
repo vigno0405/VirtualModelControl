@@ -7,6 +7,8 @@ import virtualmodelcontrol as vmc
 from virtualmodelcontrol.identification import fit_efficiency, fit_params
 from virtualmodelcontrol.models import Direct, Efficiency, JointSpace, StaticFriction
 
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")  # until 2.0.0
+
 MASS, K, D = np.array([0.5, 1.0]), np.array([40.0, 25.0]), np.array([2.0, 1.5])
 BREAKAWAY, KINETIC, WIDTH = np.array([0.30, 0.18]), np.array([0.10, 0.05]), 0.002
 DT = 1 / 330

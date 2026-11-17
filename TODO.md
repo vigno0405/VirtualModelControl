@@ -712,6 +712,27 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 
 ---
 
+## 1.6.0: friction of the motors on their speed
+
+- [x] **The model:** Coulomb and viscous friction on the motor speed, a `TanhDamper` and a `LinearDamper` on
+  `robot.motor(...)`; `adapt.add_dynamics(coulomb=, damping=, inertia=)` with the finger's values fitted to its
+  step and ramp runs (`MOTOR_FRICTION`, `MOTOR_DAMPING`, `ROTOR_INERTIA`, `FRICTION_SMOOTHING`).
+- [x] **The compensation:** `FrictionCompensation(..., width=)`, the smooth sign, with a symbolic form for
+  plans, rollouts and MPC.
+- [x] **Deprecated, with a warning:** `StaticFriction`, `Efficiency(friction=)`,
+  `fit_efficiency(friction=True)`, `StaticFrictionCompensation`, `adapt.finger_friction()`,
+  `adapt.hand_friction()`, `adapt.FRICTION` and `adapt.HAND_FRICTION` (now `COMPENSATION`,
+  `HAND_COMPENSATION`).
+- [x] **Docs:** the tutorial "Friction of the motors".
+
+## 2.0.0: the old friction removed
+
+- [ ] **Removed:** the names deprecated in 1.6.0.
+- [ ] **The finger's compensation** (`adapt.COMPENSATION`) is 0.04 N·m, 0.8 times the fitted Coulomb
+  friction, in place of the 0.20 N·m the lab ran.
+
+---
+
 ## Research the library must carry
 
 The library exists to serve research on Virtual Model Control of compliant manipulators. Check
