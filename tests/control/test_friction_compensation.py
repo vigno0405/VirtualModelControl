@@ -1,4 +1,4 @@
-"""The friction compensation, on the robot only, and the names that 2.0.0 removes."""
+"""The friction compensation, on the robot only, and the names that 2.0.0 removed."""
 
 import warnings
 
@@ -7,10 +7,10 @@ import pytest
 
 import virtualmodelcontrol as vmc
 from virtualmodelcontrol import optimization as opt
-from virtualmodelcontrol.control import FrictionCompensation, StaticFrictionCompensation
+from virtualmodelcontrol.control import FrictionCompensation
 from virtualmodelcontrol.core.registry import get
 from virtualmodelcontrol.identification import fit_efficiency, fit_stiffness_damping
-from virtualmodelcontrol.models import Direct, Efficiency, JointSpace, StaticFriction
+from virtualmodelcontrol.models import Direct, Efficiency, JointSpace
 from virtualmodelcontrol.robots import adapt
 
 V = 0.03  # the speed [rad/s] past which the compensation fades
@@ -55,50 +55,41 @@ def test_a_plan_takes_no_friction_compensation():
         opt.Problem(system, output=[FrictionCompensation(0.2, V, width=0.02)])
 
 
-def test_the_lab_compensation_is_off_unless_asked_for():
-    assert adapt.COMPENSATION == (0.20, 0.03) and adapt.HAND_COMPENSATION == (0.1, 0.03)
-    assert adapt.output_stage()[0] == FrictionCompensation(0.20, 0.03)
+def test_the_compensation_of_the_finger_and_the_hand_is_off_unless_asked_for():
+    assert adapt.COMPENSATION == (0.04, 0.03) and adapt.HAND_COMPENSATION == (0.1, 0.03)
+    assert adapt.output_stage()[0] == FrictionCompensation(0.04, 0.03)
     assert adapt.hand_output_stage()[0] == FrictionCompensation(0.1, 0.03)
     assert "damping" not in adapt.add_dynamics(adapt.finger()).components
 
 
-def fit_inputs():
-    """A one-joint robot and a run of it, for the stiffness fit."""
+def test_the_static_friction_of_versions_before_2_0_0_is_gone():
+    import virtualmodelcontrol.control as control
+    import virtualmodelcontrol.models as models
+
+    for module, name in (
+        (vmc, "StaticFriction"),
+        (models, "StaticFriction"),
+        (control, "StaticFrictionCompensation"),
+        (adapt, "finger_friction"),
+        (adapt, "hand_friction"),
+        (adapt, "FRICTION"),
+        (adapt, "HAND_FRICTION"),
+    ):
+        assert not hasattr(module, name), name
     robot = vmc.Mechanism("robot", model=JointSpace(1, unit="rad"), actuation=Direct())
     robot.add("inertia", vmc.Inertance(robot.joint(0), 1.0))
     t = np.arange(400) * 0.01
-    q, v = np.sin(t)[:, None], np.cos(t)[:, None]
-    return robot, [{"t": t, "q": q, "v": v, "u": 2.0 * q + 0.5 * v}]
-
-
-def test_every_old_friction_name_warns_that_2_0_0_removes_it():
+    run = {"t": t, "q": np.sin(t)[:, None], "v": np.cos(t)[:, None], "u": np.sin(t)[:, None]}
     points = np.linspace(-1, 1, 41)[:, None]
-    robot, runs = fit_inputs()
-    calls = {
-        "StaticFriction": lambda: StaticFriction(0.1),
-        "Efficiency(friction=)": lambda: Efficiency(1.0, friction={"breakaway": 0.1}),
-        "StaticFrictionCompensation": lambda: StaticFrictionCompensation(0.1),
-        "fit_efficiency": lambda: fit_efficiency(points, points, friction=True),
-        "fit_stiffness_damping": lambda: fit_stiffness_damping(
-            robot, runs, smoothing=11, friction=True
-        ),
-        "finger_friction": adapt.finger_friction,
-        "hand_friction": adapt.hand_friction,
-        "FRICTION": lambda: adapt.FRICTION,
-        "HAND_FRICTION": lambda: adapt.HAND_FRICTION,
-    }
-    for name, call in calls.items():
-        with pytest.warns(DeprecationWarning, match="2.0.0") as record:
+    for call in (
+        lambda: Efficiency(1.0, friction={"breakaway": 0.1}),
+        lambda: fit_efficiency(points, points, friction=True),
+        lambda: fit_stiffness_damping(robot, [run], smoothing=11, friction=True),
+    ):
+        with pytest.raises(TypeError, match="friction"):
             call()
-        assert len(record) == 1, name  # once, not again from inside the library
-        assert record[0].filename == __file__, name  # and pointing at the caller
-    with pytest.warns(DeprecationWarning):
-        assert adapt.FRICTION == adapt.COMPENSATION
-        assert adapt.HAND_FRICTION == adapt.HAND_COMPENSATION
-    with pytest.raises(AttributeError, match="NOTHING"):
-        adapt.NOTHING  # noqa: B018
     with warnings.catch_warnings():
-        warnings.simplefilter("error")  # the names that stay are quiet
+        warnings.simplefilter("error")  # and nothing warns
         FrictionCompensation(0.1, V, width=0.01)
         adapt.output_stage(), adapt.hand_output_stage()
-        fit_stiffness_damping(robot, runs, smoothing=11)
+        assert len(fit_stiffness_damping(robot, [run], smoothing=11)) == 2  # K and D only

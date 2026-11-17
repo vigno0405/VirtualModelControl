@@ -1,9 +1,7 @@
-"""Transmission efficiency: the motor torque a robot receives, a polynomial of the commanded one,
-after the friction of the actuator."""
+"""Transmission efficiency: the motor torque a robot receives, a polynomial of the commanded one."""
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 import numpy as np
@@ -12,7 +10,6 @@ from numpy.typing import ArrayLike
 from ..core.params import ParamSet, as_param
 from ..core.registry import register
 from ..core.units import NM
-from .friction import _DEPRECATED, StaticFriction, as_friction
 
 
 @register("efficiency", "polynomial")
@@ -23,62 +20,39 @@ class Efficiency:
     ``Efficiency(c1, c2, ...)``: each coefficient is one value for every motor or one per motor.
     ``Efficiency(1.0)``, the default of every transmission, delivers the commanded torque. The
     coefficients are ``design`` Params ``c1`` … ``cn``, to tune or to identify.
-
-    ``friction`` (a ``StaticFriction``, none by default) is the actuator's static friction: the
-    polynomial then takes the torque that friction leaves, with u − τ_f(u) in place of u. Its
-    Params are ``friction.breakaway``, ``friction.kinetic`` and ``friction.width``. Deprecated
-    with ``StaticFriction``, removed in 2.0.0: the library no longer models motor friction.
     """
 
-    def __init__(self, *coefficients: Any, friction: Any = None) -> None:
+    def __init__(self, *coefficients: Any) -> None:
         if not coefficients:
             raise ValueError("an efficiency needs at least its linear coefficient c1")
         self.params = ParamSet()
         for k, c in enumerate(coefficients, start=1):
             unit, bounds = ("", (0.0, 1.0)) if k == 1 else (f"({NM})^{1 - k}", (-np.inf, np.inf))
             self.params.add(as_param(c, f"c{k}", unit=unit, bounds=bounds, scope="design"), f"c{k}")
-        self._degree = len(coefficients)
-        if friction is not None:
-            warnings.warn(_DEPRECATED, DeprecationWarning, stacklevel=2)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)  # warned once, above
-            self.friction: StaticFriction | None = as_friction(friction)
-        if self.friction is not None:
-            self.params.merge(self.friction.params, "friction")
 
     @property
     def degree(self) -> int:
         """The highest power of the commanded torque."""
-        return self._degree
+        return len(self.params)
 
     def delivered(self, u: Any, p: dict[str, Any]) -> Any:
         """Delivered torques for commanded ones ``u``, with the coefficients ``p`` by name."""
-        if self.friction is not None:
-            own = {k[len("friction.") :]: v for k, v in p.items() if k.startswith("friction.")}
-            u = u - self.friction.torque(u, own)
         return sum(p[f"c{k}"] * u**k for k in range(1, self.degree + 1))
 
     def __call__(self, u: ArrayLike) -> np.ndarray:
         """Delivered torques [N·m] at the current coefficients; motors along the last axis."""
-        net = np.asarray(u, dtype=float)
-        if self.friction is not None:
-            net = net - self.friction(net)
-        return np.asarray(
-            sum(self.params[f"c{k}"].value * net**k for k in range(1, self.degree + 1))
-        )
+        u = np.asarray(u, dtype=float)
+        return np.asarray(sum(self.params[f"c{k}"].value * u**k for k in range(1, self.degree + 1)))
 
     def to_dict(self) -> dict[str, Any]:
-        """The coefficients (and the friction) at their current values."""
-        values = [self.params[f"c{k}"].value.tolist() for k in range(1, self.degree + 1)]
-        out: dict[str, Any] = {"type": "polynomial", "coefficients": values}
-        if self.friction is not None:
-            out["friction"] = self.friction.to_dict()
-        return out
+        """The coefficients at their current values."""
+        values = [p.value.tolist() for p in self.params.values()]
+        return {"type": "polynomial", "coefficients": values}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Efficiency:
         """Inverse of ``to_dict``."""
-        return cls(*data["coefficients"], friction=data.get("friction"))
+        return cls(*data["coefficients"])
 
 
 def as_efficiency(value: Any) -> Efficiency:

@@ -5,7 +5,6 @@ from .assembly import Assembly, StackedActuation
 from .continuum import PCC, segment_frame
 from .efficiency import Efficiency
 from .equations import Equations
-from .friction import StaticFriction
 from .function import FunctionModel
 from .joint_space import JointSpace
 from .kinematic import KinematicModel, evaluate_frame, from_dict
@@ -27,7 +26,6 @@ __all__ = [
     "Passive",
     "SerialChain",
     "StackedActuation",
-    "StaticFriction",
     "TendonTransmission",
     "Underactuated",
     "evaluate_frame",

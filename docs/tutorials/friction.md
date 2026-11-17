@@ -183,13 +183,14 @@ At rest each motor gets {glue:text}`F_finger:.2f` N·m more than the law asks, i
 of the law. The hand's stage adds {glue:text}`F_hand:.1f` N·m. On a robot, read `motor_torque`
 and send it to the motors.
 
-## Before 1.6.0
+## Before 2.0.0
 
-The library had a model of the motors' static friction, a function of the command alone:
-`StaticFriction`, in `Efficiency(friction=)`, with `fit_efficiency(..., friction=True)`,
+Up to 1.6.0 the library had a model of the motors' static friction, a function of the command
+alone: `StaticFriction`, in `Efficiency(friction=)`, with `fit_efficiency(..., friction=True)`,
 `StaticFrictionCompensation`, `adapt.finger_friction()` and `adapt.hand_friction()`, and a
-Coulomb column in `fit_stiffness_damping(..., friction=True)`. Version 1.6.0 deprecates them
-with a warning and 2.0.0 removes them; `adapt.FRICTION` and `adapt.HAND_FRICTION` are now
-`adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`. To move over, drop the friction model, fit
-the damping without it, and compensate on the robot with `FrictionCompensation`; a
+Coulomb column in `fit_stiffness_damping(..., friction=True)`. Version 1.6.0 deprecated them
+with a warning and 2.0.0 removed them; `adapt.FRICTION` and `adapt.HAND_FRICTION` are now
+`adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`, and the finger compensates less than the lab
+did, under its motors' breakaway. To move over, drop the friction model, fit the
+damping without it, and compensate on the robot with `FrictionCompensation`; a
 `StaticFrictionCompensation` becomes a `FrictionCompensation` with a `width`.

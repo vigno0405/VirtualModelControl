@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/) (0.x: the API may change between minor versions).
 
+## [2.0.0] - 2026-11-17
+
+A major release: the static friction deprecated in 1.6.0 is removed, and the finger compensates less friction. **This
+breaks the public API** (see "Removed" and "Changed"). The library has no model of the motors' friction: identified damping
+and stiffness take it in, and `FrictionCompensation` compensates it on the robot.
+
+### Removed
+
+- **Breaking.** `StaticFriction` (`vmc.StaticFriction`, `models.StaticFriction`, the `friction` kind of the registry),
+  `Efficiency(friction=)` (an `Efficiency` is the polynomial alone, as up to 1.0.0), `fit_efficiency(..., friction=,
+  width=)`, `control.StaticFrictionCompensation` (`static_friction_compensation` in configuration files),
+  `adapt.finger_friction()`, `adapt.hand_friction()`, `adapt.FRICTION` and `adapt.HAND_FRICTION` (now
+  `adapt.COMPENSATION` and `adapt.HAND_COMPENSATION`), and the Coulomb column of `fit_stiffness_damping(...,
+  friction=)`, which returns K and D only. All warned in 1.6.0.
+
+### Changed
+
+- **Breaking.** `adapt.COMPENSATION`, and so `adapt.output_stage()`, adds 0.04 N·m at rest in place of the 0.20 N·m the
+  lab ran: under the finger's motors' breakaway torque, since more than it makes a motor jitter around its goal.
+  `FrictionCompensation(0.20, 0.03)` is the old stage.
+
 ## [1.6.0] - 2026-11-17
 
 A minor release: the library has no model of the motors' friction, and compensates it on the robot only.
@@ -1030,7 +1051,8 @@ First public release.
 - `robots.adapt`: the ADAPT finger (two motors, coupled distal joints), joint-angle coordinate
   and joint-limit spring.
 
-[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/vigno0405/VirtualModelControl/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.6.0...v2.0.0
 [1.6.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/vigno0405/VirtualModelControl/compare/v1.3.0...v1.4.0

@@ -5,7 +5,6 @@ from .controller import VMCController
 from .output import (
     FrictionCompensation,
     Pretension,
-    StaticFrictionCompensation,
     TensionFloor,
     TorqueLimit,
     TorqueOffset,
@@ -21,7 +20,6 @@ __all__ = [
     "Schedule",
     "ScheduledController",
     "StateController",
-    "StaticFrictionCompensation",
     "SwapController",
     "Tank",
     "TensionFloor",

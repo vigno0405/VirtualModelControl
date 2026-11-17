@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 import numpy as np
@@ -12,7 +11,7 @@ from ..core.params import Param
 from ..core.registry import register
 from ..hardware import HardwareProfile, Motor
 from ..mechanisms import Custom, Gravity, Joint, LimitSpring, LinearDamper, Mechanism, PointMass
-from ..models import Assembly, Direct, LinearCoupling, SerialChain, StaticFriction
+from ..models import Assembly, Direct, LinearCoupling, SerialChain
 
 LINK_LENGTHS = (0.040, 0.030, 0.0175)
 """Proximal, middle and distal phalanx [m], from the MCP joint to the fingertip."""
@@ -84,19 +83,10 @@ def finger_hardware() -> HardwareProfile:
     return HardwareProfile(motors, rate=FINGER_CONTROL_RATE)
 
 
-COMPENSATION = (0.20, 0.03)
-"""The lab's friction compensation of the finger (``output_stage``): the torque F̂ [N·m] added at
-rest in the direction of the command, and the speed v [rad/s] past which it fades."""
-
-
-def finger_friction(width: float = 0.02) -> StaticFriction:
-    """The static friction of the finger's motors, from the lab's friction compensation: the
-    breakaway torque is ``COMPENSATION[0]`` and none is left once they move.
-    Deprecated, removed in 2.0.0: the library no longer models motor friction."""
-    warnings.warn(_DEPRECATED_FRICTION, DeprecationWarning, stacklevel=2)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return StaticFriction(COMPENSATION[0], 0.0, width)
+COMPENSATION = (0.04, 0.03)
+"""The finger's friction compensation (``output_stage``): the torque F̂ [N·m] added at rest in the
+direction of the command, under the motors' breakaway torque (the lab ran 0.20 N·m, over it, and
+the motors jittered), and the speed v [rad/s] past which it fades."""
 
 
 @register("output", "adapt.output_stage")
@@ -411,7 +401,7 @@ def hand_hardware() -> HardwareProfile:
 
 HAND_LIMIT_STIFFNESS = 0.6  # [N·m/rad]
 HAND_TORQUE_LIMIT = 0.8  # [N·m]
-HAND_COMPENSATION = (0.1, 0.03)  # the lab's friction compensation: F̂ [N·m], v [rad/s]
+HAND_COMPENSATION = (0.1, 0.03)  # the hand's friction compensation: F̂ [N·m], v [rad/s]
 HAND_MASS_ON_FLANGE = 1.61  # [kg], for the arm's payload
 HAND_COG_ON_FLANGE = (-0.01, 0.004, 0.072)  # [m]
 HAND_MOUNTING_ANGLE = 0.0  # [rad], about the flange z axis
@@ -587,15 +577,6 @@ def hand(
     return add_hand_masses(robot, link_masses=link_masses)
 
 
-def hand_friction(width: float = 0.02) -> StaticFriction:
-    """The static friction of the hand's motors, as ``finger_friction`` for the finger, with
-    ``HAND_COMPENSATION[0]`` as the breakaway torque. Deprecated, removed in 2.0.0."""
-    warnings.warn(_DEPRECATED_FRICTION, DeprecationWarning, stacklevel=2)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return StaticFriction(HAND_COMPENSATION[0], 0.0, width)
-
-
 @register("output", "adapt.hand_output_stage")
 def hand_output_stage() -> list[Any]:
     """The hand's output stage: friction compensation, then a torque clip."""
@@ -635,24 +616,3 @@ def hand_joint_limit_spring(
     return LimitSpring(
         hand_joint_angles(robot), stiffness, [lo for lo, _ in limits], [hi for _, hi in limits]
     )
-
-
-_DEPRECATED_FRICTION = (
-    "finger_friction and hand_friction are deprecated and are removed in 2.0.0, with "
-    "StaticFriction: the library has no model of motor friction (identified damping takes it in); "
-    "FrictionCompensation compensates it on a robot"
-)
-_RENAMED = {"FRICTION": "COMPENSATION", "HAND_FRICTION": "HAND_COMPENSATION"}
-
-
-def __getattr__(name: str) -> Any:
-    """The old names of the compensation constants, with a warning (removed in 2.0.0)."""
-    if name in _RENAMED:
-        new = _RENAMED[name]
-        warnings.warn(
-            f"adapt.{name} is deprecated and is removed in 2.0.0: use adapt.{new}",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return globals()[new]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

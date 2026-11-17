@@ -17,9 +17,6 @@ from ..sim.rollout import rollout
 from ..system import VirtualMechanismSystem
 from .identifiability import check_smoothing, undetermined
 
-MOVING = 0.01
-"""A motor moves, for the friction column, above this fraction of the fastest rate in the run."""
-
 
 def _read(run: Any) -> tuple[Any, ...]:
     """A run (a ``RunLog``, or a mapping) as its arrays, ``t``, ``q``, ``v``, the motor torques,
@@ -40,8 +37,7 @@ def fit_stiffness_damping(
     smoothing: int = 51,
     stride: int = 1,
     runtime: Iterable[str] = (),
-    friction: bool = False,
-) -> tuple[np.ndarray, ...]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Diagonal stiffness K and damping D that best explain logged runs, with K, D ≥ 0.
 
     ``robot`` holds the known parts (masses, gravity), not the stiffness and damping. Each run
@@ -54,10 +50,8 @@ def fit_stiffness_damping(
         A (K Δq + D v) = Δu − A (M a + h − (g(q) − g(q₀))),
 
     with A the allocation of generalized forces to motors. v is smoothed (Savitzky-Golay,
-    ``smoothing`` samples); ``stride`` keeps every stride-th sample. With ``friction``, each motor
-    also loses a Coulomb friction torque F ≥ 0 against its motion, F sign(θ̇), and ``F`` [N·m] is
-    returned after K and D. Deprecated, removed in 2.0.0: the library has no model of motor
-    friction, which the fitted damping takes in. A stiffness or damping that the runs do not
+    ``smoothing`` samples); ``stride`` keeps every stride-th sample. The motors' friction has no
+    term of its own: the fitted damping takes it in. A stiffness or damping that the runs do not
     determine (a coordinate that never moves, or one that moves only together with another) is
     NaN, with a warning that names it.
     """
@@ -65,13 +59,6 @@ def fit_stiffness_damping(
     from scipy.signal import savgol_filter
 
     check_smoothing(smoothing)
-    if friction:
-        warnings.warn(
-            "fit_stiffness_damping(friction=True) is deprecated and is removed in 2.0.0: the "
-            "library has no model of motor friction (the fitted damping takes it in)",
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     dyn = compile_dynamics(robot, runtime)
     actuation = robot.actuation if robot.actuation is not None else Direct()
@@ -79,9 +66,6 @@ def fit_stiffness_damping(
     q_s, tau_s = ca.SX.sym("q", space.nq), ca.SX.sym("tau", space.nv)
     allocated = actuation.allocate(tau_s, q_s, constants(actuation.params))
     allocation = ca.Function("allocation", [q_s], [ca.jacobian(allocated, tau_s)])
-    v_s = ca.SX.sym("v", space.nv)
-    rates = actuation.motor_rates(q_s, v_s, constants(actuation.params))
-    motor_rates = ca.Function("motor_rates", [q_s, v_s], [rates])
     rows, rhs = [], []
     for run in runs:
         run, t, q, v, u, keep = _read(run)
@@ -102,10 +86,6 @@ def fit_stiffness_damping(
         known = np.array(residual).T - r0  # M a + h − (g(q) − g(q₀)), one row per sample
         A = np.array(allocation.map(m)(q[idx].T)).T.reshape(m, space.nv, -1).transpose(0, 2, 1)
         columns = [A * (q[idx] - q0)[:, None, :], A * v[idx][:, None, :]]
-        if friction:
-            rate = np.array(motor_rates.map(m)(q[idx].T, v[idx].T)).T
-            sign = np.sign(rate) * (np.abs(rate) > MOVING * np.abs(rate).max())
-            columns.append(sign[:, :, None] * np.eye(u.shape[1]))
         rows.append(np.concatenate(columns, axis=2))
         rhs.append(u[idx] - u0 - np.einsum("kmn,kn->km", A, known))
     if not rows:
@@ -121,7 +101,7 @@ def fit_stiffness_damping(
             stacklevel=2,
         )
         x[: 2 * nv][blind] = np.nan
-    return (x[:nv], x[nv : 2 * nv], x[2 * nv :]) if friction else (x[:nv], x[nv:])
+    return x[:nv], x[nv:]
 
 
 def validate(model: Any, run: Any) -> dict[str, np.ndarray]:

@@ -21,7 +21,9 @@ def meas(theta, rate=None):
 
 
 def test_hand_and_finger_friction_match_the_recorded_controllers():
-    hand, finger = adapt.hand_output_stage()[0], adapt.output_stage()[0]
+    # the finger's recorded controller compensated 0.20 N·m; the template compensates less
+    hand, finger = adapt.hand_output_stage()[0], output.FrictionCompensation(0.20, 0.03)
+    assert adapt.output_stage()[0] == output.FrictionCompensation(*adapt.COMPENSATION)
     for v, tau, f_hand, f_finger in zip(
         HAND["friction_v"],
         HAND["friction_tau"],

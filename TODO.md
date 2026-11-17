@@ -725,8 +725,8 @@ Controllers that look ahead, and robots with passive joints or unmeasured coordi
 
 ## 2.0.0: the old friction removed
 
-- [ ] **Removed:** the names deprecated in 1.6.0.
-- [ ] **The finger's compensation** (`adapt.COMPENSATION`) is 0.04 N·m, under the motors' breakaway, in place
+- [x] **Removed:** the names deprecated in 1.6.0.
+- [x] **The finger's compensation** (`adapt.COMPENSATION`) is 0.04 N·m, under the motors' breakaway, in place
   of the 0.20 N·m the lab ran.
 
 ---
